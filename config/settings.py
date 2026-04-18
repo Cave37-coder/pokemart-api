@@ -8,15 +8,22 @@ DEBUG = config('DEBUG', cast=bool, default=True)
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+       'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third party
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
+    # Local apps
+    'products',
+    'orders',
+    'users',
+    'payments',
+    'inventory',
 ]
 
 MIDDLEWARE = [
@@ -90,5 +97,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+AUTH_USER_MODEL = 'users.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
