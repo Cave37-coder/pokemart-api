@@ -110,4 +110,8 @@ PAYFAST_MERCHANT_KEY = config('PAYFAST_MERCHANT_KEY')
 PAYFAST_PASSPHRASE = config('PAYFAST_PASSPHRASE', default='')
 PAYFAST_SANDBOX = config('PAYFAST_SANDBOX', cast=bool, default=True)
 
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:3000').split(',')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
