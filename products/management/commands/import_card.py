@@ -119,7 +119,6 @@ class Command(BaseCommand):
         set_name = set_data.get('name', '')
         set_code = set_data.get('ptcgoCode', set_id[:6].upper())
         series = set_data.get('series', '')
-        total = set_data.get('total', 999)
 
         # Get or create Era
         era_code, era_name = get_era_for_set(set_id, series)
@@ -150,6 +149,10 @@ class Command(BaseCommand):
         except Exception:
             card_number = 1
 
+        # For trainer/energy cards with no pokedex number, use card number
+        if not national_pokedex:
+            national_pokedex = card_number
+
         # Get TCGplayer price
         price = manual_price
         if price == 0.0:
@@ -158,7 +161,7 @@ class Command(BaseCommand):
                 if price_type in tcg_prices:
                     market = tcg_prices[price_type].get('market')
                     if market:
-                        price = round(market * 18.5, 2)  # Convert USD to ZAR
+                        price = round(market * 18.5, 2)
                         self.stdout.write(f'Price from TCGplayer: ${market} USD = R{price} ZAR')
                         break
 
@@ -171,7 +174,7 @@ class Command(BaseCommand):
 
         if existing:
             self.stdout.write(self.style.WARNING(f'Card already exists: {existing.pb_id}'))
-            return
+            raise SystemExit(0)
 
         # Create product
         product = PokemonProduct(
@@ -188,7 +191,6 @@ class Command(BaseCommand):
         )
         product.save()
 
-        # Add types
         if pokemon_types:
             product.pokemon_types.set(pokemon_types)
 
