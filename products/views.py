@@ -10,7 +10,7 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     serializer_class = PokemonProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['rarity', 'category', 'pokemon_types', 'is_active']
-    search_fields = ['name', 'set_name', 'description']
+    search_fields = ['name', 'card_set__name', 'description']
     ordering_fields = ['price', 'created_at', 'name']
     ordering = ['-created_at']
 
