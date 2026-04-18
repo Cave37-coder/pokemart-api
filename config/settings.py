@@ -102,4 +102,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 AUTH_USER_MODEL = 'users.User'
 
+# PayFast
+PAYFAST_MERCHANT_ID = config('PAYFAST_MERCHANT_ID')
+PAYFAST_MERCHANT_KEY = config('PAYFAST_MERCHANT_KEY')
+PAYFAST_PASSPHRASE = config('PAYFAST_PASSPHRASE', default='')
+PAYFAST_SANDBOX = config('PAYFAST_SANDBOX', cast=bool, default=True)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
