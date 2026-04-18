@@ -2,8 +2,8 @@ from django.db import models
 
 
 class Era(models.Model):
-    code = models.CharField(max_length=10, unique=True)  # B7
-    name = models.CharField(max_length=100)              # Sword & Shield
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
 
     def __str__(self):
         return f"{self.code} — {self.name}"
@@ -11,8 +11,12 @@ class Era(models.Model):
 
 class CardSet(models.Model):
     era = models.ForeignKey(Era, on_delete=models.SET_NULL, null=True, related_name='sets')
-    code = models.CharField(max_length=10, unique=True)  # SSH
-    name = models.CharField(max_length=100)              # Sword & Shield Base
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
+    symbol_url = models.URLField(max_length=500, blank=True)
+    logo_url = models.URLField(max_length=500, blank=True)
+    total_cards = models.PositiveIntegerField(default=0)
+    release_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.code} — {self.name}"
@@ -57,27 +61,55 @@ class PokemonProduct(models.Model):
         'legendary': 'RA',
     }
 
-    # Core identifiers
-    pb_id       = models.CharField(max_length=50, unique=True, blank=True, editable=False)
-    sku         = models.CharField(max_length=20, unique=True, blank=True)
+    # Identifiers
+    pb_id = models.CharField(max_length=50, unique=True, blank=True, editable=False)
+    sku = models.CharField(max_length=20, unique=True, blank=True)
     tcgplayer_id = models.CharField(max_length=50, blank=True)
-    gengar_id   = models.CharField(max_length=50, blank=True)
+    gengar_id = models.CharField(max_length=50, blank=True)
 
     # Product details
-    name          = models.CharField(max_length=200)
-    description   = models.TextField(blank=True)
-    category      = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
-    card_set      = models.ForeignKey(CardSet, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    flavour_text = models.TextField(blank=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
+    card_set = models.ForeignKey(CardSet, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     pokemon_types = models.ManyToManyField(PokemonType, blank=True, related_name='products')
-    rarity        = models.CharField(max_length=20, choices=RARITY_CHOICES, default='common')
-    pokedex_number = models.PositiveIntegerField(null=True, blank=True)  # 006
-    card_number   = models.PositiveIntegerField(null=True, blank=True)   # 196 (set card number)
-    variant_override = models.CharField(max_length=10, blank=True)       # override auto variant code
+    rarity = models.CharField(max_length=20, choices=RARITY_CHOICES, default='common')
+    pokedex_number = models.PositiveIntegerField(null=True, blank=True)
+    card_number = models.PositiveIntegerField(null=True, blank=True)
+    variant_override = models.CharField(max_length=10, blank=True)
+
+    # Card stats
+    hp = models.PositiveIntegerField(null=True, blank=True)
+    artist = models.CharField(max_length=200, blank=True)
+    supertype = models.CharField(max_length=50, blank=True)
+    card_subtypes = models.CharField(max_length=200, blank=True)
+    weakness_type = models.CharField(max_length=50, blank=True)
+    weakness_value = models.CharField(max_length=10, blank=True)
+    resistance_type = models.CharField(max_length=50, blank=True)
+    resistance_value = models.CharField(max_length=10, blank=True)
+    retreat_cost = models.PositiveIntegerField(null=True, blank=True)
+
+    # Attacks
+    attack_1_name = models.CharField(max_length=200, blank=True)
+    attack_1_damage = models.CharField(max_length=20, blank=True)
+    attack_1_text = models.TextField(blank=True)
+    attack_2_name = models.CharField(max_length=200, blank=True)
+    attack_2_damage = models.CharField(max_length=20, blank=True)
+    attack_2_text = models.TextField(blank=True)
+
+    # Media
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
+    image_url = models.URLField(max_length=500, blank=True)
+    image_small_url = models.URLField(max_length=500, blank=True)
 
     # Pricing & stock
-    price  = models.DecimalField(max_digits=10, decimal_places=2)
-    stock  = models.PositiveIntegerField(default=0)
-    image  = models.ImageField(upload_to='products/', blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price_normal = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_reverse_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_first_edition = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
