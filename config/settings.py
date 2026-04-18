@@ -1,5 +1,5 @@
 import os
-
+import dj_database_url
 from pathlib import Path
 from decouple import config
 
@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -39,8 +40,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -63,14 +62,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-import dj_database_url
-
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL'),
         conn_max_age=600,
     )
 }
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -88,8 +86,8 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'PokéMart API',
-    'DESCRIPTION': 'The ultimate Pokémon commerce API',
+    'TITLE': 'PokeMart API',
+    'DESCRIPTION': 'The ultimate Pokemon commerce API',
     'VERSION': '1.0.0',
 }
 
@@ -110,7 +108,19 @@ PAYFAST_MERCHANT_KEY = config('PAYFAST_MERCHANT_KEY')
 PAYFAST_PASSPHRASE = config('PAYFAST_PASSPHRASE', default='')
 PAYFAST_SANDBOX = config('PAYFAST_SANDBOX', cast=bool, default=True)
 
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:3000').split(',')
+# CORS
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://pokemart-api-production.up.railway.app',
+]
+
+# Security
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:3000,https://pokemart-api-production.up.railway.app'
+).split(',')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 
