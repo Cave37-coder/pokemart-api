@@ -1,4 +1,4 @@
-import requests
+content = '''import requests
 import time
 from datetime import datetime
 from django.core.management.base import BaseCommand
@@ -603,3 +603,8 @@ class Command(BaseCommand):
         self.stdout.write(f"  Attacks: {attack_1_name} / {attack_2_name}")
         if name_japanese:
             self.stdout.write(f"  Japanese: {name_japanese}")
+'''
+
+with open("products/management/commands/import_card.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("import_card.py written!")
