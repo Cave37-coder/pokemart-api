@@ -1,4 +1,4 @@
-﻿import requests
+import requests
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -21,12 +21,6 @@ RARITY_MAP = {
     "LEGEND": "legendary",
 }
 
-VARIANT_CODES = {
-    "common": "S", "uncommon": "S", "rare": "S",
-    "holo_rare": "H", "ultra_rare": "FA",
-    "secret_rare": "SR", "legendary": "RA",
-}
-
 ERA_MAP = {
     "base1": ("B1", "WotC Base Era"), "base2": ("B1", "WotC Base Era"),
     "base3": ("B1", "WotC Base Era"), "base4": ("B1", "WotC Base Era"),
@@ -38,31 +32,29 @@ ERA_MAP = {
     "ecard3": ("B1", "WotC Base Era"),
 }
 
+VARIANT_CODES = {
+    "common": "S", "uncommon": "S", "rare": "S",
+    "holo_rare": "H", "ultra_rare": "FA",
+    "secret_rare": "SR", "legendary": "RA",
+}
+
 
 def get_era_for_set(set_id, series):
     if set_id in ERA_MAP:
         return ERA_MAP[set_id]
     s = series.lower() if series else ""
-    if "ex" in s:
-        return ("B2", "EX Era")
-    elif "diamond" in s or "pearl" in s or "platinum" in s:
-        return ("B3", "Diamond & Pearl Era")
-    elif "black" in s or "white" in s:
-        return ("B4", "Black & White Era")
-    elif "xy" in s:
-        return ("B5", "XY Era")
-    elif "sun" in s or "moon" in s:
-        return ("B6", "Sun & Moon Era")
-    elif "sword" in s or "shield" in s:
-        return ("B7", "Sword & Shield Era")
-    elif "scarlet" in s or "violet" in s:
-        return ("B8", "Scarlet & Violet Era")
+    if "ex" in s: return ("B2", "EX Era")
+    elif "diamond" in s or "pearl" in s or "platinum" in s: return ("B3", "Diamond & Pearl Era")
+    elif "black" in s or "white" in s: return ("B4", "Black & White Era")
+    elif "xy" in s: return ("B5", "XY Era")
+    elif "sun" in s or "moon" in s: return ("B6", "Sun & Moon Era")
+    elif "sword" in s or "shield" in s: return ("B7", "Sword & Shield Era")
+    elif "scarlet" in s or "violet" in s: return ("B8", "Scarlet & Violet Era")
     return ("PR", "Promo")
 
 
 def get_variant(subs, rarity_raw):
-    if not subs:
-        return ""
+    if not subs: return ""
     st = " ".join(subs).upper()
     if "VSTAR" in st: return "VT"
     if "VMAX" in st: return "VX"
@@ -84,8 +76,23 @@ def zar(usd):
     return round(usd * 18.5, 2) if usd else None
 
 
+def get_japanese_name(pokedex_number):
+    if not pokedex_number:
+        return ""
+    try:
+        r = requests.get(f"https://pokeapi.co/api/v2/pokemon-species/{pokedex_number}/", timeout=5)
+        if r.status_code == 200:
+            names = r.json().get("names", [])
+            for n in names:
+                if n.get("language", {}).get("name") == "ja":
+                    return n.get("name", "")
+    except Exception:
+        pass
+    return ""
+
+
 class Command(BaseCommand):
-    help = "Import a Pokemon card by TCG API ID"
+    help = "Import a Pokemon card by TCG API ID with full enrichment"
 
     def add_arguments(self, parser):
         parser.add_argument("card_id", type=str)
@@ -128,7 +135,6 @@ class Command(BaseCommand):
         number = data.get("number", "0")
         national_pokedex = data.get("nationalPokedexNumbers", [None])[0]
         flavour_text = data.get("flavorText", "")
-
         image_url = data.get("images", {}).get("large", "")
         image_small_url = data.get("images", {}).get("small", "")
 
@@ -142,6 +148,11 @@ class Command(BaseCommand):
 
         retreat = data.get("retreatCost", [])
         retreat_cost = len(retreat) if retreat else None
+
+        abilities = data.get("abilities", [])
+        ability_name = abilities[0].get("name", "") if abilities else ""
+        ability_type = abilities[0].get("type", "") if abilities else ""
+        ability_text = abilities[0].get("text", "") if abilities else ""
 
         attacks = data.get("attacks", [])
         atk1 = attacks[0] if len(attacks) > 0 else {}
@@ -172,7 +183,7 @@ class Command(BaseCommand):
                     market = tcg_prices[pt].get("market")
                     if market:
                         price = round(market * 18.5, 2)
-                        self.stdout.write(f"Price from TCGplayer: ${market} USD = R{price} ZAR")
+                        self.stdout.write(f"Price: ${market} USD = R{price} ZAR")
                         break
 
         set_data = data.get("set", {})
@@ -192,7 +203,7 @@ class Command(BaseCommand):
         era_code, era_name = get_era_for_set(set_id, series)
         era, _ = Era.objects.get_or_create(code=era_code, defaults={"name": era_name})
 
-        card_set, _ = CardSet.objects.get_or_create(
+        card_set, created = CardSet.objects.get_or_create(
             code=set_code,
             defaults={
                 "name": set_name, "era": era,
@@ -200,6 +211,12 @@ class Command(BaseCommand):
                 "total_cards": total_cards, "release_date": release_date,
             }
         )
+        if not created and not card_set.symbol_url and symbol_url:
+            card_set.symbol_url = symbol_url
+            card_set.logo_url = logo_url
+            card_set.total_cards = total_cards
+            card_set.release_date = release_date
+            card_set.save()
 
         category, _ = Category.objects.get_or_create(
             slug="cards", defaults={"name": "Cards"}
@@ -218,6 +235,8 @@ class Command(BaseCommand):
         if not national_pokedex:
             national_pokedex = card_number
 
+        name_japanese = get_japanese_name(national_pokedex if data.get("nationalPokedexNumbers") else None)
+
         existing = PokemonProduct.objects.filter(
             card_set=card_set, card_number=card_number, rarity=rarity
         ).first()
@@ -233,7 +252,8 @@ class Command(BaseCommand):
         description = flavour_text if flavour_text else f"{rarity_raw} card from {set_name}"
 
         product = PokemonProduct(
-            name=name, category=category, card_set=card_set,
+            name=name, name_japanese=name_japanese,
+            category=category, card_set=card_set,
             rarity=rarity, pokedex_number=national_pokedex,
             card_number=card_number, variant_override=variant_override,
             supertype=supertype, card_subtypes=", ".join(subs),
@@ -241,6 +261,7 @@ class Command(BaseCommand):
             weakness_type=weakness_type, weakness_value=weakness_value,
             resistance_type=resistance_type, resistance_value=resistance_value,
             retreat_cost=retreat_cost,
+            ability_name=ability_name, ability_type=ability_type, ability_text=ability_text,
             attack_1_name=attack_1_name, attack_1_damage=attack_1_damage,
             attack_1_text=attack_1_text, attack_2_name=attack_2_name,
             attack_2_damage=attack_2_damage, attack_2_text=attack_2_text,
@@ -258,8 +279,10 @@ class Command(BaseCommand):
             product.pokemon_types.set(pokemon_types)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Imported: {product.pb_id} - {product.name} @ R{product.price}"
+            f"Imported: {product.pb_id} - {product.name} ({name_japanese}) @ R{product.price}"
         ))
         self.stdout.write(f"SKU: {product.sku} | Artist: {artist} | HP: {hp}")
+        if ability_name:
+            self.stdout.write(f"Ability: [{ability_type}] {ability_name}")
         self.stdout.write(f"Attacks: {attack_1_name} / {attack_2_name}")
         self.stdout.write(f"Flavour: {flavour_text[:80]}" if flavour_text else "Flavour: none")

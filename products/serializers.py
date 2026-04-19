@@ -1,4 +1,4 @@
-﻿from rest_framework import serializers
+from rest_framework import serializers
 from .models import PokemonProduct, Category, PokemonType, Era, CardSet
 
 
@@ -48,13 +48,14 @@ class PokemonProductSerializer(serializers.ModelSerializer):
         model = PokemonProduct
         fields = [
             "pb_id", "sku", "tcgplayer_id", "gengar_id",
-            "id", "name", "description", "flavour_text",
+            "id", "name", "name_japanese", "description", "flavour_text",
             "category", "category_id", "card_set", "card_set_id",
             "pokemon_types", "pokemon_type_ids",
             "rarity", "pokedex_number", "card_number", "variant_override",
             "supertype", "card_subtypes", "hp", "artist",
             "weakness_type", "weakness_value",
             "resistance_type", "resistance_value", "retreat_cost",
+            "ability_name", "ability_type", "ability_text",
             "attack_1_name", "attack_1_damage", "attack_1_text",
             "attack_2_name", "attack_2_damage", "attack_2_text",
             "image", "image_url", "image_small_url",
