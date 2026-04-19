@@ -1,4 +1,4 @@
-import requests
+content = '''import requests
 import time
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
@@ -87,3 +87,8 @@ class Command(BaseCommand):
         self.stdout.write(f"  Skipped:  {skipped}")
         self.stdout.write(f"  Failed:   {failed}")
         self.stdout.write(f"  Total:    {len(cards)}")
+'''
+
+with open("products/management/commands/enrich_set.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("enrich_set.py written!")

@@ -1,4 +1,4 @@
-from django.db import models
+content = '''from django.db import models
 
 
 class Era(models.Model):
@@ -160,3 +160,8 @@ class PokemonProduct(models.Model):
         if not self.pb_id:
             self.pb_id = self.generate_pb_id()
         super().save(*args, **kwargs)
+'''
+
+with open("products/models.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("models.py written!")
