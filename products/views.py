@@ -6,13 +6,23 @@ from .serializers import PokemonProductSerializer, CategorySerializer, PokemonTy
 
 
 class PokemonProductViewSet(viewsets.ModelViewSet):
-    queryset = PokemonProduct.objects.filter(is_active=True).select_related('category').prefetch_related('pokemon_types')
+    queryset = PokemonProduct.objects.filter(is_active=True).select_related(
+        'category', 'card_set', 'card_set__era'
+    ).prefetch_related('pokemon_types')
     serializer_class = PokemonProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['rarity', 'category', 'pokemon_types', 'is_active']
+    filterset_fields = {
+        'rarity': ['exact'],
+        'category': ['exact'],
+        'pokemon_types': ['exact'],
+        'pokemon_types__name': ['exact'],
+        'is_active': ['exact'],
+        'card_set__code': ['exact'],
+        'card_set__era__code': ['exact'],
+    }
     search_fields = ['name', 'card_set__name', 'description']
-    ordering_fields = ['price', 'created_at', 'name']
-    ordering = ['-created_at']
+    ordering_fields = ['price', 'created_at', 'name', 'card_number']
+    ordering = ['card_set__code', 'card_number']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
