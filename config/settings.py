@@ -1,4 +1,5 @@
 import os
+import dj_database_url
 from pathlib import Path
 from decouple import config
 
@@ -55,16 +56,20 @@ TEMPLATES = [{
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'pokemart',
-        'USER': 'postgres',
-        'PASSWORD': 'pokemart123',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+_db_url = os.environ.get('DATABASE_URL', '')
+if _db_url:
+    DATABASES = {'default': dj_database_url.parse(_db_url, conn_max_age=600)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'pokemart',
+            'USER': 'postgres',
+            'PASSWORD': 'pokemart123',
+            'HOST': '127.0.0.1',
+            'PORT': '5432',
+        }
     }
-}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
