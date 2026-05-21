@@ -145,3 +145,15 @@ SIMPLE_JWT = {
 }
 
 
+
+# Email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='mail.pokebulk.co.za')
+EMAIL_PORT = config('EMAIL_PORT', cast=int, default=465)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='PokeBulk SA <enquiries@pokebulk.co.za>')
+SITE_URL = config('SITE_URL', default='https://pokebulk.co.za')
+API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.app')
