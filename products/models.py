@@ -1,5 +1,5 @@
-from django.db import models
-
+﻿from django.db import models
+tcgcsv_product_id = models.IntegerField(null=True, blank=True, db_index=True)
 
 class Era(models.Model):
     code = models.CharField(max_length=10, unique=True)
@@ -17,6 +17,8 @@ class CardSet(models.Model):
     logo_url = models.URLField(max_length=500, blank=True)
     total_cards = models.PositiveIntegerField(default=0)
     release_date = models.DateField(null=True, blank=True)
+    checklist_pdf = models.FileField(upload_to='checklists/', blank=True, null=True)
+    checklist_xlsx = models.FileField(upload_to='checklists/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -74,6 +76,7 @@ class PokemonProduct(models.Model):
     sku = models.CharField(max_length=20, unique=True, blank=True)
     csv_sku = models.CharField(max_length=100, blank=True, db_index=True)
     tcgplayer_id = models.CharField(max_length=50, blank=True)
+    tcgcsv_product_id = models.IntegerField(null=True, blank=True, db_index=True)
     gengar_id = models.CharField(max_length=50, blank=True)
 
     # Product details
@@ -124,6 +127,12 @@ class PokemonProduct(models.Model):
     price_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_reverse_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_first_edition = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_pokeball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_masterball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_friendball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_loveball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_quickball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_duskball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -160,3 +169,4 @@ class PokemonProduct(models.Model):
         if not self.pb_id:
             self.pb_id = self.generate_pb_id()
         super().save(*args, **kwargs)
+

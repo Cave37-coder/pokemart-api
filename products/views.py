@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters
+﻿from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
@@ -12,6 +12,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     energy_type = django_filters.CharFilter(field_name='pokemon_types__name', lookup_expr='iexact')
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
+    subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
     in_stock = django_filters.BooleanFilter(field_name='stock', method='filter_in_stock')
@@ -23,7 +24,7 @@ class PokemonProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = PokemonProduct
-        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock']
+        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype']
 
 
 class PokemonProductViewSet(viewsets.ModelViewSet):
@@ -35,7 +36,7 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     filterset_class = PokemonProductFilter
     search_fields = ['name', 'card_set__name', 'description']
     ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
-    ordering = ['card_set__era__id', 'card_number']
+    ordering = ['-card_set__release_date', 'card_number']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -61,3 +62,7 @@ class PokemonTypeViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticatedOrReadOnly()]
+
+
+
+
