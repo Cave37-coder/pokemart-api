@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('products', '0009_cardset_checklist_pdf_cardset_checklist_xlsx'),
+        ('products', '0008_pokemonproduct_csv_sku_alter_pokemonproduct_rarity_and_more'),
     ]
 
     operations = [
