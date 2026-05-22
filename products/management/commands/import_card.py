@@ -80,113 +80,28 @@ def get_era_for_set(set_id, series):
         return ("B9", "Mega Evolution Era")
     return ("PR", "Promo")
 
-MEGA_ERA_SETS = {"me1", "me2", "me2pt5", "me03", "me04", "me05"}
+MEGA_ERA_SETS = {"me1", "me2", "me2pt5", "me3", "me4", "me5"}
 
 SET_VARIANT_CONFIG = {
-    "base1": {
-        "print_runs": ["1ES", "SH", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "base2": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "base3": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "base4": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "base5": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "base6": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "single",
-        "rh_for_holos": True,
-    },
-    "gym1": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "gym2": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "neo1": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-        "shining_cards": list(range(105, 112)),
-    },
-    "neo2": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-    },
-    "neo3": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-        "shining_cards": [65, 66],
-    },
-    "neo4": {
-        "print_runs": ["1E", "N"],
-        "holo_suffix": "H",
-        "reverse_type": "none",
-        "shining_cards": list(range(109, 114)),
-    },
-    "ecard1": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "single",
-    },
-    "ecard2": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "single",
-        "crystal_cards": True,
-    },
-    "ecard3": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "single",
-        "crystal_cards": True,
-    },
-    "sv8pt5": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "dual_ball",
-        "ball_variants": ["PB", "MB"],
-    },
-    "me2pt5": {
-        "print_runs": ["N"],
-        "holo_suffix": "MH",
-        "reverse_type": "dual_energy_ball",
-        "trainer_reverse": "single",
-        "ex_reverse": "none",
-    },
-    "DEFAULT": {
-        "print_runs": ["N"],
-        "holo_suffix": "H",
-        "reverse_type": "single",
-    },
-    "DEFAULT_MEGA": {
-        "print_runs": ["N"],
-        "holo_suffix": "MH",
-        "reverse_type": "single",
-    },
+    "base1": {"print_runs": ["1ES", "SH", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "base2": {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "base3": {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "base4": {"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "none"},
+    "base5": {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "base6": {"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "single", "rh_for_holos": True},
+    "gym1":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "gym2":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "neo1":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none", "shining_cards": list(range(105, 112))},
+    "neo2":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none"},
+    "neo3":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none", "shining_cards": [65, 66]},
+    "neo4":  {"print_runs": ["1E", "N"], "holo_suffix": "H", "reverse_type": "none", "shining_cards": list(range(109, 114))},
+    "ecard1":{"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "single"},
+    "ecard2":{"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "single", "crystal_cards": True},
+    "ecard3":{"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "single", "crystal_cards": True},
+    "sv8pt5":{"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "dual_ball", "ball_variants": ["PB", "MB"]},
+    "me2pt5":{"print_runs": ["N"], "holo_suffix": "MH", "reverse_type": "dual_energy_ball", "trainer_reverse": "single", "ex_reverse": "none"},
+    "DEFAULT":     {"print_runs": ["N"], "holo_suffix": "H", "reverse_type": "single"},
+    "DEFAULT_MEGA":{"print_runs": ["N"], "holo_suffix": "MH", "reverse_type": "single"},
 }
 
 def get_set_config(set_id):
@@ -259,7 +174,6 @@ def get_single_suffix(rarity, subtypes):
     if "VSTAR" in subs_str: return "VST"
     if "VMAX" in subs_str: return "VX"
     if "V-UNION" in subs_str: return "VU"
-    if "VSTAR" in subs_str: return "VST"
     if " V" in subs_str or subs_str.endswith(" V"): return "V"
     if "GX" in subs_str: return "GX"
     if "EX" in subs_str: return "EX"
@@ -291,7 +205,7 @@ def get_label(suffix):
         "BRH-QB": "Quick Ball Reverse Holo", "BRH-DB": "Dusk Ball Reverse Holo",
         "BRH-R": "Team Rocket Reverse Holo",
         "1E-H": "1st Edition Holo", "1ES-H": "1st Edition Shadowless Holo",
-        "SH-H": "Shadowless Holo", "1E-MH": "1st Edition Mirror Holo",
+        "SH-H": "Shadowless Holo",
         "GS": "Gold Star", "SHN": "Shining", "EX": "Pokemon-ex",
         "GX": "Pokemon-GX", "V": "Pokemon V", "VX": "Pokemon VMAX",
         "VST": "Pokemon VSTAR", "VU": "V-UNION", "MEX": "Mega Evolution ex",
@@ -300,6 +214,7 @@ def get_label(suffix):
         "HR": "Hyper Rare", "MHR": "Mega Hyper Rare",
         "MAR": "Mega Attack Rare", "AS": "ACE SPEC",
         "UR": "Ultra Rare", "RA": "Legendary", "SR": "Secret Rare",
+        "DR": "Double Rare",
     }
     return labels.get(suffix, suffix)
 
@@ -317,8 +232,7 @@ def get_variants(rarity, subtypes, set_id, card_number, card_name, tcg_prices, c
         holo_suffix = config.get("holo_suffix", "H")
         holo_price = zar(tcg_prices.get("holofoil", {}).get("market"))
         fe_holo_price = zar(tcg_prices.get("1stEditionHolofoil", {}).get("market"))
-        print_runs = config.get("print_runs", ["N"])
-        for run in print_runs:
+        for run in config.get("print_runs", ["N"]):
             if run == "1ES":
                 suffix = f"1ES-{holo_suffix}"
                 price = zar(tcg_prices.get("1stEditionHolofoil", {}).get("market")) or 0
@@ -344,8 +258,8 @@ def get_variants(rarity, subtypes, set_id, card_number, card_name, tcg_prices, c
     normal_price = zar(tcg_prices.get("normal", {}).get("market"))
     fe_price = zar(tcg_prices.get("1stEditionNormal", {}).get("market"))
     rh_price = zar(tcg_prices.get("reverseHolofoil", {}).get("market"))
-    print_runs = config.get("print_runs", ["N"])
-    for run in print_runs:
+
+    for run in config.get("print_runs", ["N"]):
         if run == "1ES":
             suffix, price = "1ES", (zar(tcg_prices.get("1stEditionNormal", {}).get("market")) or 0)
         elif run == "SH":
@@ -372,8 +286,22 @@ def get_variants(rarity, subtypes, set_id, card_number, card_name, tcg_prices, c
     return variants
 
 
+def fetch_with_retry(url, headers, max_retries=3):
+    """Fetch URL with automatic retry on 429 rate limit."""
+    for attempt in range(max_retries):
+        response = requests.get(url, headers=headers)
+        if response.status_code == 429:
+            wait = (attempt + 1) * 10
+            import sys
+            print(f"  Rate limited. Waiting {wait}s...", file=sys.stderr)
+            time.sleep(wait)
+            continue
+        return response
+    return response
+
+
 class Command(BaseCommand):
-    help = "Import a Pokemon card with full variant support"
+    help = "Import a Pokemon card with full variant support and rate limit handling"
 
     def add_arguments(self, parser):
         parser.add_argument("card_id", type=str)
@@ -393,10 +321,11 @@ class Command(BaseCommand):
         if hasattr(settings, "POKEMONTCG_API_KEY") and settings.POKEMONTCG_API_KEY:
             headers["X-Api-Key"] = settings.POKEMONTCG_API_KEY
 
-        response = requests.get(
+        response = fetch_with_retry(
             f"https://api.pokemontcg.io/v2/cards/{card_id}",
             headers=headers
         )
+
         if response.status_code != 200:
             self.stderr.write(f"Error {response.status_code} fetching {card_id}")
             return
@@ -506,19 +435,13 @@ class Command(BaseCommand):
         config = get_set_config(set_id)
         is_trainer = supertype.lower() in ("trainer", "energy")
 
-        shining_cards = config.get("shining_cards", [])
-        if card_number in shining_cards:
+        if card_number in config.get("shining_cards", []):
             rarity = "shining"
 
         variants = get_variants(
-            rarity=rarity,
-            subtypes=subs,
-            set_id=set_id,
-            card_number=card_number,
-            card_name=name,
-            tcg_prices=tcg_prices,
-            config=config,
-            is_trainer=is_trainer,
+            rarity=rarity, subtypes=subs, set_id=set_id,
+            card_number=card_number, card_name=name,
+            tcg_prices=tcg_prices, config=config, is_trainer=is_trainer,
         )
 
         era_code_str = card_set.era.code if card_set.era else "XX"
@@ -532,7 +455,6 @@ class Command(BaseCommand):
             suffix = variant["suffix"]
             label = variant["label"]
             price = manual_price if manual_price > 0 else variant["price"]
-
             pb_id = f"PB-{era_code_str}-{set_code}-{pokedex_str}-{suffix}-{card_num_str}"
 
             existing = PokemonProduct.objects.filter(pb_id=pb_id).first()
@@ -559,26 +481,17 @@ class Command(BaseCommand):
                 variant_override=suffix,
                 supertype=supertype,
                 card_subtypes=", ".join(subs),
-                hp=hp,
-                artist=artist,
-                weakness_type=weakness_type,
-                weakness_value=weakness_value,
-                resistance_type=resistance_type,
-                resistance_value=resistance_value,
+                hp=hp, artist=artist,
+                weakness_type=weakness_type, weakness_value=weakness_value,
+                resistance_type=resistance_type, resistance_value=resistance_value,
                 retreat_cost=retreat_cost,
-                ability_name=ability_name,
-                ability_type=ability_type,
-                ability_text=ability_text,
-                attack_1_name=attack_1_name,
-                attack_1_damage=attack_1_damage,
-                attack_1_text=attack_1_text,
-                attack_2_name=attack_2_name,
-                attack_2_damage=attack_2_damage,
-                attack_2_text=attack_2_text,
+                ability_name=ability_name, ability_type=ability_type, ability_text=ability_text,
+                attack_1_name=attack_1_name, attack_1_damage=attack_1_damage,
+                attack_1_text=attack_1_text, attack_2_name=attack_2_name,
+                attack_2_damage=attack_2_damage, attack_2_text=attack_2_text,
                 flavour_text=flavour_text,
                 description=f"{label} - {description}",
-                image_url=image_url,
-                image_small_url=image_small_url,
+                image_url=image_url, image_small_url=image_small_url,
                 price=price if price > 0 else 0,
                 price_normal=zar(tcg_prices.get("normal", {}).get("market")),
                 price_holo=zar(tcg_prices.get("holofoil", {}).get("market")),

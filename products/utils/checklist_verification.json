@@ -1,0 +1,614 @@
+{
+  "ex1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/rubysapphire_checklist.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "ex2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/sandstorm_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/dragon_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/teammagnateamaqua_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/hiddenlegends_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/fireredleafgreen_checklist.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "ex7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/teamrocketreturns_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/deoxys_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/emerald_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/unseenforces_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex11": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/deltaspecies_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex12": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/legendmaker_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex13": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/holonphantoms_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex14": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/crystalguardians_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex15": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/dragonfrontiers_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "ex16": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/powerkeepers_checklist.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "dp1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP1_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "dp2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP2_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "dp3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP3_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "dp4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP4_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "dp5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP5_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "dp6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP6_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "dp7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/DP7_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "pl1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/PT1_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "pl2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/PT2_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "pl3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/PT3_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "pl4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms/pdf/tcg/checklists/PT4_Cardlist_Lo.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "hgss1": {
+    "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/hgss1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "hgss2": {
+    "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/hgss2_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "hgss3": {
+    "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/hgss3_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "hgss4": {
+    "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/hgss4_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "col1": {
+    "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/col1_web_cardlist_en.pdf",
+    "status": 404,
+    "confidence": "INFERRED",
+    "ok": false
+  },
+  "bw1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw2_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw3_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw4_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw5_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw6_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw6pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw6pt5_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw7_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw8_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw9_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw10_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "bw11": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/bw11_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy2_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy3_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy4_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy5_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy6_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy7_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy8_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy9_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy10_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy11": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy11_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "xy12": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/xy12_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm2_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm3_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm4_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm5_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm6_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm7_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm75": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm75_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm8_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm9_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm10_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm11": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm11_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm115": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm115_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sm12": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm12_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh2_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh3_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh35": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh35_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh4_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh45": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh45_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh5_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh6_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh7_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "cel25": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/25th_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "swsh8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh8_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "swsh9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh9_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "swsh10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh10_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh105": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh105_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh11": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh11_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "swsh12": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh12_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "swsh125": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/swsh125_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv1": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sv1_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv2": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/pal_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv3": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/obf_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv3pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sv35_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv4": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/par_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv4pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/paf_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv5": {
+    "url": "https://tcg.pokemon.com/assets/img/sv-expansions/temporal-forces/download/en-us/SV05-Card-List-EN.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv6": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/twm_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv6pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/shr_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv7": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/stc_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv8": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/ssp_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv8pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/pre_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv9": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/dri_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "INFERRED",
+    "ok": true
+  },
+  "sv9pt5": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/jtg_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  },
+  "sv10": {
+    "url": "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/blk_web_cardlist_en.pdf",
+    "status": 200,
+    "confidence": "CONFIRMED",
+    "ok": true
+  }
+}
