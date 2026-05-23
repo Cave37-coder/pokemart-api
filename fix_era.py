@@ -1,11 +1,11 @@
-﻿with open("products/views.py", encoding="utf-8") as f:
+﻿with open('products/management/commands/sync_tcgcsv.py', encoding='utf-8') as f:
     content = f.read()
 
 content = content.replace(
-    "eras = Era.objects.prefetch_related('cardset_set').order_by('code')",
-    "eras = Era.objects.prefetch_related('sets').order_by('code')"
+    'defaults={"name": name, "sort_order": sort_order}',
+    'defaults={"name": name}'
 )
 
-with open("products/views.py", "w", encoding="utf-8") as f:
+with open('products/management/commands/sync_tcgcsv.py', 'w', encoding='utf-8') as f:
     f.write(content)
-print("Done")
+print('Done')

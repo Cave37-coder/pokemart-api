@@ -1,4 +1,4 @@
-﻿import os
+import os
 import dj_database_url
 from pathlib import Path
 from decouple import config
@@ -56,7 +56,7 @@ TEMPLATES = [{
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-_db_url = os.environ.get('DATABASE_URL', '')
+_db_url = config('DATABASE_URL', default='')
 if _db_url:
     DATABASES = {'default': dj_database_url.parse(_db_url, conn_max_age=600)}
 else:
