@@ -64,46 +64,31 @@ class PokemonTypeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticatedOrReadOnly()]
 
 
-
-
-
-# Add this to products/views.py or create products/stock_views.py
-
+from datetime import date as date_type
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.db.models import Count
 import json
 
 from .models import PokemonProduct, CardSet, Era
-
-
-
-from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponse, JsonResponse
-from django.views.decorators.http import require_POST
-from django.db import transaction
-from django.db.models import Count, Case, When, IntegerField
-import json
-
-from .models import PokemonProduct, CardSet
 
 
 @staff_member_required
 def stock_entry(request):
     selected_set_code = request.GET.get('set', '')
 
-    # Sets with cards first (newest first), then empty sets
-    all_sets = list(
-        CardSet.objects
-        .select_related('era')
-        .annotate(card_count=Count('products'))
-        .order_by('-release_date', 'name')
+    # All sets sorted newest to oldest, with a safe fallback for missing release_date
+    all_sets = sorted(
+        list(
+            CardSet.objects
+            .select_related('era')
+            .annotate(card_count=Count('products'))
+        ),
+        key=lambda s: s.release_date if isinstance(s.release_date, date_type) else date_type(1900, 1, 1),
+        reverse=True
     )
-    sets_with_cards = [s for s in all_sets if s.card_count > 0]
-    sets_empty      = sorted([s for s in all_sets if s.card_count == 0], key=lambda s: s.release_date or '1900-01-01', reverse=True)
 
     cards = []
     if selected_set_code:
@@ -117,18 +102,12 @@ def stock_entry(request):
         VORDER = {'N': 0, 'RH': 1, 'H': 2}
         cards = sorted(cards, key=lambda c: (c['card_number'], VORDER.get(c['variant_override'] or 'N', 9)))
 
-    # Build dropdown options
+    # Build dropdown options — single flat list, newest to oldest
     options_html = '<option value="">-- Choose a set --</option>'
-    options_html += '<optgroup label="--- Sets with cards ---">'
-    for s in sets_with_cards:
+    for s in all_sets:
         sel = 'selected' if s.code == selected_set_code else ''
-        options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count})</option>'
-    options_html += '</optgroup>'
-    options_html += '<optgroup label="--- Empty sets ---">'
-    for s in sets_empty:
-        sel = 'selected' if s.code == selected_set_code else ''
-        options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}</option>'
-    options_html += '</optgroup>'
+        card_label = f' ({s.card_count})' if s.card_count > 0 else ''
+        options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}{card_label}</option>'
 
     # Build cards table
     cards_html = ''
@@ -185,7 +164,7 @@ def stock_entry(request):
 <div id="msg"></div>
 
 <div style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #eee;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0001;margin-bottom:0">
-  <div style="font-size:13px;color:#666">Enter quantities — only changed rows saved</div>
+  <div style="font-size:13px;color:#666">Enter quantities - only changed rows saved</div>
   <div>
     <button onclick="wipeSet()" style="background:#EF4444;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;cursor:pointer;margin-right:8px">Wipe to 0</button>
     <button onclick="saveStock()" style="background:#10B981;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">Save Stock</button>
@@ -245,7 +224,7 @@ document.addEventListener('keydown',function(e){{
 tr:hover td{{background:#fafafa}}td{{padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px}}</style>
 </head><body>
 <div style="background:#ff6b35;color:#fff;padding:12px 20px;margin-bottom:20px">
-  <h1 style="font-size:18px;display:inline">Stock Entry — PokeBulk SA</h1>
+  <h1 style="font-size:18px;display:inline">Stock Entry - PokeBulk SA</h1>
   <a href="/admin/" style="color:#fff;text-decoration:none;font-size:13px;opacity:0.8;margin-left:20px">Back to Admin</a>
 </div>
 <div style="max-width:1100px;margin:0 auto;padding:0 16px">
@@ -293,3 +272,17 @@ def stock_wipe(request):
         return JsonResponse({'ok': True, 'count': count})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
+def sets_list(request):
+    sets = CardSet.objects.select_related('era').order_by('-release_date', 'name')
+    data = []
+    for s in sets:
+        data.append({
+            'code': s.code,
+            'name': s.name,
+            'symbol_url': s.symbol_url or '',
+            'logo_url': s.logo_url or '',
+            'release_date': str(s.release_date) if s.release_date else '',
+            'era_code': s.era.code if s.era else '',
+            'era_name': s.era.name if s.era else '',
+        })
+    return JsonResponse({'results': data})

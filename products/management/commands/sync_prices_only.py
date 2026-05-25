@@ -1,11 +1,22 @@
-﻿import math, time, requests
-from decimal import Decimal
+import math, time, requests
+from decimal import Decimal, ROUND_UP
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
 HEADERS = {"User-Agent": "PokeBulkSA/1.0 (pokebulk.co.za)"}
 MARKUP = Decimal("1.10")
+
+# TCGCSV variant name -> DB variant_override code
+VARIANT_MAP = {
+    'Normal':             'N',
+    'Reverse Holofoil':   'RH',
+    'Holofoil':           'H',
+    '1st Edition Holofoil': 'H',
+    'Unlimited Holofoil': 'H',
+    '1st Edition':        'N',
+    'Unlimited':          'N',
+}
 
 class Command(BaseCommand):
     help = "Nightly price-only sync from TCGCSV"
@@ -34,13 +45,22 @@ class Command(BaseCommand):
             groups = groups.get("results", groups.get("data", []))
         self.stdout.write(f"  {len(groups)} groups found")
 
-        # Load all DB products by tcgcsv_product_id
+        # Build map: (tcgcsv_product_id, variant_override) -> product
         self.stdout.write("Loading products from DB...")
-        pid_map = {p.tcgcsv_product_id: p for p in PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True)}
-        self.stdout.write(f"  {len(pid_map):,} products")
+        all_products = PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True)
+        pid_variant_map = {}
+        pid_map = {}  # fallback: productId only
+        for p in all_products:
+            key = (p.tcgcsv_product_id, p.variant_override or 'N')
+            pid_variant_map[key] = p
+            # fallback for cards with no variant
+            if p.tcgcsv_product_id not in pid_map:
+                pid_map[p.tcgcsv_product_id] = p
+        self.stdout.write(f"  {len(pid_variant_map):,} products loaded")
 
-        def round_up_50c(zar):
-            return Decimal(math.ceil(float(zar) * 2)) / 2
+        def round_up_10c(zar):
+            # Round UP to nearest R0.10
+            return (Decimal(str(zar)) * 10).to_integral_value(rounding=ROUND_UP) / 10
 
         updated = skipped = no_match = 0
         to_update = []
@@ -61,17 +81,27 @@ class Command(BaseCommand):
                 pid = row.get("productId")
                 if not pid:
                     continue
-                p = pid_map.get(int(pid))
+                pid = int(pid)
+
+                # Get variant from TCGCSV and map to DB code
+                tcg_variant = row.get("subTypeName") or row.get("printing") or "Normal"
+                db_variant = VARIANT_MAP.get(tcg_variant, 'N')
+
+                # Try exact (productId, variant) match first, fallback to productId only
+                p = pid_variant_map.get((pid, db_variant)) or pid_map.get(pid)
                 if p is None:
                     no_match += 1
                     continue
+
                 usd = row.get("midPrice") or row.get("marketPrice") or row.get("lowPrice")
                 if not usd or float(usd) <= 0:
                     continue
-                new_price = round_up_50c(Decimal(str(usd)) * rate * MARKUP)
+
+                new_price = round_up_10c(Decimal(str(usd)) * rate * MARKUP)
                 if p.price == new_price:
                     skipped += 1
                     continue
+
                 p.price = new_price
                 to_update.append(p)
                 updated += 1
