@@ -1,4 +1,4 @@
-﻿from django.urls import path, include
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet
 from . import views
@@ -13,4 +13,5 @@ urlpatterns = [
     path("stock/entry/", views.stock_entry, name="stock-entry"),
     path("stock/update/", views.stock_update, name="stock-update"),
     path("stock/wipe/", views.stock_wipe, name="stock-wipe"),
+    path("sets/", views.sets_list, name="sets-list"),
 ]
