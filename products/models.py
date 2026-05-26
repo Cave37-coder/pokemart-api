@@ -91,6 +91,7 @@ class PokemonProduct(models.Model):
     pokedex_number = models.PositiveIntegerField(null=True, blank=True)
     card_number = models.PositiveIntegerField(null=True, blank=True)
     variant_override = models.CharField(max_length=20, blank=True)
+    variant_sort = models.IntegerField(default=9)
 
     # Card stats
     hp = models.PositiveIntegerField(null=True, blank=True)
