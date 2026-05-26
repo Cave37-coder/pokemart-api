@@ -37,7 +37,7 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     filterset_class = PokemonProductFilter
     search_fields = ['name', 'card_set__name', 'description']
     ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
-    ordering = ['-card_set__release_date', 'card_number', 'variant_override']
+    ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -98,10 +98,10 @@ def stock_entry(request):
             .filter(card_set__code=selected_set_code, is_active=True)
             .select_related('card_set')
             .order_by('card_number')
-            .values('id', 'name', 'card_number', 'variant_override', 'rarity', 'stock', 'price')
+            .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
         )
         VORDER = {'N': 0, 'RH': 1, 'H': 2}
-        cards = sorted(cards, key=lambda c: (c['card_number'], VORDER.get(c['variant_override'] or 'N', 9)))
+        cards = sorted(cards, key=lambda c: (c['card_number'], VORDER.get(c['variant_sort'] or 'N', 9)))
 
     # Build dropdown options — single flat list, newest to oldest
     options_html = '<option value="">-- Choose a set --</option>'
@@ -127,7 +127,7 @@ def stock_entry(request):
 
         rows = ''
         for card in cards:
-            var = card['variant_override'] or 'N'
+            var = card['variant_sort'] or 'N'
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
             rows += f'''<tr style="scroll-margin-top:120px">
