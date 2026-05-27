@@ -12,15 +12,18 @@ from orders.models import Order, OrderTracking
 
 
 def generate_payfast_signature(data: dict, passphrase: str = '') -> str:
+    # PayFast requires specific encoding - spaces as + not %20, no encoding of certain chars
+    def pf_encode(val):
+        return urllib.parse.quote_plus(str(val).strip())
+    
     payload = '&'.join(
-        f'{k}={urllib.parse.quote_plus(str(v))}'
+        f'{k}={pf_encode(v)}'
         for k, v in data.items()
-        if v != ''
+        if str(v).strip() != ''
     )
-    # Only append passphrase if it is actually set
     if passphrase and passphrase.strip():
-        payload += f'&passphrase={urllib.parse.quote_plus(passphrase.strip())}'
-    return hashlib.md5(payload.encode()).hexdigest()
+        payload += f'&passphrase={pf_encode(passphrase.strip())}'
+    return hashlib.md5(payload.encode('utf-8')).hexdigest()
 
 
 class PayFastInitView(APIView):

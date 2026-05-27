@@ -1,0 +1,2 @@
+cd C:\Users\texca\pokemart-api
+python manage.py runserver
