@@ -8,7 +8,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'trainer_level']
+        fields = ['id', 'username', 'email', 'password', 'trainer_level', 'first_name', 'last_name', 'phone_number', 'address_line1', 'address_line2', 'address_city', 'address_province', 'address_postal_code', 'pudo_locker_name', 'pudo_locker_address']
         read_only_fields = ['id', 'trainer_level']
 
     def create(self, validated_data):
