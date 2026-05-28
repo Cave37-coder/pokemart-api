@@ -35,7 +35,7 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     serializer_class = PokemonProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PokemonProductFilter
-    search_fields = ['name', 'card_set__name', 'description']
+    search_fields = ['name', 'card_set__name', 'description', 'artist', 'pokedex_number', 'card_number']
     ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
     ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
 
