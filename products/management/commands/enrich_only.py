@@ -286,6 +286,10 @@ def enrich_set(set_code, ptcgio_set_id, headers, dry_run=False, stdout=None):
         hp_raw          = card.get("hp", None)
         hp              = int(hp_raw) if hp_raw and str(hp_raw).isdigit() else None
         artist          = card.get("artist", "") or ""
+        legalities      = card.get("legalities", {})
+        legal_standard  = True if legalities.get("standard","").lower()=="legal" else (False if legalities.get("standard") else None)
+        legal_expanded  = True if legalities.get("expanded","").lower()=="legal" else (False if legalities.get("expanded") else None)
+        legal_unlimited = legalities.get("unlimited","").lower()=="legal"
         flavour_text    = card.get("flavorText", "") or ""
         pokedex_numbers = card.get("nationalPokedexNumbers", [])
         pokedex_number  = pokedex_numbers[0] if pokedex_numbers else None
@@ -336,6 +340,9 @@ def enrich_set(set_code, ptcgio_set_id, headers, dry_run=False, stdout=None):
         product.artist           = artist
         product.flavour_text     = flavour_text
         product.pokedex_number   = pokedex_number
+        product.legal_standard   = legal_standard
+        product.legal_expanded   = legal_expanded
+        product.legal_unlimited  = legal_unlimited
         product.weakness_type    = weakness_type
         product.weakness_value   = weakness_value
         product.resistance_type  = resistance_type
@@ -369,6 +376,7 @@ def enrich_set(set_code, ptcgio_set_id, headers, dry_run=False, stdout=None):
         FIELDS = [
             'image_url', 'image_small_url', 'supertype', 'card_subtypes',
             'hp', 'artist', 'flavour_text', 'pokedex_number',
+              'legal_standard', 'legal_expanded', 'legal_unlimited',
             'weakness_type', 'weakness_value', 'resistance_type', 'resistance_value',
             'retreat_cost', 'ability_name', 'ability_type', 'ability_text',
             'attack_1_name', 'attack_1_damage', 'attack_1_text',
@@ -379,6 +387,29 @@ def enrich_set(set_code, ptcgio_set_id, headers, dry_run=False, stdout=None):
             PokemonProduct.objects.bulk_update(to_update, FIELDS, batch_size=500)
 
     log(f"  Updated: {updated} | Not found in API: {not_found}")
+    # Propagate legality from any found variant to all variants of same card/set
+    from django.db.models import Q
+    cards_with_legality = PokemonProduct.objects.filter(
+        card_set__code=set_code,
+        legal_standard__isnull=False
+    ).values('card_number', 'legal_standard', 'legal_expanded', 'legal_unlimited').distinct()
+    
+    propagated = 0
+    for card in cards_with_legality:
+        updated_count = PokemonProduct.objects.filter(
+            card_set__code=set_code,
+            card_number=card['card_number'],
+          legal_standard__isnull=True
+        ).update(
+          legal_standard=card['legal_standard'],
+          legal_expanded=card['legal_expanded'],
+          legal_unlimited=card['legal_unlimited'],
+        )
+        propagated += updated_count
+    
+    if propagated:
+        print(f"  Propagated legality to {propagated} variants")
+
     return updated, not_found
 
 

@@ -1,0 +1,28 @@
+Products
+
+https://pokemart-api-production.up.railway.app/api/products/ — all products
+https://pokemart-api-production.up.railway.app/api/products/?card_set=ASC — by set
+https://pokemart-api-production.up.railway.app/api/sets/ — all sets
+
+Orders
+
+https://pokemart-api-production.up.railway.app/api/orders/ — requires auth token
+
+Admin
+
+https://pokemart-api-production.up.railway.app/admin/ — Django admin panel
+
+Auth
+
+https://pokemart-api-production.up.railway.app/api/auth/login/ — POST to get token
+https://pokemart-api-production.up.railway.app/api/auth/profile/ — GET profile
+
+Payments
+
+https://pokemart-api-production.up.railway.app/api/payments/initiate/ — POST to start PayFast
+https://pokemart-api-production.up.railway.app/api/payments/itn/ — PayFast webhook
+
+Stock management
+
+https://pokemart-api-production.up.railway.app/api/stock/update/ — POST stock updates
+https://pokemart-api-production.up.railway.app/api/stock/wipe/ — POST to zero a set
