@@ -84,7 +84,7 @@ class CheckoutView(APIView):
         order = Order.objects.create(
             user=request.user,
             total_price=total,
-            status='pending_eft' if is_eft else 'pending',
+            status='pending_eft' if is_eft else ('awaiting_payment' if payment_method == 'payfast' else 'pending'),
             payment_method='coc' if is_coc else payment_method,
             shipping_method=shipping_method,
             shipping_cost=request.data.get('shipping_cost', 0),
