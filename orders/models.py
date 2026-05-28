@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from django.conf import settings
 from products.models import PokemonProduct
 
@@ -31,6 +31,7 @@ class CartItem(models.Model):
 
 class Order(models.Model):
     STATUS_CHOICES = [
+        ("awaiting_payment", "Awaiting Payment"),
         ("pending",         "Order Received"),
         ("pending_eft",     "Awaiting EFT Payment"),
         ("printed",         "Order Printed"),
@@ -55,7 +56,10 @@ class Order(models.Model):
 
     SHIPPING_CHOICES = [
         ("collection",  "Cash on Collection"),
-        ("pudo_locker", "Pudo Kiosk-to-Locker"),
+        ("pudo_locker", "Pudo Locker-to-Locker"),
+        ("pudo_kiosk",  "Pudo Locker-to-Kiosk"),
+        ("pudo_medium", "Pudo Medium/Tins Kiosk"),
+        ("pudo_door",   "Pudo Locker-to-Door"),
         ("pudo_door",   "Pudo Door-to-Door"),
         ("postnet",     "Postnet-to-Postnet"),
     ]
