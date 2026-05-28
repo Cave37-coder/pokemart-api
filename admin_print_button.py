@@ -1,4 +1,7 @@
-from django.contrib import admin
+# Add to orders/admin.py - adds Print Pull Sheet button on order detail page
+# Save as orders/admin.py
+
+content = '''from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse, path
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem
@@ -56,11 +59,11 @@ class OrderAdmin(admin.ModelAdmin):
         if obj.pk:
             url = reverse('print-order', args=[obj.pk])
             return format_html(
-                '''<a href="{}" target="_blank" style="
+                \'\'\'<a href="{}" target="_blank" style="
                     background:#ff6b35;color:#fff;padding:6px 14px;
                     border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px">
                     🖨 Print Pull Sheet
-                </a>''',
+                </a>\'\'\',
                 url
             )
         return '-'
@@ -82,3 +85,8 @@ class OrderTrackingAdmin(admin.ModelAdmin):
 class CartAdmin(admin.ModelAdmin):
     list_display = ['user', 'created_at', 'updated_at']
     readonly_fields = ['created_at', 'updated_at']
+'''
+
+with open('orders/admin.py', 'w') as f:
+    f.write(content)
+print("Done")
