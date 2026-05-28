@@ -283,7 +283,7 @@ def sets_list(request):
             'symbol_url': s.symbol_url or '',
             'logo_url': s.logo_url or '',
             'release_date': str(s.release_date) if s.release_date else '',
-            'era_code': s.era.code if s.era else '',
+            'era_code': s.era.code if s.era else '','era_name': s.era.name if s.era else '','regulation_mark': s.regulation_mark or '',
             'era_name': s.era.name if s.era else '',
         })
     return JsonResponse({'results': data})

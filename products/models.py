@@ -17,6 +17,7 @@ class CardSet(models.Model):
     logo_url = models.URLField(max_length=500, blank=True)
     total_cards = models.PositiveIntegerField(default=0)
     release_date = models.DateField(null=True, blank=True)
+    regulation_mark = models.CharField(max_length=5, blank=True, default='')
     checklist_pdf = models.FileField(upload_to='checklists/', blank=True, null=True)
     checklist_xlsx = models.FileField(upload_to='checklists/', blank=True, null=True)
 
