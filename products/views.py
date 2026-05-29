@@ -13,6 +13,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     energy_type = django_filters.CharFilter(field_name='pokemon_types__name', lookup_expr='iexact')
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
+    category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
     subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
