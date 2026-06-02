@@ -104,7 +104,7 @@ def stock_entry(request):
             .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
         )
         VORDER = {'N': 0, 'RH': 1, 'H': 2}
-        cards = sorted(cards, key=lambda c: (c['card_number'], VORDER.get(c['variant_sort'] or 'N', 9)))
+        cards = sorted(cards, key=lambda c: (c['card_number'] or 0, VORDER.get(c['variant_sort'] or 'N', 9)))
 
     # Build dropdown options — single flat list, newest to oldest
     options_html = '<option value="">-- Choose a set --</option>'
