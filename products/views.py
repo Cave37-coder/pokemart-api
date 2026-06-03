@@ -111,7 +111,10 @@ def stock_entry(request):
     for s in all_sets:
         sel = 'selected' if s.code == selected_set_code else ''
         card_label = f' ({s.card_count})' if s.card_count > 0 else ''
-        options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}{card_label}</option>'
+        era_code = s.era.code if s.era else ''
+        release = str(s.release_date) if s.release_date else ''
+        release_label = f' · {release}' if release else ''
+        options_html += f'<option value="{s.code}" {sel}>[{era_code}] [{s.code}] {s.name}{card_label}{release_label}</option>'
 
     # Build cards table
     cards_html = ''
