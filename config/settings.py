@@ -114,6 +114,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'https://pokemart-api-production.up.railway.app',
+    'https://pokebulk.co.za',
+    'https://www.pokebulk.co.za',
+]
 ]
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
