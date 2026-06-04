@@ -67,7 +67,9 @@ class CheckoutView(APIView):
         except Cart.DoesNotExist:
             return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
         items = cart.items.select_related('product').all()
-        if not items.exists():
+        # Remove cart items where product was deleted
+        items = [i for i in items if i.product is not None]
+        if not items:
             return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
         for item in items:
             if item.product.stock < item.quantity:
@@ -258,7 +260,7 @@ def print_order(request, order_id):
         for i, item in enumerate(cards, 1):
             p = item.product
             num = str(p.card_number or '').zfill(3) if str(p.card_number or '').isdigit() else str(p.card_number or '--')
-            var = p.variant_override or 'N'
+            var = p.variant_sort or 'N'
             var_colors = {'N': '#e8e8e8;color:#333', 'H': '#fff3cd;color:#856404', 'RH': '#e8e4ff;color:#4c3d99'}
             var_style = var_colors.get(var, '#e8e8e8;color:#333')
             rows += f'''<tr>
@@ -369,7 +371,7 @@ def print_invoice(request, order_id):
     for i, item in enumerate(items, 1):
         p = item.product
         num = str(p.card_number or '').zfill(3)
-        var = p.variant_override or 'N'
+        var = p.variant_sort or 'N'
         set_name = p.card_set.name if p.card_set else '—'
         set_code = p.card_set.code if p.card_set else ''
         rarity = (p.rarity or '').replace('_', ' ').title()
