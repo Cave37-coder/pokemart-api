@@ -36,7 +36,7 @@ class PayFastInitView(APIView):
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        if order.status not in ('pending', 'payment_failed'):
+        if order.status not in ('pending', 'awaiting_payment', 'payment_failed'):
             return Response({'error': 'Order already paid or processing'}, status=status.HTTP_400_BAD_REQUEST)
 
         sandbox = getattr(settings, 'PAYFAST_SANDBOX', False)
