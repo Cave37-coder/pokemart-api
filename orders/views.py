@@ -98,21 +98,74 @@ class CheckoutView(APIView):
             pudo_locker_address=request.data.get('pudo_locker_address', ''),
             customer_note=request.data.get('customer_note', ''),
         )
+        item_lines = []
         for item in items:
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
+                product_name=item.product.name,
+                product_sku=item.product.csv_sku or '',
                 quantity=item.quantity,
                 price_at_purchase=item.product.price,
             )
             item.product.stock -= item.quantity
             item.product.save()
+            item_lines.append(f"  {item.quantity}x {item.product.name} @ R{item.product.price:.2f}")
         cart.items.all().delete()
         OrderTracking.objects.create(
             order=order,
             status='pending',
             note='Order received successfully.',
         )
+
+        # Send email notification
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings as django_settings
+            items_text = "\n".join(item_lines)
+            subject = f"PokeBulk SA - New Order #{order.id}"
+            body = f"""New order received!
+
+Order #{order.id}
+Customer: {order.user.username} ({order.user.email})
+Payment: {order.payment_method}
+Shipping: {order.shipping_method}
+Total: R{order.total_price:.2f}
+
+Items:
+{items_text}
+
+Address: {order.delivery_address_line1}, {order.delivery_city}, {order.delivery_province} {order.delivery_postal_code}
+Pudo Locker: {order.pudo_locker_name} {order.pudo_locker_address}
+Note: {order.customer_note}
+"""
+            send_mail(subject, body, django_settings.DEFAULT_FROM_EMAIL,
+                     ['enquiries@pokebulk.co.za'], fail_silently=True)
+            # Customer confirmation
+            if order.user.email:
+                customer_body = f"""Hi {order.user.username},
+
+Thank you for your order at PokeBulk SA!
+
+Order #{order.id} has been received.
+Total: R{order.total_price:.2f}
+Payment: {order.payment_method}
+
+Items:
+{items_text}
+
+We will contact you shortly to confirm your order.
+
+PokeBulk SA Team
+Tel: 074 488 6919
+enquiries@pokebulk.co.za
+"""
+                send_mail(f"PokeBulk SA - Order #{order.id} Confirmation",
+                         customer_body, django_settings.DEFAULT_FROM_EMAIL,
+                         [order.user.email], fail_silently=True)
+        except Exception:
+            pass  # Never let email failure break order creation
+
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 

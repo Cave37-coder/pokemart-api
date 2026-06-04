@@ -18,7 +18,7 @@ class Cart(models.Model):
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE)
+    product = models.ForeignKey(PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
@@ -126,12 +126,15 @@ class OrderTracking(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE)
+    product = models.ForeignKey(PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=500, blank=True)  # snapshot at purchase
+    product_sku = models.CharField(max_length=200, blank=True)   # snapshot at purchase
     quantity = models.PositiveIntegerField()
     price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.quantity}x {self.product.name}"
+        name = self.product_name or (self.product.name if self.product else "Deleted product")
+        return f"{self.quantity}x {name}"
 
     @property
     def subtotal(self):
