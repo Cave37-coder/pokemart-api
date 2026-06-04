@@ -110,11 +110,12 @@ PAYFAST_PASSPHRASE = config('PAYFAST_PASSPHRASE', default='')
 PAYFAST_SANDBOX = config('PAYFAST_SANDBOX', cast=bool, default=True)
 
 CORS_ALLOW_ALL_ORIGINS = True
-
+CORS_ALLOW_CREDENTIALS = True
+CORS_URLS_REGEX = r'^.*$'
 
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000,https://pokemart-api-production.up.railway.app'
+    default='http://localhost:3000,https://pokemart-api-production.up.railway.app,https://pokebulk.co.za,https://www.pokebulk.co.za'
 ).split(',')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
