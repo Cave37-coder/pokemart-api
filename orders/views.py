@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import transaction
+import threading
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
@@ -117,38 +118,48 @@ class CheckoutView(APIView):
             note='Order received successfully.',
         )
 
-        # Send email notification
-        try:
-            from django.core.mail import send_mail
-            from django.conf import settings as django_settings
-            items_text = "\n".join(item_lines)
-            subject = f"PokeBulk SA - New Order #{order.id}"
-            body = f"""New order received!
+        # Send emails in background thread — never block the response
+        order_id = order.id
+        items_text = "\n".join(item_lines)
+        customer_username = order.user.username
+        customer_email = order.user.email
+        payment_method_val = order.payment_method
+        shipping_method_val = order.shipping_method
+        total_price_val = float(order.total_price)
+        address_val = f"{order.delivery_address_line1}, {order.delivery_city}, {order.delivery_province} {order.delivery_postal_code}"
+        pudo_val = f"{order.pudo_locker_name} {order.pudo_locker_address}"
+        note_val = order.customer_note
 
-Order #{order.id}
-Customer: {order.user.username} ({order.user.email})
-Payment: {order.payment_method}
-Shipping: {order.shipping_method}
-Total: R{order.total_price:.2f}
+        def _send_emails():
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings as django_settings
+                subject = f"PokeBulk SA - New Order #{order_id}"
+                body = f"""New order received!
+
+Order #{order_id}
+Customer: {customer_username} ({customer_email})
+Payment: {payment_method_val}
+Shipping: {shipping_method_val}
+Total: R{total_price_val:.2f}
 
 Items:
 {items_text}
 
-Address: {order.delivery_address_line1}, {order.delivery_city}, {order.delivery_province} {order.delivery_postal_code}
-Pudo Locker: {order.pudo_locker_name} {order.pudo_locker_address}
-Note: {order.customer_note}
+Address: {address_val}
+Pudo Locker: {pudo_val}
+Note: {note_val}
 """
-            send_mail(subject, body, django_settings.DEFAULT_FROM_EMAIL,
-                     ['enquiries@pokebulk.co.za'], fail_silently=True)
-            # Customer confirmation
-            if order.user.email:
-                customer_body = f"""Hi {order.user.username},
+                send_mail(subject, body, django_settings.DEFAULT_FROM_EMAIL,
+                         ['enquiries@pokebulk.co.za'], fail_silently=True)
+                if customer_email:
+                    customer_body = f"""Hi {customer_username},
 
 Thank you for your order at PokeBulk SA!
 
-Order #{order.id} has been received.
-Total: R{order.total_price:.2f}
-Payment: {order.payment_method}
+Order #{order_id} has been received.
+Total: R{total_price_val:.2f}
+Payment: {payment_method_val}
 
 Items:
 {items_text}
@@ -159,11 +170,13 @@ PokeBulk SA Team
 Tel: 074 488 6919
 enquiries@pokebulk.co.za
 """
-                send_mail(f"PokeBulk SA - Order #{order.id} Confirmation",
-                         customer_body, django_settings.DEFAULT_FROM_EMAIL,
-                         [order.user.email], fail_silently=True)
-        except Exception:
-            pass  # Never let email failure break order creation
+                    send_mail(f"PokeBulk SA - Order #{order_id} Confirmation",
+                             customer_body, django_settings.DEFAULT_FROM_EMAIL,
+                             [customer_email], fail_silently=True)
+            except Exception:
+                pass
+
+        threading.Thread(target=_send_emails, daemon=True).start()
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
