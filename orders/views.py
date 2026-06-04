@@ -19,7 +19,7 @@ class CartView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
         return cart
 
 
@@ -62,10 +62,7 @@ class CheckoutView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        try:
-            cart = Cart.objects.get(user=request.user)
-        except Cart.DoesNotExist:
-            return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
+        cart, _ = Cart.objects.get_or_create(user=request.user)
         items = cart.items.select_related('product').all()
         # Remove cart items where product was deleted
         items = [i for i in items if i.product is not None]
