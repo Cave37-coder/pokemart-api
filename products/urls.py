@@ -14,5 +14,7 @@ urlpatterns = [
     path("stock/bundles/", views.bundle_stock_entry, name="bundle-stock-entry"),
     path("stock/update/", views.stock_update, name="stock-update"),
     path("stock/wipe/", views.stock_wipe, name="stock-wipe"),
+    path("stock/print/", views.stock_print, name="stock-print"),
     path("sets/", views.sets_list, name="sets-list"),
+    path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
 ]

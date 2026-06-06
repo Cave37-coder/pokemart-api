@@ -260,21 +260,50 @@ def print_order(request, order_id):
     order = get_object_or_404(Order, id=order_id)
     items = list(order.items.select_related(
         'product', 'product__card_set', 'product__card_set__era'
-    ).order_by('product__card_set__era__code', 'product__card_set__name', 'product__card_number'))
+    ).order_by('product__card_set__era__code', 'product__card_set__name', 'product__card_number', 'product_name'))
 
-    # Group by set
+    # Bulk lookup by SKU for items where product is null
+    null_skus = [i.product_sku for i in items if i.product is None and i.product_sku]
+    sku_lookup = {}
+    if null_skus:
+        from products.models import PokemonProduct as PP
+        found = PP.objects.filter(sku__in=null_skus).select_related('card_set', 'card_set__era')
+        sku_lookup = {p.sku: p for p in found}
+
+    # Use stored product_name/sku when product is null
+    def get_set_key(item):
+        if item.product and item.product.card_set:
+            return (item.product.card_set.name, item.product.card_set.code)
+        p = sku_lookup.get(item.product_sku)
+        if p and p.card_set:
+            return (p.card_set.name, p.card_set.code)
+        return ('Unknown Set', '???')
+
+    def get_item_display(item):
+        if item.product:
+            p = item.product
+        else:
+            p = sku_lookup.get(item.product_sku)
+        if p:
+            num = str(p.card_number or '').zfill(3)
+            var = p.variant_sort or 'N'
+            name = p.name
+        else:
+            num = '--'
+            var = '?'
+            name = item.product_name or item.product_sku or 'Unknown card'
+        return num, name, var
+
     sets_html = ''
-    for (set_name, set_code), group in groupby(items, key=lambda i: (i.product.card_set.name, i.product.card_set.code)):
+    for (set_name, set_code), group in groupby(sorted(items, key=get_set_key), key=get_set_key):
         cards = list(group)
         rows = ''
         for i, item in enumerate(cards, 1):
-            p = item.product
-            num = str(p.card_number or '').zfill(3) if str(p.card_number or '').isdigit() else str(p.card_number or '--')
-            var = p.variant_sort or 'N'
+            num, name, var = get_item_display(item)
             var_colors = {'N': '#e8e8e8;color:#333', 'H': '#fff3cd;color:#856404', 'RH': '#e8e4ff;color:#4c3d99'}
             var_style = var_colors.get(var, '#e8e8e8;color:#333')
             rows += f'''<tr>
-              <td>{i}</td><td>{num}</td><td>{p.name}</td>
+              <td>{i}</td><td>{num}</td><td>{name}</td>
               <td><span style="background:{var_style};padding:1px 6px;border-radius:8px;font-size:10px;font-weight:bold">{var}</span></td>
               <td>{item.quantity}</td><td>R {item.price_at_purchase:.2f}</td>
               <td style="font-size:16px">[ ]</td>
@@ -377,14 +406,31 @@ def print_invoice(request, order_id):
         'product', 'product__card_set', 'product__card_set__era'
     ).order_by('product__card_set__name', 'product__card_number'))
 
+    # Bulk lookup by SKU for null products
+    null_skus = [i.product_sku for i in items if i.product is None and i.product_sku]
+    sku_lookup = {}
+    if null_skus:
+        from products.models import PokemonProduct as PP
+        found = PP.objects.filter(sku__in=null_skus).select_related('card_set')
+        sku_lookup = {p.sku: p for p in found}
+
     rows = ''
     for i, item in enumerate(items, 1):
-        p = item.product
-        num = str(p.card_number or '').zfill(3)
-        var = p.variant_sort or 'N'
-        set_name = p.card_set.name if p.card_set else '—'
-        set_code = p.card_set.code if p.card_set else ''
-        rarity = (p.rarity or '').replace('_', ' ').title()
+        p = item.product or sku_lookup.get(item.product_sku)
+        if p is not None:
+            num = str(p.card_number or '').zfill(3)
+            var = p.variant_sort or 'N'
+            set_name = p.card_set.name if p.card_set else '—'
+            set_code = p.card_set.code if p.card_set else ''
+            rarity = (p.rarity or '').replace('_', ' ').title()
+            name = p.name
+        else:
+            num = '--'
+            var = '?'
+            set_name = '—'
+            set_code = ''
+            rarity = ''
+            name = item.product_name or item.product_sku or 'Unknown card'
         rows += f'''<tr style="border-bottom:1px solid #eee">
             <td style="padding:5px 8px;font-size:12px">{i}</td>
             <td style="padding:5px 8px;font-size:12px">{set_name} [{set_code}]</td>

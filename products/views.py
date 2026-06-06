@@ -100,11 +100,17 @@ def stock_entry(request):
             PokemonProduct.objects
             .filter(card_set__code=selected_set_code, is_active=True)
             .select_related('card_set')
-            .order_by('card_number')
-            .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
+            .order_by('card_number', 'variant_sort')
+            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
         )
-        VORDER = {'N': 0, 'RH': 1, 'H': 2}
-        cards = sorted(cards, key=lambda c: (c['card_number'] or 0, VORDER.get(c['variant_sort'] or 'N', 9)))
+        # Normalise variant display — variant_override is the string code (N/H/RH etc)
+        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+        for c in cards:
+            vo = c.get('variant_override') or ''
+            if vo in VALID_VARIANTS:
+                c['var_label'] = vo
+            else:
+                c['var_label'] = 'N'
 
     # Build dropdown options — single flat list, newest to oldest
     options_html = '<option value="">-- Choose a set --</option>'
@@ -126,14 +132,27 @@ def stock_entry(request):
         total_units = sum(c['stock'] for c in cards)
 
         VAR_COLORS = {
-            'N': '#e8e8e8;color:#333',
-            'RH': '#e8e4ff;color:#4c3d99',
-            'H': '#fff3cd;color:#856404',
+            'N':   '#e8e8e8;color:#333',
+            'H':   '#fff3cd;color:#856404',
+            'RH':  '#e8e4ff;color:#4c3d99',
+            'PB':  '#d4edda;color:#155724',
+            'MB':  '#6f42c1;color:#fff',
+            'LB':  '#f8d7da;color:#721c24',
+            'FB':  '#cce5ff;color:#004085',
+            'QB':  '#fff3cd;color:#856404',
+            'UB':  '#d6d8d9;color:#1b1e21',
+            'DB':  '#343a40;color:#fff',
+            'TR':  '#dc3545;color:#fff',
+            'SE':  '#fd7e14;color:#fff',
+            'PBP': '#20c997;color:#fff',
+            'MBP': '#6610f2;color:#fff',
+            'CC':  '#17a2b8;color:#fff',
+            'TT':  '#ff6b35;color:#fff',
         }
 
         rows = ''
         for card in cards:
-            var = card['variant_sort'] or 'N'
+            var = card.get('var_label') or card['variant_sort'] or 'N'
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
             rows += f'''<tr style="scroll-margin-top:120px">
@@ -146,6 +165,7 @@ def stock_entry(request):
               <td><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
                          min="0" placeholder="-" style="width:70px;padding:5px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:14px"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
+              <td><button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:13px;line-height:1.6">✕</button></td>
             </tr>'''
 
         cards_html = f'''
@@ -161,6 +181,12 @@ def stock_entry(request):
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
     <div style="font-size:22px;font-weight:700;color:#ff6b35">{total_units}</div>
     <div style="font-size:11px;color:#888">Total Units</div>
+  </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <a href="/api/stock/print/?set={selected_set_code}" target="_blank"
+       style="display:block;background:#ff6b35;color:#fff;text-align:center;padding:10px;border-radius:6px;font-weight:700;text-decoration:none;font-size:13px">
+      🖨 Print Count Sheet
+    </a>
   </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
     <div style="font-size:16px;font-weight:700;color:#ff6b35">{set_name}</div>
@@ -195,6 +221,14 @@ def stock_entry(request):
 
 <script>
 const SET_CODE = "{selected_set_code}";
+function delProd(id,btn){{
+  if(!confirm('Permanently delete this card from the database?'))return;
+  fetch('/api/stock/delete/'+id+'/',{{method:'POST',headers:{{'X-CSRFToken':getCookie('csrftoken')}}}})
+  .then(r=>r.json()).then(d=>{{
+    if(d.success)btn.closest('tr').remove();
+    else alert('Delete failed');
+  }});
+}}
 function getCookie(n){{const v='; '+document.cookie;const p=v.split('; '+n+'=');if(p.length===2)return p.pop().split(';').shift();return'';}}
 function showMsg(t,ok){{
   const el=document.getElementById('msg');
@@ -248,6 +282,17 @@ tr:hover td{{background:#fafafa}}td{{padding:8px 12px;border-bottom:1px solid #f
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
+@staff_member_required
+def delete_product(request, product_id):
+    if request.method == 'POST':
+        try:
+            p = PokemonProduct.objects.get(id=product_id)
+            p.delete()
+            return JsonResponse({'success': True})
+        except PokemonProduct.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
+    return JsonResponse({'success': False}, status=405)
+
 
 @staff_member_required
 @require_POST
@@ -279,6 +324,186 @@ def stock_wipe(request):
         return JsonResponse({'ok': True, 'count': count})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
+@staff_member_required
+def stock_print(request):
+    """Printable stock count sheet for a single set."""
+    set_code = request.GET.get('set', '')
+    if not set_code:
+        return HttpResponse('<h2>No set selected. Go back and choose a set first.</h2>')
+
+    try:
+        card_set = CardSet.objects.select_related('era').get(code=set_code)
+    except CardSet.DoesNotExist:
+        return HttpResponse(f'<h2>Set "{set_code}" not found.</h2>')
+
+    cards = list(
+        PokemonProduct.objects
+        .filter(card_set__code=set_code, is_active=True)
+        .order_by('card_number', 'variant_sort')
+        .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
+    )
+    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+    for c in cards:
+        vo = c.get('variant_override') or ''
+        c['var_label'] = vo if vo in VALID_VARIANTS else 'N'
+
+    VARIANT_LABEL = {
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Rev Holo',
+        'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
+        'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
+        'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
+        'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
+        'CC': 'Code Card', 'TT': 'Trick or Trade',
+    }
+
+    # Group cards by card_number — show name once, variants as sub-rows
+    from itertools import groupby as igroup
+    grouped = []
+    for num, grp in igroup(cards, key=lambda c: c['card_number']):
+        variants = list(grp)
+        grouped.append(variants)
+
+    # Split grouped cards into 3 vertical columns
+    total_groups = len(grouped)
+    col_size = -(-total_groups // 3)
+    cols = [grouped[0:col_size], grouped[col_size:col_size*2], grouped[col_size*2:]]
+
+    def render_group(variants):
+        if variants is None:
+            return '<td colspan="6" style="border-bottom:2px solid #eee"></td>'
+        rows = ''
+        for vi, card in enumerate(variants):
+            var = card.get('var_label') or card['variant_sort'] or 'N'
+            var_label = VARIANT_LABEL.get(var, var)
+            num_str = str(card['card_number'] or '').zfill(3)
+            name = card['name'] if vi == 0 else ''
+            num_cell = f'<td class="num">{num_str}</td>' if vi == 0 else '<td class="num"></td>'
+            name_cell = f'<td class="name">{name}</td>' if vi == 0 else f'<td class="name" style="color:#888;font-size:7px;padding-left:8px">{var_label}</td>'
+            border = 'border-bottom:1px solid #eee;' if vi < len(variants)-1 else 'border-bottom:2px solid #ccc;'
+            rows += f'<tr style="{border}">{num_cell}{name_cell}<td class="var">{var}</td><td class="box"></td><td class="box"></td><td class="box"></td></tr>'
+        return rows
+
+    # Build table rows — one group per "slot", render side by side
+    max_rows = col_size
+    rows_html = ''
+    for i in range(max_rows):
+        g1 = cols[0][i] if i < len(cols[0]) else None
+        g2 = cols[1][i] if i < len(cols[1]) else None
+        g3 = cols[2][i] if i < len(cols[2]) else None
+
+        # Each group may have multiple variant rows — zip them together
+        r1 = list(render_group(g1).split('</tr>') if g1 else [''])
+        r2 = list(render_group(g2).split('</tr>') if g2 else [''])
+        r3 = list(render_group(g3).split('</tr>') if g3 else [''])
+        # Filter empty
+        r1 = [r for r in r1 if r.strip()]
+        r2 = [r for r in r2 if r.strip()]
+        r3 = [r for r in r3 if r.strip()]
+        max_v = max(len(r1), len(r2), len(r3), 1)
+
+        bg = '#ffffff' if i % 2 == 0 else '#f9f9f9'
+        for vi in range(max_v):
+            c1 = (r1[vi] + '</tr>') if vi < len(r1) else f'<tr><td colspan="6"></td></tr>'
+            c2 = (r2[vi] + '</tr>') if vi < len(r2) else f'<tr><td colspan="6"></td></tr>'
+            c3 = (r3[vi] + '</tr>') if vi < len(r3) else f'<tr><td colspan="6"></td></tr>'
+            # Extract inner tds from each
+            def inner(r):
+                import re
+                tds = re.findall(r'<td[^>]*>.*?</td>', r, re.DOTALL)
+                return ''.join(tds)
+            rows_html += f'<tr style="background:{bg}">{inner(c1)}<td class="div"></td>{inner(c2)}<td class="div"></td>{inner(c3)}</tr>\n'
+
+    set_name = card_set.name
+    era_name = card_set.era.name if card_set.era else ''
+    release = str(card_set.release_date) if card_set.release_date else ''
+    total_cards = len(cards)
+
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Stock Count — {set_name}</title>
+<style>
+  @page {{ size: A4 landscape; margin: 8mm; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
+
+  .header {{ display: flex; justify-content: space-between; align-items: center;
+             border-bottom: 2px solid #ff6b35; padding-bottom: 5px; margin-bottom: 6px; }}
+  .header h1 {{ font-size: 13px; color: #ff6b35; font-weight: 800; }}
+  .header h2 {{ font-size: 10px; color: #333; }}
+  .header-right {{ display: flex; gap: 16px; align-items: center; font-size: 8px; color: #666; }}
+  .field {{ display: flex; flex-direction: column; gap: 2px; }}
+  .field label {{ font-size: 7px; color: #999; text-transform: uppercase; }}
+  .field .line {{ border-bottom: 1px solid #999; width: 100px; height: 14px; }}
+
+  table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
+  thead th {{ background: #ff6b35; color: #fff; padding: 3px 4px;
+              text-align: left; font-size: 7px; font-weight: 700; text-transform: uppercase; }}
+  td {{ padding: 2px 3px; border-bottom: 1px solid #eee; vertical-align: middle; overflow: hidden; white-space: nowrap; }}
+
+  td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
+  td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
+  td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
+  td.box  {{ width: 22px; }}
+  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:13px; width:18px; margin:0 auto; }}
+  td.div  {{ width: 6px; background: #f0f0f0; }}
+
+  .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
+             display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
+
+  @media print {{
+    .no-print {{ display: none !important; }}
+    body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+  }}
+</style>
+</head>
+<body>
+
+<div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
+  <strong>PokéBulk Stock Count — {set_name}</strong>
+  <button onclick="window.print()" style="background:#fff;color:#ff6b35;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer">🖨 Print</button>
+  <a href="/api/stock/entry/?set={set_code}" style="color:#fff;font-size:12px">← Back</a>
+</div>
+
+<div class="header">
+  <div>
+    <h1>PokéBulk SA — Stock Count Sheet</h1>
+    <h2>{set_name} · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
+  </div>
+  <div class="header-right">
+    <div class="field"><label>Date</label><div class="line" style="width:80px"></div></div>
+    <div class="field"><label>Counted By</label><div class="line" style="width:110px"></div></div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:5px"></th>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:5px"></th>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+    </tr>
+  </thead>
+  <tbody>{rows_html}</tbody>
+</table>
+
+<div class="footer">
+  <span>PokéBulk SA · 4 Heloise Street, Birchleigh North · enquiries@pokebulk.co.za</span>
+  <span>Printed: <span id="now"></span></span>
+</div>
+<script>document.getElementById('now').textContent = new Date().toLocaleString('en-ZA');</script>
+</body>
+</html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
 def sets_list(request):
     sets = CardSet.objects.select_related('era').order_by('-release_date', 'name')
     data = []

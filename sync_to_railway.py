@@ -32,7 +32,7 @@ print(f"Railway has {len(existing_skus)} records with csv_sku only")
 # Get missing records from local DB
 print("Fetching missing records from local DB...")
 local_cur.execute("""
-    SELECT 
+    SELECT
         p.pb_id, p.name, p.csv_sku, p.tcgcsv_product_id,
         p.card_set_id, p.category_id, p.rarity, p.artist,
         p.hp, p.image_url, p.price, p.stock,
@@ -66,7 +66,10 @@ railway_sets = {row[1]: row[0] for row in railway_cur.fetchall()}
 # Get Railway category id
 railway_cur.execute("SELECT id FROM products_category WHERE slug='pokemon-card' LIMIT 1")
 row = railway_cur.fetchone()
-railway_category_id = row[0] if row else None
+if not row:
+    railway_cur.execute("SELECT id FROM products_category LIMIT 1")
+    row = railway_cur.fetchone()
+railway_category_id = row[0] if row else 1
 
 # Bulk insert in batches
 BATCH_SIZE = 500
@@ -76,44 +79,47 @@ errors = 0
 for i in range(0, len(missing), BATCH_SIZE):
     batch = missing[i:i+BATCH_SIZE]
     rows = []
-    
+
     for r in batch:
         pb_id, name, csv_sku, tcgcsv_id, local_set_id, cat_id, rarity, artist, \
         hp, image_url, price, stock, card_number, pokedex_number, variant_sort, \
         is_active, legal_standard, legal_expanded, legal_unlimited, \
         price_normal, price_holo, price_rh, price_1st = r
-        reg_mark = ''
-        
+
         # Map local set_id to Railway set_id
         set_code = local_sets.get(local_set_id)
         railway_set_id = railway_sets.get(set_code)
-        
+
         if not railway_set_id:
             errors += 1
             continue
-            
+
         rows.append((
-            pb_id, name, csv_sku, tcgcsv_id,
-            railway_set_id, railway_category_id, rarity, artist or '',
-            hp, image_url or '', price, 0,  # stock=0
+            pb_id, name, csv_sku or '', tcgcsv_id,
+            railway_set_id, railway_category_id, rarity or '', artist or '',
+            hp, image_url or '', price, 0,  # stock=0 on Railway
             card_number, pokedex_number, variant_sort or 'N',
-            is_active, legal_standard, legal_expanded, legal_unlimited,
-            price_normal, price_holo, price_rh, price_1st, reg_mark
+            is_active,
+            legal_standard if legal_standard is not None else True,
+            legal_expanded if legal_expanded is not None else True,
+            legal_unlimited if legal_unlimited is not None else True,
+            price_normal, price_holo, price_rh, price_1st,
+            '',  # description
         ))
-    
+
     if not rows:
         continue
-        
+
     try:
         psycopg2.extras.execute_values(railway_cur, """
-            INSERT INTO products_pokemonproduct 
+            INSERT INTO products_pokemonproduct
             (pb_id, name, csv_sku, tcgcsv_product_id,
              card_set_id, category_id, rarity, artist,
              hp, image_url, price, stock,
              card_number, pokedex_number, variant_sort,
              is_active, legal_standard, legal_expanded, legal_unlimited,
              price_normal, price_holo, price_reverse_holo,
-             price_first_edition, regulation_mark)
+             price_first_edition, description)
             VALUES %s
             ON CONFLICT (pb_id) DO NOTHING
         """, rows)
