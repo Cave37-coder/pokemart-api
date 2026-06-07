@@ -83,7 +83,6 @@ from .models import PokemonProduct, CardSet, Era
 def stock_entry(request):
     selected_set_code = request.GET.get('set', '')
 
-    # All sets sorted newest to oldest, with a safe fallback for missing release_date
     all_sets = sorted(
         list(
             CardSet.objects
@@ -103,7 +102,6 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
         )
-        # Normalise variant display — variant_override is the string code (N/H/RH etc)
         VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
         for c in cards:
             vo = c.get('variant_override') or ''
@@ -112,7 +110,6 @@ def stock_entry(request):
             else:
                 c['var_label'] = 'N'
 
-    # Build dropdown options — single flat list, newest to oldest
     options_html = '<option value="">-- Choose a set --</option>'
     for s in all_sets:
         sel = 'selected' if s.code == selected_set_code else ''
@@ -122,7 +119,6 @@ def stock_entry(request):
         release_label = f' · {release}' if release else ''
         options_html += f'<option value="{s.code}" {sel}>[{era_code}] [{s.code}] {s.name}{card_label}{release_label}</option>'
 
-    # Build cards table
     cards_html = ''
     if cards:
         selected_set = next((s for s in all_sets if s.code == selected_set_code), None)
@@ -156,16 +152,16 @@ def stock_entry(request):
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
             rows += f'''<tr style="scroll-margin-top:120px">
-              <td style="font-family:monospace;color:#888">#{str(card["card_number"]).zfill(3)}</td>
-              <td>{card["name"]}</td>
-              <td><span style="background:{var_style};padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700">{var}</span></td>
-              <td style="font-size:11px;color:#888">{card["rarity"] or ""}</td>
-              <td style="color:#ff6b35;font-weight:600">R {price:.2f}</td>
-              <td style="color:#888">{card["stock"]}</td>
-              <td><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
-                         min="0" placeholder="-" style="width:70px;padding:5px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:14px"
+              <td style="font-family:monospace;color:#888;font-size:15px;padding:12px 14px">#{str(card["card_number"]).zfill(3)}</td>
+              <td style="font-size:15px;padding:12px 14px;font-weight:500">{card["name"]}</td>
+              <td style="padding:12px 14px"><span style="background:{var_style};padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700">{var}</span></td>
+              <td style="font-size:13px;color:#888;padding:12px 14px">{card["rarity"] or ""}</td>
+              <td style="color:#ff6b35;font-weight:600;font-size:15px;padding:12px 14px">R {price:.2f}</td>
+              <td style="color:#888;font-size:15px;padding:12px 14px">{card["stock"]}</td>
+              <td style="padding:12px 14px"><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
+                         min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
-              <td><button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:13px;line-height:1.6">✕</button></td>
+              <td style="padding:12px 14px"><button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.6">✕</button></td>
             </tr>'''
 
         cards_html = f'''
@@ -207,16 +203,17 @@ def stock_entry(request):
 <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #0001;margin-top:0">
 <thead style="position:sticky;top:57px">
   <tr style="background:#f8f8f8">
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="60">Card #</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee">Name</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="80">Variant</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="100">Rarity</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="90">Price</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="80">Current</th>
-    <th style="text-align:left;padding:10px 12px;font-size:12px;color:#666;border-bottom:1px solid #eee" width="100">New Qty</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="70">Card #</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee">Name</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Variant</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">Rarity</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="100">Price</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Current</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">New Qty</th>
+    <th width="60"></th>
   </tr>
 </thead>
-<tbody><tr><td colspan="7" style="height:100px;padding:0"></td></tr>{rows}</tbody>
+<tbody><tr><td colspan="8" style="height:100px;padding:0"></td></tr>{rows}</tbody>
 </table>
 
 <script>
@@ -262,13 +259,13 @@ document.addEventListener('keydown',function(e){{
     html = f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Stock Entry - PokeBulk SA</title>
 <style>*{{box-sizing:border-box;margin:0;padding:0}}body{{font-family:Arial,sans-serif;background:#f5f5f5}}
-tr:hover td{{background:#fafafa}}td{{padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px}}</style>
+tr:hover td{{background:#fafafa}}td{{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:15px}}</style>
 </head><body>
 <div style="background:#ff6b35;color:#fff;padding:12px 20px;margin-bottom:20px">
   <h1 style="font-size:18px;display:inline">Stock Entry - PokeBulk SA</h1>
   <a href="/admin/" style="color:#fff;text-decoration:none;font-size:13px;opacity:0.8;margin-left:20px">Back to Admin</a>
 </div>
-<div style="max-width:1100px;margin:0 auto;padding:0 16px">
+<div style="max-width:1200px;margin:0 auto;padding:0 16px">
   <div style="background:#fff;border-radius:8px;padding:16px;margin-bottom:20px;box-shadow:0 1px 4px #0001">
     <h2 style="font-size:15px;margin-bottom:10px;color:#333">Select a Set</h2>
     <form method="GET">
@@ -281,6 +278,7 @@ tr:hover td{{background:#fafafa}}td{{padding:8px 12px;border-bottom:1px solid #f
 </div></body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
 
 @staff_member_required
 def delete_product(request, product_id):
@@ -324,9 +322,10 @@ def stock_wipe(request):
         return JsonResponse({'ok': True, 'count': count})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
+
+
 @staff_member_required
 def stock_print(request):
-    """Printable stock count sheet for a single set."""
     set_code = request.GET.get('set', '')
     if not set_code:
         return HttpResponse('<h2>No set selected. Go back and choose a set first.</h2>')
@@ -356,14 +355,12 @@ def stock_print(request):
         'CC': 'Code Card', 'TT': 'Trick or Trade',
     }
 
-    # Group cards by card_number — show name once, variants as sub-rows
     from itertools import groupby as igroup
     grouped = []
     for num, grp in igroup(cards, key=lambda c: c['card_number']):
         variants = list(grp)
         grouped.append(variants)
 
-    # Split grouped cards into 3 vertical columns
     total_groups = len(grouped)
     col_size = -(-total_groups // 3)
     cols = [grouped[0:col_size], grouped[col_size:col_size*2], grouped[col_size*2:]]
@@ -383,7 +380,6 @@ def stock_print(request):
             rows += f'<tr style="{border}">{num_cell}{name_cell}<td class="var">{var}</td><td class="box"></td><td class="box"></td><td class="box"></td></tr>'
         return rows
 
-    # Build table rows — one group per "slot", render side by side
     max_rows = col_size
     rows_html = ''
     for i in range(max_rows):
@@ -391,11 +387,9 @@ def stock_print(request):
         g2 = cols[1][i] if i < len(cols[1]) else None
         g3 = cols[2][i] if i < len(cols[2]) else None
 
-        # Each group may have multiple variant rows — zip them together
         r1 = list(render_group(g1).split('</tr>') if g1 else [''])
         r2 = list(render_group(g2).split('</tr>') if g2 else [''])
         r3 = list(render_group(g3).split('</tr>') if g3 else [''])
-        # Filter empty
         r1 = [r for r in r1 if r.strip()]
         r2 = [r for r in r2 if r.strip()]
         r3 = [r for r in r3 if r.strip()]
@@ -406,7 +400,6 @@ def stock_print(request):
             c1 = (r1[vi] + '</tr>') if vi < len(r1) else f'<tr><td colspan="6"></td></tr>'
             c2 = (r2[vi] + '</tr>') if vi < len(r2) else f'<tr><td colspan="6"></td></tr>'
             c3 = (r3[vi] + '</tr>') if vi < len(r3) else f'<tr><td colspan="6"></td></tr>'
-            # Extract inner tds from each
             def inner(r):
                 import re
                 tds = re.findall(r'<td[^>]*>.*?</td>', r, re.DOTALL)
@@ -422,12 +415,11 @@ def stock_print(request):
 <html>
 <head>
 <meta charset="utf-8">
-<title>Stock Count — {set_name}</title>
+<title>Stock Count - {set_name}</title>
 <style>
   @page {{ size: A4 landscape; margin: 8mm; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
-
   .header {{ display: flex; justify-content: space-between; align-items: center;
              border-bottom: 2px solid #ff6b35; padding-bottom: 5px; margin-bottom: 6px; }}
   .header h1 {{ font-size: 13px; color: #ff6b35; font-weight: 800; }}
@@ -436,22 +428,18 @@ def stock_print(request):
   .field {{ display: flex; flex-direction: column; gap: 2px; }}
   .field label {{ font-size: 7px; color: #999; text-transform: uppercase; }}
   .field .line {{ border-bottom: 1px solid #999; width: 100px; height: 14px; }}
-
   table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
   thead th {{ background: #ff6b35; color: #fff; padding: 3px 4px;
               text-align: left; font-size: 7px; font-weight: 700; text-transform: uppercase; }}
   td {{ padding: 2px 3px; border-bottom: 1px solid #eee; vertical-align: middle; overflow: hidden; white-space: nowrap; }}
-
   td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
   td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
   td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
   td.box  {{ width: 22px; }}
   td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:13px; width:18px; margin:0 auto; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
-
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
-
   @media print {{
     .no-print {{ display: none !important; }}
     body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
@@ -461,14 +449,14 @@ def stock_print(request):
 <body>
 
 <div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
-  <strong>PokéBulk Stock Count — {set_name}</strong>
-  <button onclick="window.print()" style="background:#fff;color:#ff6b35;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer">🖨 Print</button>
-  <a href="/api/stock/entry/?set={set_code}" style="color:#fff;font-size:12px">← Back</a>
+  <strong>PokeBulk Stock Count - {set_name}</strong>
+  <button onclick="window.print()" style="background:#fff;color:#ff6b35;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer">Print</button>
+  <a href="/api/stock/entry/?set={set_code}" style="color:#fff;font-size:12px">Back</a>
 </div>
 
 <div class="header">
   <div>
-    <h1>PokéBulk SA — Stock Count Sheet</h1>
+    <h1>PokeBulk SA - Stock Count Sheet</h1>
     <h2>{set_name} · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
   </div>
   <div class="header-right">
@@ -494,7 +482,7 @@ def stock_print(request):
 </table>
 
 <div class="footer">
-  <span>PokéBulk SA · 4 Heloise Street, Birchleigh North · enquiries@pokebulk.co.za</span>
+  <span>PokeBulk SA · 4 Heloise Street, Birchleigh North · enquiries@pokebulk.co.za</span>
   <span>Printed: <span id="now"></span></span>
 </div>
 <script>document.getElementById('now').textContent = new Date().toLocaleString('en-ZA');</script>
@@ -514,8 +502,9 @@ def sets_list(request):
             'symbol_url': s.symbol_url or '',
             'logo_url': s.logo_url or '',
             'release_date': str(s.release_date) if s.release_date else '',
-            'era_code': s.era.code if s.era else '','era_name': s.era.name if s.era else '','regulation_mark': s.regulation_mark or '',
+            'era_code': s.era.code if s.era else '',
             'era_name': s.era.name if s.era else '',
+            'regulation_mark': s.regulation_mark or '',
         })
     return JsonResponse({'results': data})
 

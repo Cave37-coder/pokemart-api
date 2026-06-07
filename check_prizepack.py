@@ -1,7 +1,22 @@
-from products.models import PokemonProduct, CardSet
+# check_prizepack.py
+import csv
+from collections import defaultdict
 
-# Check Prize Pack sets in DB
-sets = CardSet.objects.filter(code__in=['PRIZEPACK','PPS1','PPS2','PPS3','PPS4','PPS5','PPS6','PPS7','PPS8']).values('code','name','release_date')
-for s in sets:
-    count = PokemonProduct.objects.filter(card_set__code=s['code']).count()
-    print(f"{s['code']:<12} {s['name']:<40} {str(s['release_date']):<12} cards={count}")
+BIBLE = "pokebulk_bible_cards_only_20260531_0803_bulba_enriched_ptcg_enriched_FINAL.csv"
+
+stamp_types = defaultdict(int)
+is_stamped = defaultdict(int)
+names = []
+
+with open(BIBLE, encoding='utf-8') as f:
+    for row in csv.DictReader(f):
+        if row.get('set_code','').strip() == 'PRIZEPACK':
+            stamp_types[row.get('stamp_type','').strip()] += 1
+            is_stamped[row.get('is_stamped','').strip()] += 1
+            if len(names) < 5:
+                names.append(row.get('name',''))
+
+print("PRIZEPACK in Bible CSV:")
+print(f"  stamp_type breakdown: {dict(stamp_types)}")
+print(f"  is_stamped breakdown: {dict(is_stamped)}")
+print(f"  Examples: {names}")
