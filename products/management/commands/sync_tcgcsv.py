@@ -1,4 +1,4 @@
-"""
+﻿"""
 sync_tcgcsv - PokeBulk SA
 Syncs cards from TCGCSV into Railway DB.
 - productId is the unique key
@@ -186,7 +186,7 @@ GROUP_CONFIG = {
     "SWSH11":   (3118,  "Lost Origin",                         "B7"),
     "LORTG":    (3172,  "Lost Origin Trainer Gallery",         "B7"),
     "SWSH12":   (3170,  "Silver Tempest",                      "B7"),
-    "ST":       (17674, "Silver Tempest Trainer Gallery",      "B7"),
+    "SITTG":    (17674, "Silver Tempest Trainer Gallery",      "B7"),
     "CRZ":      (17688, "Crown Zenith",                        "B7"),
     "CRZGG":    (17689, "Crown Zenith: Galarian Gallery",      "B7"),
     "TOT22":    (3179,  "Trick or Trade 2022",                 "B7"),
@@ -341,7 +341,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
 
     existing = set(
         PokemonProduct.objects.filter(tcgcsv_product_id__isnull=False)
-        .values_list("tcgcsv_product_id", "variant_override")
+        .values_list("tcgcsv_product_id", "variant_sort")
     )
 
     to_create = []
@@ -390,7 +390,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 card_number=card_number,
                 card_set=card_set,
                 category=category,
-                variant_override=variant,
+                variant_sort=variant,
                 rarity=rarity,
                 image_url=image_url,
                 price=zar if zar is not None else Decimal("1.50"),

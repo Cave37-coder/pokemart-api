@@ -124,12 +124,12 @@ def stock_entry(request):
             .filter(card_set__code=selected_set_code, is_active=True)
             .select_related('card_set')
             .order_by('card_number', 'variant_sort')
-            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
+            .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
         )
         VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
         for c in cards:
-            vo = c.get('variant_override') or ''
-            c['var_label'] = vo if vo in VALID_VARIANTS else 'N'
+            vs = c.get('variant_sort') or ''
+            c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
 
     # Build grouped dropdown
     sets_with_cards = [s for s in all_sets if s.card_count > 0]
@@ -397,12 +397,12 @@ def stock_print(request):
         PokemonProduct.objects
         .filter(card_set__code=set_code, is_active=True)
         .order_by('card_number', 'variant_sort')
-        .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
+        .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
     )
     VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
     for c in cards:
-        vo = c.get('variant_override') or ''
-        c['var_label'] = vo if vo in VALID_VARIANTS else 'N'
+        vs = c.get('variant_sort') or ''
+        c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
 
     VARIANT_LABEL = {
         'N': 'Normal', 'H': 'Holo', 'RH': 'Rev Holo',
@@ -567,8 +567,8 @@ def sets_list(request):
     return JsonResponse({'results': data})
 
 
-@staff_member_required
 @csrf_exempt
+@staff_member_required
 def bundle_stock_entry(request):
     bundles = list(
         PokemonProduct.objects
