@@ -67,6 +67,7 @@ class PokemonTypeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticatedOrReadOnly()]
 
 
+from collections import defaultdict
 from datetime import date as date_type
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
@@ -77,6 +78,29 @@ from django.db.models import Count
 import json
 
 from .models import PokemonProduct, CardSet, Era
+
+ERA_ORDER = [
+    'MEG', 'SV', 'SWSH', 'SM', 'XY', 'BW', 'HGSS', 'DP', 'EX',
+    'WotCO', 'WotCL', 'WotCN', 'WotC', 'OTHER', 'PROMO',
+]
+
+ERA_LABELS = {
+    'MEG':   'Mega Evolution',
+    'SV':    'Scarlet & Violet',
+    'SWSH':  'Sword & Shield',
+    'SM':    'Sun & Moon',
+    'XY':    'XY Era',
+    'BW':    'Black & White',
+    'HGSS':  'HG&SS',
+    'DP':    'D&P / Platinum',
+    'EX':    'EX Era',
+    'WotCO': 'e-Card',
+    'WotCL': 'Legendary',
+    'WotCN': 'Neo',
+    'WotC':  'WotC Base',
+    'OTHER': 'Special / Other',
+    'PROMO': 'Promos',
+}
 
 
 @staff_member_required
@@ -105,19 +129,50 @@ def stock_entry(request):
         VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
         for c in cards:
             vo = c.get('variant_override') or ''
-            if vo in VALID_VARIANTS:
-                c['var_label'] = vo
-            else:
-                c['var_label'] = 'N'
+            c['var_label'] = vo if vo in VALID_VARIANTS else 'N'
+
+    # Build grouped dropdown
+    sets_with_cards = [s for s in all_sets if s.card_count > 0]
+    sets_empty      = [s for s in all_sets if s.card_count == 0]
+
+    by_era = defaultdict(list)
+    for s in sets_with_cards:
+        era = s.era.code if s.era else 'OTHER'
+        by_era[era].append(s)
 
     options_html = '<option value="">-- Choose a set --</option>'
-    for s in all_sets:
-        sel = 'selected' if s.code == selected_set_code else ''
-        card_label = f' ({s.card_count})' if s.card_count > 0 else ''
-        era_code = s.era.code if s.era else ''
-        release = str(s.release_date) if s.release_date else ''
-        release_label = f' · {release}' if release else ''
-        options_html += f'<option value="{s.code}" {sel}>[{era_code}] [{s.code}] {s.name}{card_label}{release_label}</option>'
+
+    for era_code in ERA_ORDER:
+        era_sets = by_era.get(era_code, [])
+        if not era_sets:
+            continue
+        era_label = ERA_LABELS.get(era_code, era_code)
+        options_html += f'<optgroup label="{era_label}">'
+        for s in era_sets:
+            sel = 'selected' if s.code == selected_set_code else ''
+            release = str(s.release_date) if s.release_date else ''
+            release_label = f' · {release}' if release else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
+        options_html += '</optgroup>'
+
+    # Any era not in ERA_ORDER
+    other_eras = set(by_era.keys()) - set(ERA_ORDER)
+    if other_eras:
+        options_html += '<optgroup label="Other">'
+        for era_code in sorted(other_eras):
+            for s in by_era[era_code]:
+                sel = 'selected' if s.code == selected_set_code else ''
+                release = str(s.release_date) if s.release_date else ''
+                options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count})</option>'
+        options_html += '</optgroup>'
+
+    # Empty sets at bottom
+    if sets_empty:
+        options_html += '<optgroup label="Empty Sets">'
+        for s in sets_empty:
+            sel = 'selected' if s.code == selected_set_code else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}</option>'
+        options_html += '</optgroup>'
 
     cards_html = ''
     if cards:
@@ -151,8 +206,9 @@ def stock_entry(request):
             var = card.get('var_label') or card['variant_sort'] or 'N'
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
+            card_num = str(card['card_number']).zfill(3) if card['card_number'] is not None else '???'
             rows += f'''<tr style="scroll-margin-top:120px">
-              <td style="font-family:monospace;color:#888;font-size:15px;padding:12px 14px">#{str(card["card_number"]).zfill(3)}</td>
+              <td style="font-family:monospace;color:#888;font-size:15px;padding:12px 14px">#{card_num}</td>
               <td style="font-size:15px;padding:12px 14px;font-weight:500">{card["name"]}</td>
               <td style="padding:12px 14px"><span style="background:{var_style};padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700">{var}</span></td>
               <td style="font-size:13px;color:#888;padding:12px 14px">{card["rarity"] or ""}</td>
@@ -181,7 +237,7 @@ def stock_entry(request):
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
     <a href="/api/stock/print/?set={selected_set_code}" target="_blank"
        style="display:block;background:#ff6b35;color:#fff;text-align:center;padding:10px;border-radius:6px;font-weight:700;text-decoration:none;font-size:13px">
-      🖨 Print Count Sheet
+      Print Count Sheet
     </a>
   </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
@@ -259,7 +315,9 @@ document.addEventListener('keydown',function(e){{
     html = f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Stock Entry - PokeBulk SA</title>
 <style>*{{box-sizing:border-box;margin:0;padding:0}}body{{font-family:Arial,sans-serif;background:#f5f5f5}}
-tr:hover td{{background:#fafafa}}td{{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:15px}}</style>
+tr:hover td{{background:#fafafa}}td{{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:15px}}
+select optgroup{{font-weight:700;color:#ff6b35}}
+select option{{font-weight:400;color:#333}}</style>
 </head><body>
 <div style="background:#ff6b35;color:#fff;padding:12px 20px;margin-bottom:20px">
   <h1 style="font-size:18px;display:inline">Stock Entry - PokeBulk SA</h1>
@@ -397,9 +455,9 @@ def stock_print(request):
 
         bg = '#ffffff' if i % 2 == 0 else '#f9f9f9'
         for vi in range(max_v):
-            c1 = (r1[vi] + '</tr>') if vi < len(r1) else f'<tr><td colspan="6"></td></tr>'
-            c2 = (r2[vi] + '</tr>') if vi < len(r2) else f'<tr><td colspan="6"></td></tr>'
-            c3 = (r3[vi] + '</tr>') if vi < len(r3) else f'<tr><td colspan="6"></td></tr>'
+            c1 = (r1[vi] + '</tr>') if vi < len(r1) else '<tr><td colspan="6"></td></tr>'
+            c2 = (r2[vi] + '</tr>') if vi < len(r2) else '<tr><td colspan="6"></td></tr>'
+            c3 = (r3[vi] + '</tr>') if vi < len(r3) else '<tr><td colspan="6"></td></tr>'
             def inner(r):
                 import re
                 tds = re.findall(r'<td[^>]*>.*?</td>', r, re.DOTALL)
@@ -512,12 +570,12 @@ def sets_list(request):
 @staff_member_required
 @csrf_exempt
 def bundle_stock_entry(request):
-    from django.db.models import Count as DCount
     bundles = list(
         PokemonProduct.objects
         .filter(category__slug='bundles')
         .select_related('card_set', 'card_set__era')
-        .order_by('card_set__release_date', 'card_set__name').exclude(card_set__release_date__isnull=True)
+        .order_by('card_set__release_date', 'card_set__name')
+        .exclude(card_set__release_date__isnull=True)
         .values('id', 'name', 'card_set__name', 'card_set__code', 'card_set__era__name',
                 'card_set__logo_url', 'card_set__symbol_url', 'stock', 'price', 'is_active')
     )
@@ -544,16 +602,17 @@ def bundle_stock_entry(request):
             PokemonProduct.objects
             .filter(category__slug='bundles')
             .select_related('card_set', 'card_set__era')
-            .order_by('card_set__release_date', 'card_set__name').exclude(card_set__release_date__isnull=True)
+            .order_by('card_set__release_date', 'card_set__name')
+            .exclude(card_set__release_date__isnull=True)
             .values('id', 'name', 'card_set__name', 'card_set__code', 'card_set__era__name',
                     'card_set__logo_url', 'card_set__symbol_url', 'stock', 'price', 'is_active')
         )
-        saved_msg = f'''<div style="background:#d4edda;color:#155724;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-weight:600">Saved {updated} bundles successfully!</div>'''
+        saved_msg = f'<div style="background:#d4edda;color:#155724;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-weight:600">Saved {updated} bundles successfully!</div>'
 
     rows = ''
     for b in bundles:
         logo = b['card_set__logo_url'] or b['card_set__symbol_url'] or ''
-        logo_html = f'''<img src="{logo}" style="height:28px;max-width:60px;object-fit:contain;vertical-align:middle;margin-right:8px">''' if logo else ''
+        logo_html = f'<img src="{logo}" style="height:28px;max-width:60px;object-fit:contain;vertical-align:middle;margin-right:8px">' if logo else ''
         era = b['card_set__era__name'] or ''
         set_name = b['card_set__name'] or b['name']
         active_checked = 'checked' if b['is_active'] else ''
@@ -585,19 +644,28 @@ tr:hover{{background:#fff8f5!important}}
 .back{{color:#ff6b35;text-decoration:none;font-size:13px;display:inline-block;margin-bottom:16px}}
 </style></head><body>
 <div class="wrap">
-<a href="/stock/entry/" class="back">&laquo; Back to Card Stock Entry</a>
+<a href="/api/stock/entry/" class="back">&laquo; Back to Card Stock Entry</a>
 <h1>Complete Set Bundle Stock</h1>
 <div class="stats">{total} bundles total &middot; {active_count} active on site</div>
 {saved_msg}
 <form method="post">
 <table>
-<thead><tr><th style="width:120px">Era</th><th>Set Name</th><th style="width:110px">Price (R)</th><th style="width:90px">Stock</th><th style="width:70px;text-align:center">Active</th></tr></thead>
+<thead><tr>
+  <th style="width:120px">Era</th>
+  <th>Set Name</th>
+  <th style="width:110px">Price (R)</th>
+  <th style="width:90px">Stock</th>
+  <th style="width:70px;text-align:center">Active</th>
+</tr></thead>
 <tbody>{rows}</tbody>
 </table>
 <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
-<button type="submit" class="btn">Save all bundles</button>
-<span style="font-size:12px;color:#888">Tick Active to make bundle visible on site</span>
-</div></form></div></body></html>'''
+  <button type="submit" class="btn">Save all bundles</button>
+  <span style="font-size:12px;color:#888">Tick Active to make bundle visible on site</span>
+</div>
+</form>
+</div></body></html>'''
+
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
