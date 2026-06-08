@@ -189,7 +189,7 @@ GROUP_CONFIG = {
     "SITTG":    (17674, "Silver Tempest Trainer Gallery",      "B7"),
     "CRZ":      (17688, "Crown Zenith",                        "B7"),
     "CRZGG":    (17689, "Crown Zenith: Galarian Gallery",      "B7"),
-    "TOT22":    (3179,  "Trick or Trade 2022",                 "B7"),
+    "TK22":    (3179,  "Trick or Trade 2022",                 "B7"),
     "MCD22":    (3150,  "McDonald's Collection 2022",          "B7"),
     "PR-SWSH":  (2545,  "SWSH Black Star Promos",              "B7"),
     # Scarlet & Violet Era (B8)
@@ -199,7 +199,7 @@ GROUP_CONFIG = {
     "PAL":      (23120, "Paldea Evolved",                      "B8"),
     "OBF":      (23228, "Obsidian Flames",                     "B8"),
     "MEW":      (23237, "Scarlet & Violet 151",                "B8"),
-    "TOT23":    (23266, "Trick or Trade 2023",                 "B8"),
+    "TK23":    (23266, "Trick or Trade 2023",                 "B8"),
     "PAR":      (23286, "Paradox Rift",                        "B8"),
     "MCD23":    (23306, "McDonald's Collection 2023",          "B8"),
     "TCGCL":    (23323, "Trading Card Game Classic",           "B8"),
@@ -208,7 +208,7 @@ GROUP_CONFIG = {
     "TWM":      (23473, "Twilight Masquerade",                 "B8"),
     "SFA":      (23529, "Shrouded Fable",                      "B8"),
     "SCR":      (23537, "Stellar Crown",                       "B8"),
-    "TOT24":    (23561, "Trick or Trade 2024",                 "B8"),
+    "TK24":    (23561, "Trick or Trade 2024",                 "B8"),
     "SSP":      (23651, "Surging Sparks",                      "B8"),
     "PRE":      (23821, "Prismatic Evolutions",                "B8"),
     "JTG":      (24073, "Journey Together",                    "B8"),
@@ -455,3 +455,4 @@ class Command(BaseCommand):
             f"  no_price={grand['no_price']}  non_card={grand['non_card']}"
         )
         self.stdout.write(f"Net new cards in DB: {grand['created']}")
+
