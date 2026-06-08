@@ -1,4 +1,4 @@
-﻿"""
+"""
 sync_tcgcsv - PokeBulk SA
 Syncs cards from TCGCSV into Railway DB.
 - productId is the unique key
@@ -240,6 +240,13 @@ SUBTYPE_MAP = {
     "Unlimited":            "N",
 }
 
+
+VARIANT_SORT_ORDER = {
+    "N": 0, "RH": 1, "H": 2, "PB": 3, "MB": 4, "LB": 5,
+    "FB": 6, "QB": 7, "UB": 8, "DB": 9, "TR": 10, "SE": 11,
+    "PBP": 12, "MBP": 13, "CC": 14, "TT": 15,
+}
+
 RARITY_MAP = {
     "Common": "common", "Uncommon": "uncommon", "Rare": "rare",
     "Holo Rare": "holo_rare", "Rare Holo": "holo_rare",
@@ -341,7 +348,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
 
     existing = set(
         PokemonProduct.objects.filter(tcgcsv_product_id__isnull=False)
-        .values_list("tcgcsv_product_id", "variant_sort")
+        .values_list("tcgcsv_product_id", "variant_override")
     )
 
     to_create = []
@@ -390,7 +397,8 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 card_number=card_number,
                 card_set=card_set,
                 category=category,
-                variant_sort=variant,
+                variant_override=variant,
+                variant_sort=VARIANT_SORT_ORDER.get(variant, 9),
                 rarity=rarity,
                 image_url=image_url,
                 price=zar if zar is not None else Decimal("1.50"),
