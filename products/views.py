@@ -241,8 +241,8 @@ def stock_entry(request):
     </a>
   </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
-    <div style="font-size:16px;font-weight:700;color:#ff6b35">{set_name}</div>
-    <div style="font-size:11px;color:#888">[{selected_set_code}]</div>
+    <div style="font-size:20px;font-weight:800;color:#ff6b35">{set_name}</div>
+    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] · {selected_set_code}</div>
   </div>
 </div>
 
@@ -514,8 +514,8 @@ def stock_print(request):
 
 <div class="header">
   <div>
-    <h1>PokeBulk SA - Stock Count Sheet</h1>
-    <h2>{set_name} · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
+    <h1 style="font-size:16px;color:#ff6b35;font-weight:800">{set_name}</h1>
+    <h2>PokeBulk SA Stock Count · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
   </div>
   <div class="header-right">
     <div class="field"><label>Date</label><div class="line" style="width:80px"></div></div>
@@ -527,13 +527,13 @@ def stock_print(request):
   <thead>
     <tr>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
+      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
     </tr>
   </thead>
   <tbody>{rows_html}</tbody>
