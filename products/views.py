@@ -124,11 +124,11 @@ def stock_entry(request):
             .filter(card_set__code=selected_set_code, is_active=True)
             .select_related('card_set')
             .order_by('card_number', 'variant_sort')
-            .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
+            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
         )
         VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
         for c in cards:
-            vs = c.get('variant_sort') or ''
+            vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
 
     # Build grouped dropdown
@@ -203,7 +203,7 @@ def stock_entry(request):
 
         rows = ''
         for card in cards:
-            var = card.get('var_label') or card['variant_sort'] or 'N'
+            var = card.get('var_label') or card.get('variant_override') or 'N'
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
             card_num = str(card['card_number']).zfill(3) if card['card_number'] is not None else '???'
@@ -397,11 +397,11 @@ def stock_print(request):
         PokemonProduct.objects
         .filter(card_set__code=set_code, is_active=True)
         .order_by('card_number', 'variant_sort')
-        .values('id', 'name', 'card_number', 'variant_sort', 'rarity', 'stock', 'price')
+        .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
     VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
     for c in cards:
-        vs = c.get('variant_sort') or ''
+        vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
 
     VARIANT_LABEL = {
@@ -428,7 +428,7 @@ def stock_print(request):
             return '<td colspan="6" style="border-bottom:2px solid #eee"></td>'
         rows = ''
         for vi, card in enumerate(variants):
-            var = card.get('var_label') or card['variant_sort'] or 'N'
+            var = card.get('var_label') or card.get('variant_override') or 'N'
             var_label = VARIANT_LABEL.get(var, var)
             num_str = str(card['card_number'] or '').zfill(3)
             name = card['name'] if vi == 0 else ''
@@ -493,8 +493,8 @@ def stock_print(request):
   td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
   td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
   td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
-  td.box  {{ width: 22px; }}
-  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:13px; width:18px; margin:0 auto; }}
+  td.box  {{ width: 38px; }}
+  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:18px; width:32px; margin:0 auto; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
@@ -527,13 +527,13 @@ def stock_print(request):
   <thead>
     <tr>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:36px">1</th><th style="width:36px">2</th><th style="width:36px">3</th>
     </tr>
   </thead>
   <tbody>{rows_html}</tbody>
