@@ -494,7 +494,7 @@ def stock_print(request):
   td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
   td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
   td.box  {{ width: 36px; }}
-  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:30px; width:32px; margin:0 auto; }}
+  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:18px; width:32px; margin:0 auto; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
@@ -531,13 +531,13 @@ def stock_print(request):
   <thead>
     <tr>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
-      <th style="width:20px">1</th><th style="width:20px">2</th><th style="width:20px">3</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
     </tr>
   </thead>
   <tbody>{rows_html}</tbody>
