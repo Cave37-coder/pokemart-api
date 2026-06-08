@@ -498,13 +498,17 @@ def stock_print(request):
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
+  .page-header {{ display: none; }}
   @media print {{
     .no-print {{ display: none !important; }}
     body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    .page-header {{ display: block; position: running(header); font-size: 9px; color: #ff6b35; font-weight: 700; text-align: right; }}
+    @page {{ @top-right {{ content: element(header); }} }}
   }}
 </style>
 </head>
 <body>
+<div class="page-header">{set_name} · {set_code}</div>
 
 <div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
   <strong>PokeBulk Stock Count - {set_name}</strong>
