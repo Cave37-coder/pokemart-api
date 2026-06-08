@@ -493,8 +493,8 @@ def stock_print(request):
   td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
   td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
   td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
-  td.box  {{ width: 56px; }}
-  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:36px; width:52px; margin:0 auto; }}
+  td.box  {{ width: 36px; }}
+  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:30px; width:32px; margin:0 auto; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
