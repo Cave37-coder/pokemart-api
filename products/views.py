@@ -551,7 +551,9 @@ def stock_print(request):
 
 
 def sets_list(request):
-    sets = CardSet.objects.select_related('era').order_by('-release_date', 'name')
+    sets = CardSet.objects.select_related('era').annotate(
+        pc=Count('products')
+    ).filter(pc__gt=0).order_by('-release_date', 'name')
     data = []
     for s in sets:
         data.append({
