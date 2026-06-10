@@ -247,6 +247,20 @@ VARIANT_SORT_ORDER = {
     "PBP": 12, "MBP": 13, "CC": 14, "TT": 15,
 }
 
+
+# Sets where TCGPlayer has wrong/Japanese images - use pokemontcg.io instead
+PTCGIO_IMAGE_SETS = {
+    "HIFSV": "sma",       # Hidden Fates Shiny Vault
+    "SHFSV": "swsh45sv",  # Shining Fates Shiny Vault
+    "CCC":   "cel25c",    # Celebrations Classic Collection
+    "CLB":   "cel25",     # Celebrations
+    "CRZGG": "swsh12pt5gg", # Crown Zenith Galarian Gallery
+    "BRSTG": "swsh9tg",   # Brilliant Stars Trainer Gallery
+    "ASRTG": "swsh10tg",  # Astral Radiance Trainer Gallery
+    "LORTG": "swsh11tg",  # Lost Origin Trainer Gallery
+    "SITTG": "swsh12tg",  # Silver Tempest Trainer Gallery
+}
+
 RARITY_MAP = {
     "Common": "common", "Uncommon": "uncommon", "Rare": "rare",
     "Holo Rare": "holo_rare", "Rare Holo": "holo_rare",
@@ -264,6 +278,7 @@ RARITY_MAP = {
     "Trainer Gallery Ultra Rare": "ultra_rare",
     "Trainer Gallery Secret Rare": "secret_rare",
     "Classic Collection": "holo_rare", "ACE SPEC Rare": "ultra_rare",
+    "Mega Hyper Rare": "hyper_rare", "Mega Attack Rare": "ultra_rare", "Shiny Rare": "shiny_rare", "Shiny Ultra Rare": "shiny_ultra_rare",
 }
 
 
@@ -350,6 +365,13 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
         PokemonProduct.objects.filter(tcgcsv_product_id__isnull=False)
         .values_list("tcgcsv_product_id", "variant_override")
     )
+    # Build lookup for updating prices on existing records
+    existing_map = {
+        (obj.tcgcsv_product_id, obj.variant_override): obj
+        for obj in PokemonProduct.objects.filter(
+            card_set=card_set, tcgcsv_product_id__isnull=False
+        )
+    }
 
     to_create = []
 
@@ -357,6 +379,8 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
         pid = p.get("productId")
         name = (p.get("name") or "").strip()
         image_url = p.get("imageUrl", "")
+        # Override image URL for sets with wrong/Japanese TCGPlayer images
+        ptcgio_set = PTCGIO_IMAGE_SETS.get(set_code)
         ext = p.get("extendedData", [])
 
         number_raw = _ext(ext, "Number")
@@ -375,6 +399,11 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             variant = SUBTYPE_MAP.get(sub, "N")
             rarity = RARITY_MAP.get(rarity_raw, "common")
             zar = _zar_price(usd, rate) if usd else None
+            # Use pokemontcg.io image for special sets
+            card_image_url = image_url
+            if ptcgio_set and number_raw:
+                num_part = str(number_raw).split("/")[0].strip()
+                card_image_url = f"https://images.pokemontcg.io/{ptcgio_set}/{num_part}.png"
 
             if usd is None:
                 no_price += 1
@@ -382,6 +411,16 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             pb_id = f"{set_code}-{card_number}-{variant}"
 
             if (pid, variant) in existing:
+                # Update price and image on existing record
+                obj = existing_map.get((pid, variant))
+                if obj and usd:
+                    new_price = _zar_price(usd, rate)
+                    new_img = card_image_url if ptcgio_set and number_raw else None
+                    if obj.price != new_price or (new_img and obj.image_url != new_img):
+                        obj.price = new_price
+                        if new_img:
+                            obj.image_url = new_img
+                        obj.save(update_fields=['price', 'image_url', 'updated_at'])
                 skipped += 1
                 continue
 
@@ -400,7 +439,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 variant_override=variant,
                 variant_sort=VARIANT_SORT_ORDER.get(variant, 9),
                 rarity=rarity,
-                image_url=image_url,
+                image_url=card_image_url,
                 price=zar if zar is not None else Decimal("1.50"),
                 stock=0,
             ))

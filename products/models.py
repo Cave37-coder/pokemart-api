@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 tcgcsv_product_id = models.IntegerField(null=True, blank=True, db_index=True)
 
 class Era(models.Model):
@@ -91,6 +91,7 @@ class PokemonProduct(models.Model):
     rarity = models.CharField(max_length=30, choices=RARITY_CHOICES, default="common")
     pokedex_number = models.PositiveIntegerField(null=True, blank=True)
     card_number = models.PositiveIntegerField(null=True, blank=True)
+    number = models.CharField(max_length=20, blank=True)  # raw TCGCSV number e.g. "001/192"
     variant_override = models.CharField(max_length=20, blank=True)
     variant_sort = models.IntegerField(default=9)
     legal_standard = models.BooleanField(null=True, blank=True)
@@ -174,4 +175,3 @@ class PokemonProduct(models.Model):
         if not self.pb_id:
             self.pb_id = self.generate_pb_id()
         super().save(*args, **kwargs)
-
