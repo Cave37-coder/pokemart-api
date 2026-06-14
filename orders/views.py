@@ -136,12 +136,37 @@ class CheckoutView(APIView):
 
         def _send_emails():
             try:
-                from django.core.mail import send_mail
-                from django.conf import settings as django_settings
+                import os
+                import urllib.request
+                import json
+
+                api_key = os.environ.get('RESEND_API_KEY', '')
+                if not api_key:
+                    logger.error(f"RESEND_API_KEY not set — skipping email for order #{order_id}")
+                    return
+
+                def resend_send(to_list, subject, body_text):
+                    payload = json.dumps({
+                        "from": "PokeBulk SA <orders@updates.pokebulk.co.za>",
+                        "to": to_list,
+                        "subject": subject,
+                        "text": body_text,
+                    }).encode('utf-8')
+                    req = urllib.request.Request(
+                        "https://api.resend.com/emails",
+                        data=payload,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        return json.loads(resp.read())
 
                 # Email to shop
-                subject = f"PokeBulk SA - New Order #{order_id}"
-                body = f"""New order received!
+                shop_subject = f"PokeBulk SA - New Order #{order_id}"
+                shop_body = f"""New order received!
 
 Order #{order_id}
 Customer: {customer_username} ({customer_email})
@@ -156,12 +181,7 @@ Address: {address_val}
 Pudo Locker: {pudo_val}
 Note: {note_val}
 """
-                send_mail(
-                    subject, body,
-                    django_settings.DEFAULT_FROM_EMAIL,
-                    ['enquiries@pokebulk.co.za'],
-                    fail_silently=False
-                )
+                resend_send(['enquiries@pokebulk.co.za'], shop_subject, shop_body)
                 logger.info(f"Shop email sent for order #{order_id}")
 
                 # Email to customer
@@ -183,13 +203,9 @@ PokeBulk SA Team
 Tel: 074 488 6919
 enquiries@pokebulk.co.za
 """
-                    send_mail(
+                    resend_send([customer_email],
                         f"PokeBulk SA - Order #{order_id} Confirmation",
-                        customer_body,
-                        django_settings.DEFAULT_FROM_EMAIL,
-                        [customer_email],
-                        fail_silently=False
-                    )
+                        customer_body)
                     logger.info(f"Customer email sent for order #{order_id} to {customer_email}")
 
             except Exception as e:
