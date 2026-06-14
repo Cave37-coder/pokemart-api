@@ -1,5 +1,5 @@
 from django.db import models
-tcgcsv_product_id = models.IntegerField(null=True, blank=True, db_index=True)
+
 
 class Era(models.Model):
     code = models.CharField(max_length=10, unique=True)
@@ -20,6 +20,8 @@ class CardSet(models.Model):
     regulation_mark = models.CharField(max_length=5, blank=True, default='')
     checklist_pdf = models.FileField(upload_to='checklists/', blank=True, null=True)
     checklist_xlsx = models.FileField(upload_to='checklists/', blank=True, null=True)
+    tcgio_code = models.CharField(max_length=20, blank=True, default='', help_text='pokemontcg.io API set code e.g. swsh1. Used for API lookups only, never in filenames or paths.')
+    bulba_code = models.CharField(max_length=20, blank=True, default='', help_text='Official Bulbapedia set abbreviation e.g. SSH')
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -72,6 +74,22 @@ class PokemonProduct(models.Model):
         "legendary": "RA",
     }
 
+    CONDITION_CHOICES = [
+        ('NM', 'Near Mint'),
+        ('LP', 'Lightly Played'),
+        ('MP', 'Moderately Played'),
+        ('HP', 'Heavily Played'),
+        ('DMG', 'Damaged'),
+    ]
+
+    CONDITION_MULTIPLIERS = {
+        'NM': 1.00,
+        'LP': 0.80,
+        'MP': 0.60,
+        'HP': 0.35,
+        'DMG': 0.20,
+    }
+
     # Identifiers
     pb_id = models.CharField(max_length=50, unique=True, blank=True, editable=False)
     sku = models.CharField(max_length=20, unique=True, blank=True)
@@ -91,9 +109,10 @@ class PokemonProduct(models.Model):
     rarity = models.CharField(max_length=30, choices=RARITY_CHOICES, default="common")
     pokedex_number = models.PositiveIntegerField(null=True, blank=True)
     card_number = models.PositiveIntegerField(null=True, blank=True)
-    number = models.CharField(max_length=20, blank=True)  # raw TCGCSV number e.g. "001/192"
+    number = models.CharField(max_length=20, blank=True)
     variant_override = models.CharField(max_length=20, blank=True)
     variant_sort = models.IntegerField(default=9)
+    condition = models.CharField(max_length=3, choices=CONDITION_CHOICES, default='NM')
     legal_standard = models.BooleanField(null=True, blank=True)
     legal_expanded = models.BooleanField(null=True, blank=True)
     legal_unlimited = models.BooleanField(default=True)
