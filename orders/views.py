@@ -1,5 +1,4 @@
 import logging
-import threading
 from decimal import Decimal
 
 from django.contrib.admin.views.decorators import staff_member_required
@@ -196,7 +195,8 @@ enquiries@pokebulk.co.za
             except Exception as e:
                 logger.error(f"Email error for order #{order_id}: {e}", exc_info=True)
 
-        threading.Thread(target=_send_emails, daemon=True).start()
+        # Send emails synchronously - don't use daemon thread (gets killed)
+        _send_emails()
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
