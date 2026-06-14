@@ -327,7 +327,7 @@ function wipeSet(){{
   fetch('/api/stock/wipe/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{set_code:SET_CODE}})}})
   .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(6)').forEach(td=>td.textContent='0');}}}});
 }}
-const COND_MULT = {LP:0.80,MP:0.60,HP:0.35,DMG:0.20};
+const COND_MULT = {{LP:0.80,MP:0.60,HP:0.35,DMG:0.20}};
 function addPlayed(id,tcgId,basePrice,btn){{
   const row=document.getElementById('played-row-'+id);
   row.style.display=row.style.display==='none'?'table-row':'none';
@@ -793,6 +793,7 @@ tr:hover{{background:#fff8f5!important}}
 </div></body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
 
 
 
