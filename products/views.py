@@ -1,4 +1,4 @@
-﻿from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters
 from django.db.models import Case, When, IntegerField, Value
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
@@ -124,7 +124,7 @@ def stock_entry(request):
             .filter(card_set__code=selected_set_code, is_active=True)
             .select_related('card_set')
             .order_by('card_number', 'variant_sort')
-            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
+            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
         VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
         for c in cards:
@@ -217,7 +217,31 @@ def stock_entry(request):
               <td style="padding:12px 14px"><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
                          min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
-              <td style="padding:12px 14px"><button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.6">✕</button></td>
+              <td style="padding:12px 14px;white-space:nowrap">
+                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">✕</button>
+                <button onclick="addPlayed({card['id']},{card['tcgcsv_product_id'] or 'null'},{card['price']},this)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">+Played</button>
+              </td>
+            </tr>
+            <tr id="played-row-{card['id']}" style="display:none;background:#fffbeb">
+              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">↳ Add played copy of <strong>{card["name"]}</strong></td>
+              <td style="padding:6px 14px">
+                <select id="cond-{card['id']}" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:4px;font-size:13px;font-weight:700">
+                  <option value="LP">LP — Lightly Played</option>
+                  <option value="MP">MP — Moderately Played</option>
+                  <option value="HP">HP — Heavily Played</option>
+                  <option value="DMG">DMG — Damaged</option>
+                </select>
+              </td>
+              <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
+              <td style="padding:6px 14px;font-size:12px;color:#888">0</td>
+              <td style="padding:6px 14px">
+                <input type="number" id="played-qty-{card['id']}" min="1" value="1" placeholder="Qty"
+                  style="width:70px;padding:6px;border:1px solid #f59e0b;border-radius:4px;font-size:14px;font-weight:600;text-align:center">
+              </td>
+              <td style="padding:6px 14px">
+                <button onclick="savePlayed({card['id']},{card['price']})" style="background:#10B981;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:700">Save</button>
+                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">✕</button>
+              </td>
             </tr>'''
 
         cards_html = f'''
@@ -303,7 +327,33 @@ function wipeSet(){{
   fetch('/api/stock/wipe/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{set_code:SET_CODE}})}})
   .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(6)').forEach(td=>td.textContent='0');}}}});
 }}
-document.addEventListener('keydown',function(e){{
+const COND_MULT = {LP:0.80,MP:0.60,HP:0.35,DMG:0.20};
+function addPlayed(id,tcgId,basePrice,btn){{
+  const row=document.getElementById('played-row-'+id);
+  row.style.display=row.style.display==='none'?'table-row':'none';
+  const sel=document.getElementById('cond-'+id);
+  const priceEl=document.getElementById('played-price-'+id);
+  function updatePrice(){{
+    const mult=COND_MULT[sel.value]||0.80;
+    priceEl.textContent='R '+(basePrice*mult).toFixed(2);
+  }}
+  sel.onchange=updatePrice;
+  updatePrice();
+}}
+function savePlayed(nmId,basePrice){{
+  const cond=document.getElementById('cond-'+nmId).value;
+  const qty=parseInt(document.getElementById('played-qty-'+nmId).value)||1;
+  const mult=COND_MULT[cond]||0.80;
+  const price=(basePrice*mult).toFixed(2);
+  fetch('/api/stock/played/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},
+    body:JSON.stringify({{nm_product_id:nmId,condition:cond,stock:qty,price:parseFloat(price)}})
+  }}).then(r=>r.json()).then(d=>{{
+    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' · '+cond+' · R'+price+' · Qty '+qty,true);
+      document.getElementById('played-row-'+nmId).style.display='none';
+    }}else showMsg('Error: '+d.error,false);
+  }});
+}}
+document.addEventListener('keydown',function(e){{{
   if(e.key==='Enter'){{
     const inputs=[...document.querySelectorAll('.qty')];
     const idx=inputs.indexOf(document.activeElement);
@@ -552,6 +602,76 @@ def stock_print(request):
 </html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@csrf_exempt
+@staff_member_required
+@require_POST
+def stock_add_played(request):
+    """Create a played-condition copy of an existing NM product."""
+    try:
+        data = json.loads(request.body)
+        nm_id = int(data['nm_product_id'])
+        condition = data['condition']
+        stock = max(1, int(data.get('stock', 1)))
+        price = float(data['price'])
+
+        if condition not in ('LP', 'MP', 'HP', 'DMG'):
+            return JsonResponse({'ok': False, 'error': 'Invalid condition'})
+
+        nm = PokemonProduct.objects.select_related('card_set', 'card_set__era', 'category').get(id=nm_id)
+
+        # Check if played copy already exists for this condition
+        existing = PokemonProduct.objects.filter(
+            tcgcsv_product_id=nm.tcgcsv_product_id,
+            condition=condition,
+            variant_override=nm.variant_override,
+        ).exclude(id=nm_id).first()
+
+        if existing:
+            # Update stock on existing played copy
+            existing.stock += stock
+            existing.price = price
+            existing.save(update_fields=['stock', 'price', 'updated_at'])
+            return JsonResponse({'ok': True, 'product_id': existing.id, 'action': 'updated'})
+
+        # Create new played product row
+        played = PokemonProduct(
+            name=nm.name,
+            name_japanese=nm.name_japanese,
+            card_set=nm.card_set,
+            category=nm.category,
+            rarity=nm.rarity,
+            condition=condition,
+            variant_override=nm.variant_override,
+            variant_sort=nm.variant_sort,
+            card_number=nm.card_number,
+            number=nm.number,
+            pokedex_number=nm.pokedex_number,
+            supertype=nm.supertype,
+            card_subtypes=nm.card_subtypes,
+            image_url=nm.image_url,
+            image_small_url=nm.image_small_url,
+            tcgcsv_product_id=nm.tcgcsv_product_id,
+            price=price,
+            stock=stock,
+            is_active=True,
+            legal_standard=nm.legal_standard,
+            legal_expanded=nm.legal_expanded,
+            legal_unlimited=nm.legal_unlimited,
+        )
+        played.save()
+
+        # Copy pokemon types
+        if nm.pokemon_types.exists():
+            played.pokemon_types.set(nm.pokemon_types.all())
+
+        return JsonResponse({'ok': True, 'product_id': played.id, 'action': 'created'})
+
+    except PokemonProduct.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'NM product not found'})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
 
 
 def sets_list(request):
