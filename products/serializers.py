@@ -52,6 +52,7 @@ class PokemonProductSerializer(serializers.ModelSerializer):
             "category", "category_id", "card_set", "card_set_id",
             "pokemon_types", "pokemon_type_ids",
             "rarity", "pokedex_number", "card_number", "number", "variant_override",
+            "variant_sort", "condition",
             "supertype", "card_subtypes", "hp", "artist",
             "weakness_type", "weakness_value",
             "resistance_type", "resistance_value", "retreat_cost",
