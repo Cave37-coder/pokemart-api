@@ -353,7 +353,7 @@ function savePlayed(nmId,basePrice){{
     }}else showMsg('Error: '+d.error,false);
   }});
 }}
-document.addEventListener('keydown',function(e){{{
+document.addEventListener('keydown',function(e){{
   if(e.key==='Enter'){{
     const inputs=[...document.querySelectorAll('.qty')];
     const idx=inputs.indexOf(document.activeElement);
