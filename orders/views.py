@@ -602,6 +602,10 @@ def send_invoice(request, order_id):
         )
     except Exception as e:
         return HttpResponse(f'Failed to send: {e}', status=500)
+
+
+@staff_member_required
+def print_invoice(request, order_id):
     from django.utils import timezone
     order = get_object_or_404(Order, id=order_id)
     items = list(order.items.select_related(
