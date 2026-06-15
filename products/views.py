@@ -299,11 +299,14 @@ def stock_entry(request):
 <script>
 const SET_CODE = "{selected_set_code}";
 function delProd(id,btn){{
-  if(!confirm('Permanently delete this card from the database?'))return;
+  if(!confirm('Wipe stock to 0 for this card?'))return;
   fetch('/api/stock/delete/'+id+'/',{{method:'POST',headers:{{'X-CSRFToken':getCookie('csrftoken')}}}})
   .then(r=>r.json()).then(d=>{{
-    if(d.success)btn.closest('tr').remove();
-    else alert('Delete failed');
+    if(d.success){{
+      const row=btn.closest('tr');
+      row.querySelector('td:nth-child(6)').textContent='0';
+      showMsg('Stock wiped to 0',true);
+    }}else alert('Failed to wipe stock');
   }});
 }}
 function getCookie(n){{const v='; '+document.cookie;const p=v.split('; '+n+'=');if(p.length===2)return p.pop().split(';').shift();return'';}}
@@ -393,7 +396,8 @@ def delete_product(request, product_id):
     if request.method == 'POST':
         try:
             p = PokemonProduct.objects.get(id=product_id)
-            p.delete()
+            p.stock = 0
+            p.save(update_fields=['stock'])
             return JsonResponse({'success': True})
         except PokemonProduct.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Not found'}, status=404)

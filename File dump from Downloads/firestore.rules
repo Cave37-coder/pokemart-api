@@ -1,0 +1,112 @@
+// ============================================================
+// PokeBulk SA — Firestore Security Rules
+// Version: v1.0.0
+// Generated: 2026-05-18
+// Admin UID: ZCYat0f0FWcAmkpgUgOt7MhrINC2
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------
+    // HELPER FUNCTIONS
+    // ----------------------------------------------------------
+
+    // Is the request from a signed-in user?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Is the request from the site admin?
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.uid == 'ZCYat0f0FWcAmkpgUgOt7MhrINC2';
+    }
+
+    // Is the request from the owner of this document?
+    // (document must have a userId field)
+    function isOwner() {
+      return isAuthenticated() &&
+             request.auth.uid == resource.data.userId;
+    }
+
+    // Is the incoming write from the same user?
+    function isWritingAsOwner() {
+      return isAuthenticated() &&
+             request.auth.uid == request.resource.data.userId;
+    }
+
+
+    // ----------------------------------------------------------
+    // PRODUCTS collection
+    // Public catalogue data — anyone can read, only admin writes
+    // ----------------------------------------------------------
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // SETS collection
+    // Card set reference data — public read, admin write
+    // ----------------------------------------------------------
+    match /sets/{setId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // ORDERS / REQUESTS collection
+    // Authenticated users can create orders for themselves.
+    // Users can read their own orders. Admin reads/writes all.
+    // ----------------------------------------------------------
+    match /orders/{orderId} {
+      allow read:   if isAdmin() || isOwner();
+      allow create: if isAuthenticated() && isWritingAsOwner();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // USERS collection
+    // Each user can read/write only their own profile document.
+    // Admin can read all.
+    // ----------------------------------------------------------
+    match /users/{userId} {
+      allow read:   if isAdmin() || request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // CARD REQUESTS collection (WhatsApp-style requests)
+    // Authenticated users create their own. Admin manages all.
+    // ----------------------------------------------------------
+    match /cardRequests/{requestId} {
+      allow read:   if isAdmin() || isOwner();
+      allow create: if isAuthenticated() && isWritingAsOwner();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // SITE CONFIG / SETTINGS (admin-only read/write)
+    // ----------------------------------------------------------
+    match /config/{document} {
+      allow read:  if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------------
+    // DEFAULT DENY
+    // Any collection not listed above is fully locked.
+    // ----------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

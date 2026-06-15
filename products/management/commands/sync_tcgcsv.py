@@ -153,7 +153,7 @@ GROUP_CONFIG = {
     "DRM":      (2295,  "Dragon Majesty",                      "B6"),
     "SM8":      (2328,  "Lost Thunder",                        "B6"),
     "SM9":      (2377,  "Team Up",                             "B6"),
-    "DEP":      (2409,  "Detective Pikachu",                   "B6"),
+    "DET":      (2409,  "Detective Pikachu",                   "B6"),
     "SM10":     (2420,  "Unbroken Bonds",                      "B6"),
     "SM11":     (2464,  "Unified Minds",                       "B6"),
     "HIF":      (2480,  "Hidden Fates",                        "B6"),

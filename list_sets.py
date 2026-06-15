@@ -1,10 +1,6 @@
-﻿import requests
-headers = {"X-Api-Key": "0ec1fcef-24b9-4239-b265-817f2c726099"}
-r = requests.get("https://api.pokemontcg.io/v2/sets?pageSize=250", headers=headers)
-sets = r.json()["data"]
-print(f"Total sets on pokemontcg.io: {len(sets)}")
-for s in sorted(sets, key=lambda x: x["releaseDate"]):
-    sid = s["id"]
-    name = s["name"]
-    date = s["releaseDate"]
-    print(f"{sid:15s} {name:40s} {date}")
+﻿from products.models import CardSet
+from django.db.models import Count
+sets = CardSet.objects.annotate(pc=Count('products')).order_by('release_date','code')
+for s in sets:
+    era = s.era.code if s.era else 'NO ERA'
+    print(s.code.ljust(12), s.name.ljust(40), era.ljust(8), str(s.release_date), str(s.pc) + ' products')
