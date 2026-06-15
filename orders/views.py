@@ -134,6 +134,13 @@ class CheckoutView(APIView):
         pudo_val = f"{order.pudo_locker_name} {order.pudo_locker_address}"
         note_val = order.customer_note
 
+        def _build_items_rows_html():
+            rows = ''
+            for line in item_lines:
+                # parse "  Nx Name @ Rprice" for display
+                rows += f'<tr><td colspan="2" style="padding:6px 8px;font-size:13px;border-bottom:1px solid #eee">{line.strip()}</td></tr>'
+            return rows
+
         def _send_emails():
             try:
                 import os
@@ -145,12 +152,12 @@ class CheckoutView(APIView):
                     logger.error(f"RESEND_API_KEY not set — skipping email for order #{order_id}")
                     return
 
-                def resend_send(to_list, subject, body_text):
+                def resend_send_html(to_list, subject, html_body):
                     payload = json.dumps({
                         "from": "PokeBulk SA <orders@updates.pokebulk.co.za>",
                         "to": to_list,
                         "subject": subject,
-                        "text": body_text,
+                        "html": html_body,
                     }).encode('utf-8')
                     req = urllib.request.Request(
                         "https://api.resend.com/emails",
@@ -164,49 +171,102 @@ class CheckoutView(APIView):
                     with urllib.request.urlopen(req, timeout=10) as resp:
                         return json.loads(resp.read())
 
-                # Email to shop
-                shop_subject = f"PokeBulk SA - New Order #{order_id}"
-                shop_body = f"""New order received!
+                eft_banking = ''
+                if payment_method_val in ['eft', 'coc']:
+                    eft_banking = '''
+                    <div style="background:#fff8f0;border:1px solid #ff6b35;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px">
+                        <strong>Banking Details:</strong><br>
+                        Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current<br>
+                        Branch: 198765 &nbsp;|&nbsp; Account: 1301474037<br>
+                        <em>Please use your order number <strong>#{order_id}</strong> as payment reference.</em>
+                    </div>'''
 
-Order #{order_id}
-Customer: {customer_username} ({customer_email})
-Payment: {payment_method_val}
-Shipping: {shipping_method_val}
-Total: R{total_price_val:.2f}
+                items_rows = ''.join(
+                    f'<tr><td style="padding:6px 8px;font-size:13px;border-bottom:1px solid #eee">{line.strip()}</td></tr>'
+                    for line in item_lines
+                )
 
-Items:
-{items_text}
-
-Address: {address_val}
-Pudo Locker: {pudo_val}
-Note: {note_val}
-"""
-                resend_send(['enquiries@pokebulk.co.za'], shop_subject, shop_body)
-                logger.info(f"Shop email sent for order #{order_id}")
-
-                # Email to customer
+                # ── HTML invoice email to customer ──────────────────────────
                 if customer_email:
-                    customer_body = f"""Hi {customer_username},
+                    customer_html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <div style="background:#ff6b35;padding:20px 28px">
+    <div style="color:#fff;font-size:20px;font-weight:bold">PokeBulk SA</div>
+    <div style="color:#fff;opacity:0.85;font-size:13px;margin-top:2px">Order Confirmation</div>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="font-size:15px;margin:0 0 16px">Hi <strong>{customer_username}</strong>, thank you for your order! 🎴</p>
+    <div style="background:#f9f9f9;border-radius:8px;padding:14px 18px;margin-bottom:20px">
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <tr><td style="color:#888;padding:4px 0">Order</td><td style="font-weight:bold;text-align:right">#{order_id}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Payment</td><td style="text-align:right">{payment_method_val.upper()}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Shipping</td><td style="text-align:right">{shipping_method_val.replace("_"," ").title()}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Delivery to</td><td style="text-align:right">{pudo_val if pudo_val.strip() else address_val}</td></tr>
+        <tr style="border-top:2px solid #ff6b35"><td style="font-weight:bold;padding:8px 0;font-size:15px">Total</td><td style="font-weight:bold;text-align:right;color:#ff6b35;font-size:15px">R{total_price_val:.2f}</td></tr>
+      </table>
+    </div>
+    {eft_banking}
+    <h3 style="font-size:14px;margin:0 0 10px;color:#333">Your Cards</h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+      {items_rows}
+    </table>
+    <p style="font-size:13px;color:#555;line-height:1.6">We will be in touch shortly to confirm your order and arrange delivery.<br>
+    If you have any questions, reply to this email or contact us at <strong>enquiries@pokebulk.co.za</strong> / <strong>074 488 6919</strong>.</p>
+  </div>
+  <div style="background:#f0f0f0;padding:14px 28px;text-align:center;font-size:11px;color:#888">
+    Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Reg. 2024/615040/07 &nbsp;|&nbsp; Birchleigh North, Kempton Park
+  </div>
+</div>
+</body></html>'''
+                    resend_send_html(
+                        [customer_email],
+                        f"PokeBulk SA — Order #{order_id} Confirmed ✅",
+                        customer_html,
+                    )
+                    logger.info(f"Customer HTML invoice email sent for order #{order_id} to {customer_email}")
 
-Thank you for your order at PokeBulk SA!
+                # ── HTML alert to shop ──────────────────────────────────────
+                admin_url = f"https://pokemart-api-production.up.railway.app/admin/orders/order/{order_id}/change/"
+                print_url = f"https://pokemart-api-production.up.railway.app/print/order/{order_id}/"
+                invoice_url = f"https://pokemart-api-production.up.railway.app/print/invoice/{order_id}/"
 
-Order #{order_id} has been received.
-Total: R{total_price_val:.2f}
-Payment: {payment_method_val}
-
-Items:
-{items_text}
-
-We will contact you shortly to confirm your order.
-
-PokeBulk SA Team
-Tel: 074 488 6919
-enquiries@pokebulk.co.za
-"""
-                    resend_send([customer_email],
-                        f"PokeBulk SA - Order #{order_id} Confirmation",
-                        customer_body)
-                    logger.info(f"Customer email sent for order #{order_id} to {customer_email}")
+                shop_html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <div style="background:#12121a;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="color:#ff6b35;font-size:18px;font-weight:bold">🔔 New Order #{order_id}</div>
+      <div style="color:#a0a0b0;font-size:12px;margin-top:2px">PokeBulk SA Admin Alert</div>
+    </div>
+    <div style="color:#ff6b35;font-size:22px;font-weight:bold">R{total_price_val:.2f}</div>
+  </div>
+  <div style="padding:24px 28px">
+    <div style="background:#f9f9f9;border-radius:8px;padding:14px 18px;margin-bottom:20px">
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <tr><td style="color:#888;padding:4px 0">Customer</td><td style="font-weight:bold;text-align:right">{customer_username} ({customer_email})</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Payment</td><td style="text-align:right">{payment_method_val.upper()}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Shipping</td><td style="text-align:right">{shipping_method_val.replace("_"," ").title()}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Delivery</td><td style="text-align:right">{pudo_val if pudo_val.strip() else address_val}</td></tr>
+        {"<tr><td style='color:#888;padding:4px 0'>Note</td><td style='text-align:right'>" + note_val + "</td></tr>" if note_val else ""}
+      </table>
+    </div>
+    <h3 style="font-size:14px;margin:0 0 10px;color:#333">Items Ordered</h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      {items_rows}
+    </table>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a href="{print_url}" style="background:#ff6b35;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:13px">🖨 Print Pull Sheet</a>
+      <a href="{invoice_url}" style="background:#333;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:13px">📄 Print Invoice</a>
+      <a href="{admin_url}" style="background:#f0f0f0;color:#333;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:13px">⚙️ Admin</a>
+    </div>
+  </div>
+</div>
+</body></html>'''
+                resend_send_html(
+                    ['enquiries@pokebulk.co.za'],
+                    f"🔔 New Order #{order_id} — R{total_price_val:.2f} — {customer_username}",
+                    shop_html,
+                )
+                logger.info(f"Shop alert email sent for order #{order_id}")
 
             except Exception as e:
                 logger.error(f"Email error for order #{order_id}: {e}", exc_info=True)
@@ -409,8 +469,139 @@ def print_order(request, order_id):
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
+
+
 @staff_member_required
-def print_invoice(request, order_id):
+def send_invoice(request, order_id):
+    """Manually send invoice email to customer from Django admin."""
+    import os, urllib.request, json as _json
+    order = get_object_or_404(Order, id=order_id)
+    items = list(order.items.select_related('product', 'product__card_set').all())
+
+    api_key = os.environ.get('RESEND_API_KEY', '')
+    if not api_key:
+        return HttpResponse('RESEND_API_KEY not set on Railway.', status=500)
+
+    customer_email = order.user.email
+    if not customer_email:
+        return HttpResponse('Customer has no email address.', status=400)
+
+    customer_name = f"{order.user.first_name} {order.user.last_name}".strip() or order.user.username
+    invoice_num = f'INV {order.id:08d}'
+    invoice_date = order.created_at.strftime('%d %b %Y')
+    subtotal = sum(float(i.price_at_purchase) * i.quantity for i in items)
+    shipping = float(order.shipping_cost or 0)
+    total = subtotal + shipping
+    item_count = sum(i.quantity for i in items)
+
+    if order.delivery_method == 'collection':
+        delivery_label = 'Local Collection — Birchleigh North, Kempton Park'
+    elif order.pudo_locker_name:
+        delivery_label = f'{order.get_shipping_method_display()} — {order.pudo_locker_name}, {order.pudo_locker_address}'
+    else:
+        parts = [order.delivery_address_line1, order.delivery_address_line2,
+                 order.delivery_city, order.delivery_province, order.delivery_postal_code]
+        delivery_label = ', '.join(p for p in parts if p) or '-'
+
+    eft_banking = ''
+    if order.payment_method in ['eft', 'coc']:
+        eft_banking = f'''<div style="background:#fff8f0;border:1px solid #ff6b35;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px">
+            <strong>Banking Details:</strong><br>
+            Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current<br>
+            Branch: 198765 &nbsp;|&nbsp; Account: 1301474037<br>
+            <em>Please use <strong>{invoice_num}</strong> as your payment reference.</em>
+        </div>'''
+
+    rows = ''
+    for i, item in enumerate(items, 1):
+        p = item.product
+        name = p.name if p else (item.product_name or 'Unknown card')
+        set_name = (p.card_set.name if p and p.card_set else '-')
+        var = (p.variant_sort or 'N') if p else '?'
+        line_total = float(item.price_at_purchase) * item.quantity
+        rows += f'''<tr style="border-bottom:1px solid #eee">
+            <td style="padding:6px 8px;font-size:12px">{i}</td>
+            <td style="padding:6px 8px;font-size:12px">{set_name}</td>
+            <td style="padding:6px 8px;font-size:12px">{name} [{var}]</td>
+            <td style="padding:6px 8px;font-size:12px;text-align:center">{item.quantity}</td>
+            <td style="padding:6px 8px;font-size:12px;text-align:right">R {item.price_at_purchase:.2f}</td>
+            <td style="padding:6px 8px;font-size:12px;text-align:right">R {line_total:.2f}</td>
+        </tr>'''
+
+    html_body = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px">
+<div style="max-width:650px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <div style="background:#ff6b35;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="color:#fff;font-size:20px;font-weight:bold">Poke Bulk SA (Pty) Ltd</div>
+      <div style="color:#fff;opacity:0.85;font-size:12px;margin-top:2px">Reg. 2024/615040/07 &nbsp;|&nbsp; enquiries@pokebulk.co.za &nbsp;|&nbsp; 074 488 6919</div>
+    </div>
+    <div style="text-align:right">
+      <div style="color:#fff;font-size:18px;font-weight:bold">INVOICE</div>
+      <div style="color:#fff;opacity:0.9;font-size:13px">{invoice_num}</div>
+      <div style="color:#fff;opacity:0.75;font-size:12px">{invoice_date}</div>
+    </div>
+  </div>
+  <div style="padding:24px 28px">
+    <div style="background:#f9f9f9;border-radius:8px;padding:14px 18px;margin-bottom:20px">
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <tr><td style="color:#888;padding:4px 0">Bill To</td><td style="font-weight:bold;text-align:right">{customer_name}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Email</td><td style="text-align:right">{customer_email}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Payment</td><td style="text-align:right">{order.get_payment_method_display()}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Delivery</td><td style="text-align:right">{delivery_label}</td></tr>
+        <tr><td style="color:#888;padding:4px 0">Status</td><td style="text-align:right">{order.get_status_display()}</td></tr>
+      </table>
+    </div>
+    {eft_banking}
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+      <thead><tr style="background:#f0f0f0">
+        <th style="padding:8px;font-size:11px;text-align:left" width="30">#</th>
+        <th style="padding:8px;font-size:11px;text-align:left">Set</th>
+        <th style="padding:8px;font-size:11px;text-align:left">Card</th>
+        <th style="padding:8px;font-size:11px;text-align:center" width="40">Qty</th>
+        <th style="padding:8px;font-size:11px;text-align:right" width="80">Unit</th>
+        <th style="padding:8px;font-size:11px;text-align:right" width="80">Total</th>
+      </tr></thead>
+      <tbody>{rows}</tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+      <table style="width:260px;font-size:13px">
+        <tr><td style="padding:5px 8px;color:#555">Subtotal ({item_count} items)</td><td style="padding:5px 8px;text-align:right">R {subtotal:.2f}</td></tr>
+        <tr><td style="padding:5px 8px;color:#555">Shipping</td><td style="padding:5px 8px;text-align:right">{"FREE" if shipping == 0 else f"R {shipping:.2f}"}</td></tr>
+        <tr style="border-top:2px solid #ff6b35;font-weight:bold;font-size:15px">
+          <td style="padding:8px">TOTAL</td>
+          <td style="padding:8px;text-align:right;color:#ff6b35">R {total:.2f}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size:13px;color:#555;line-height:1.6">Thank you for shopping with PokeBulk SA! If you have any questions about your order, contact us at <strong>enquiries@pokebulk.co.za</strong> or call <strong>074 488 6919</strong>.</p>
+  </div>
+  <div style="background:#f0f0f0;padding:14px 28px;text-align:center;font-size:11px;color:#888">
+    Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Reg. 2024/615040/07 &nbsp;|&nbsp; 4 Heloise Street, Birchleigh North, Kempton Park, 1618
+  </div>
+</div>
+</body></html>'''
+
+    payload = _json.dumps({
+        "from": "PokeBulk SA <orders@updates.pokebulk.co.za>",
+        "to": [customer_email],
+        "subject": f"PokeBulk SA — Invoice {invoice_num}",
+        "html": html_body,
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+        return HttpResponse(
+            f'<script>alert("Invoice sent to {customer_email}");window.history.back();</script>',
+            content_type='text/html'
+        )
+    except Exception as e:
+        return HttpResponse(f'Failed to send: {e}', status=500)
     from django.utils import timezone
     order = get_object_or_404(Order, id=order_id)
     items = list(order.items.select_related(
