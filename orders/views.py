@@ -137,8 +137,34 @@ class CheckoutView(APIView):
         def _send_emails():
             try:
                 import os
-                from django.core.mail import EmailMessage
-                from django.conf import settings as django_settings
+                import urllib.request
+                import json
+
+                api_key = os.environ.get('RESEND_API_KEY', '')
+                if not api_key:
+                    logger.error(f"RESEND_API_KEY not set — skipping email for order #{order_id}")
+                    return
+
+                FROM_EMAIL = "PokeBulk SA <orders@updates.pokebulk.co.za>"
+
+                def resend_send_html(to_list, subject, html_body):
+                    payload = json.dumps({
+                        "from": FROM_EMAIL,
+                        "to": to_list,
+                        "subject": subject,
+                        "html": html_body,
+                    }).encode('utf-8')
+                    req = urllib.request.Request(
+                        "https://api.resend.com/emails",
+                        data=payload,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        return json.loads(resp.read())
 
                 eft_banking = ''
                 if payment_method_val in ['eft', 'coc']:
@@ -187,14 +213,11 @@ class CheckoutView(APIView):
   </div>
 </div>
 </body></html>'''
-                    msg = EmailMessage(
-                        subject=f"PokeBulk SA — Order #{order_id} Confirmed ✅",
-                        body=customer_html,
-                        from_email=django_settings.DEFAULT_FROM_EMAIL,
-                        to=[customer_email],
+                    resend_send_html(
+                        [customer_email],
+                        f"PokeBulk SA — Order #{order_id} Confirmed ✅",
+                        customer_html,
                     )
-                    msg.content_subtype = 'html'
-                    msg.send(fail_silently=False)
                     logger.info(f"Customer HTML invoice email sent for order #{order_id} to {customer_email}")
 
                 # ── HTML alert to shop ──────────────────────────────────────
@@ -234,14 +257,11 @@ class CheckoutView(APIView):
   </div>
 </div>
 </body></html>'''
-                shop_msg = EmailMessage(
-                    subject=f"🔔 New Order #{order_id} — R{total_price_val:.2f} — {customer_username}",
-                    body=shop_html,
-                    from_email=django_settings.DEFAULT_FROM_EMAIL,
-                    to=[django_settings.EMAIL_HOST_USER],
+                resend_send_html(
+                    ['enquiries@pokebulk.co.za'],
+                    f"🔔 New Order #{order_id} — R{total_price_val:.2f} — {customer_username}",
+                    shop_html,
                 )
-                shop_msg.content_subtype = 'html'
-                shop_msg.send(fail_silently=False)
                 logger.info(f"Shop alert email sent for order #{order_id}")
 
             except Exception as e:
@@ -453,6 +473,11 @@ def send_invoice(request, order_id):
     order = get_object_or_404(Order, id=order_id)
     items = list(order.items.select_related('product', 'product__card_set').all())
 
+    import os, urllib.request, json as _json
+    api_key = os.environ.get('RESEND_API_KEY', '')
+    if not api_key:
+        return HttpResponse('RESEND_API_KEY not set.', status=500)
+
     customer_email = order.user.email
     if not customer_email:
         return HttpResponse('Customer has no email address.', status=400)
@@ -552,17 +577,21 @@ def send_invoice(request, order_id):
 </div>
 </body></html>'''
 
-    from django.core.mail import EmailMessage as DjangoEmail
-    from django.conf import settings as django_settings
+    payload = _json.dumps({
+        "from": "PokeBulk SA <orders@updates.pokebulk.co.za>",
+        "to": [customer_email],
+        "subject": f"PokeBulk SA — Invoice {invoice_num}",
+        "html": html_body,
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST"
+    )
     try:
-        msg = DjangoEmail(
-            subject=f"PokeBulk SA — Invoice {invoice_num}",
-            body=html_body,
-            from_email=django_settings.DEFAULT_FROM_EMAIL,
-            to=[customer_email],
-        )
-        msg.content_subtype = 'html'
-        msg.send(fail_silently=False)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
         return HttpResponse(
             f'<script>alert("Invoice sent to {customer_email}");window.history.back();</script>',
             content_type='text/html'
