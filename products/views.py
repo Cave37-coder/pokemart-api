@@ -1,20 +1,804 @@
-牦浯爠獥彴牦浡睥牯⁫浩潰瑲瘠敩獷瑥ⱳ映汩整獲昊潲⁭橤湡潧搮⹢潭敤獬椠灭牯⁴慃敳‬桗湥‬湉整敧䙲敩摬‬慖畬੥牦浯爠獥彴牦浡睥牯⹫数浲獩楳湯⁳浩潰瑲䤠䅳瑵敨瑮捩瑡摥牏敒摡湏祬‬獉摁業啮敳ੲ牦浯搠慪杮彯楦瑬牥⹳敲瑳晟慲敭潷歲椠灭牯⁴橄湡潧楆瑬牥慂正湥੤牦浯搠慪杮彯楦瑬牥⁳浩潰瑲爠獥彴牦浡睥牯⁫獡搠慪杮彯楦瑬牥ੳ牦浯⸠潭敤獬椠灭牯⁴潐敫潭偮潲畤瑣‬慃整潧祲‬潐敫潭呮灹੥牦浯⸠敳楲污穩牥⁳浩潰瑲倠歯浥湯牐摯捵却牥慩楬敺Ⱳ䌠瑡来牯卹牥慩楬敺Ⱳ倠歯浥湯祔数敓楲污穩牥ਊ挊慬獳倠歯浥湯牐摯捵䙴汩整⡲橤湡潧晟汩整獲䘮汩整卲瑥㨩 †攠慲㴠搠慪杮彯楦瑬牥⹳桃牡楆瑬牥昨敩摬湟浡㵥挧牡彤敳彴敟慲彟潣敤Ⱗ氠潯畫彰硥牰✽敩慸瑣⤧ †挠牡彤敳⁴‽橤湡潧晟汩整獲䌮慨䙲汩整⡲楦汥彤慮敭✽慣摲獟瑥彟潣敤Ⱗ氠潯畫彰硥牰✽敩慸瑣⤧ †攠敮杲役祴数㴠搠慪杮彯楦瑬牥⹳桃牡楆瑬牥昨敩摬湟浡㵥瀧歯浥湯瑟灹獥彟慮敭Ⱗ氠潯畫彰硥牰✽敩慸瑣⤧ †猠灵牥祴数㴠搠慪杮彯楦瑬牥⹳桃牡楆瑬牥昨敩摬湟浡㵥猧灵牥祴数Ⱗ氠潯畫彰硥牰✽捩湯慴湩❳਩††慲楲祴㴠搠慪杮彯楦瑬牥⹳桃牡楆瑬牥昨敩摬湟浡㵥爧牡瑩❹‬潬歯灵敟灸㵲椧硥捡❴਩††慣整潧祲獟畬⁧‽橤湡潧晟汩整獲䌮慨䙲汩整⡲楦汥彤慮敭✽慣整潧祲彟汳杵Ⱗ氠潯畫彰硥牰✽敩慸瑣⤧ †瀠歯摥硥㴠搠慪杮彯楦瑬牥⹳畎扭牥楆瑬牥昨敩摬湟浡㵥瀧歯摥硥湟浵敢❲‬潬歯灵敟灸㵲攧慸瑣⤧ †猠扵祴数㴠搠慪杮彯楦瑬牥⹳桃牡楆瑬牥昨敩摬湟浡㵥挧牡彤畳瑢灹獥Ⱗ氠潯畫彰硥牰✽捩湯慴湩❳਩††業彮牰捩⁥‽橤湡潧晟汩整獲丮浵敢䙲汩整⡲楦汥彤慮敭✽牰捩❥‬潬歯灵敟灸㵲朧整⤧ †洠硡灟楲散㴠搠慪杮彯楦瑬牥⹳畎扭牥楆瑬牥昨敩摬湟浡㵥瀧楲散Ⱗ氠潯畫彰硥牰✽瑬❥਩††湩獟潴正㴠搠慪杮彯楦瑬牥⹳潂汯慥䙮汩整⡲楦汥彤慮敭✽瑳捯❫‬敭桴摯✽楦瑬牥楟彮瑳捯❫਩ †搠晥映汩整彲湩獟潴正猨汥ⱦ焠敵祲敳ⱴ渠浡ⱥ瘠污敵㨩 †††椠⁦慶畬㩥 †††††爠瑥牵⁮畱牥獹瑥昮汩整⡲瑳捯彫束㵴⤰ †††爠瑥牵⁮畱牥獹瑥ਊ††汣獡⁳敍慴਺††††潭敤⁬‽潐敫潭偮潲畤瑣 †††映敩摬⁳‽❛牥❡‬挧牡彤敳❴‬攧敮杲役祴数Ⱗ✠畳数瑲灹❥‬爧牡瑩❹‬挧瑡来牯❹‬洧湩灟楲散Ⱗ✠慭彸牰捩❥‬椧彮瑳捯❫‬猧扵祴数崧ਊ挊慬獳倠歯浥湯牐摯捵噴敩卷瑥瘨敩獷瑥⹳潍敤噬敩卷瑥㨩 †焠敵祲敳⁴‽潐敫潭偮潲畤瑣漮橢捥獴昮汩整⡲獩慟瑣癩㵥牔敵⸩敳敬瑣牟汥瑡摥ਨ††††挧瑡来牯❹‬挧牡彤敳❴‬挧牡彤敳彴敟慲ਧ††⸩牰晥瑥档牟汥瑡摥✨潰敫潭彮祴数❳਩††敳楲污穩牥损慬獳㴠倠歯浥湯牐摯捵却牥慩楬敺ੲ††楦瑬牥扟捡敫摮⁳‽䑛慪杮䙯汩整䉲捡敫摮‬楦瑬牥⹳敓牡档楆瑬牥‬楦瑬牥⹳牏敤楲杮楆瑬牥੝††楦瑬牥敳彴汣獡⁳‽潐敫潭偮潲畤瑣楆瑬牥 †猠慥捲彨楦汥獤㴠嬠渧浡❥‬挧牡彤敳彴湟浡❥‬搧獥牣灩楴湯Ⱗ✠牡楴瑳Ⱗ✠潰敫敤彸畮扭牥Ⱗ✠慣摲湟浵敢❲੝††牯敤楲杮晟敩摬⁳‽❛牰捩❥‬挧敲瑡摥慟❴‬渧浡❥‬挧牡彤畮扭牥Ⱗ✠潰敫敤彸畮扭牥崧 †漠摲牥湩⁧‽❛挭牡彤敳彴牟汥慥敳摟瑡❥‬挧牡彤畮扭牥Ⱗ✠慶楲湡彴潳瑲崧ਊ††敤⁦敧彴数浲獩楳湯⡳敳晬㨩 †††椠⁦敳晬愮瑣潩⁮湩嬠挧敲瑡❥‬甧摰瑡❥‬瀧牡楴污畟摰瑡❥‬搧獥牴祯崧਺††††††敲畴湲嬠獉摁業啮敳⡲崩 †††爠瑥牵⁮䥛䅳瑵敨瑮捩瑡摥牏敒摡湏祬⤨੝ਊ汣獡⁳慃整潧祲楖睥敓⡴楶睥敳獴䴮摯汥楖睥敓⥴਺††畱牥獹瑥㴠䌠瑡来牯⹹扯敪瑣⹳污⡬਩††敳楲污穩牥损慬獳㴠䌠瑡来牯卹牥慩楬敺ੲ †搠晥朠瑥灟牥業獳潩獮猨汥⥦਺††††晩猠汥⹦捡楴湯椠⁮❛牣慥整Ⱗ✠灵慤整Ⱗ✠慰瑲慩彬灵慤整Ⱗ✠敤瑳潲❹㩝 †††††爠瑥牵⁮䥛䅳浤湩獕牥⤨੝††††敲畴湲嬠獉畁桴湥楴慣整佤割慥佤汮⡹崩ਊ挊慬獳倠歯浥湯祔数楖睥敓⡴楶睥敳獴䴮摯汥楖睥敓⥴਺††畱牥獹瑥㴠倠歯浥湯祔数漮橢捥獴愮汬⤨ †猠牥慩楬敺彲汣獡⁳‽潐敫潭呮灹卥牥慩楬敺ੲ †搠晥朠瑥灟牥業獳潩獮猨汥⥦਺††††晩猠汥⹦捡楴湯椠⁮❛牣慥整Ⱗ✠灵慤整Ⱗ✠慰瑲慩彬灵慤整Ⱗ✠敤瑳潲❹㩝 †††††爠瑥牵⁮䥛䅳浤湩獕牥⤨੝††††敲畴湲嬠獉畁桴湥楴慣整佤割慥佤汮⡹崩ਊ昊潲⁭潣汬捥楴湯⁳浩潰瑲搠晥畡瑬楤瑣昊潲⁭慤整楴敭椠灭牯⁴慤整愠⁳慤整瑟灹੥牦浯搠慪杮⹯潣瑮楲⹢摡業⹮楶睥⹳敤潣慲潴獲椠灭牯⁴瑳晡彦敭扭牥牟煥極敲੤牦浯搠慪杮⹯瑨灴椠灭牯⁴瑈灴敒灳湯敳‬獊湯敒灳湯敳昊潲⁭橤湡潧搮⁢浩潰瑲琠慲獮捡楴湯昊潲⁭橤湡潧瘮敩獷搮捥牯瑡牯⹳瑨灴椠灭牯⁴敲畱物彥佐呓昊潲⁭橤湡潧瘮敩獷搮捥牯瑡牯⹳獣晲椠灭牯⁴獣晲敟數灭ੴ牦浯搠慪杮⹯扤洮摯汥⁳浩潰瑲䌠畯瑮椊灭牯⁴獪湯ਊ牦浯⸠潭敤獬椠灭牯⁴潐敫潭偮潲畤瑣‬慃摲敓ⱴ䔠慲ਊ剅彁剏䕄⁒‽ਜ਼††䴧䝅Ⱗ✠噓Ⱗ✠坓䡓Ⱗ✠䵓Ⱗ✠奘Ⱗ✠坂Ⱗ✠䝈卓Ⱗ✠偄Ⱗ✠塅Ⱗ †✠潗䍴❏‬圧瑯䱃Ⱗ✠潗䍴❎‬圧瑯❃‬伧䡔剅Ⱗ✠剐䵏❏ਬ੝䔊䅒䱟䉁䱅⁓‽੻††䴧䝅㨧†✠敍慧䔠潶畬楴湯Ⱗ †✠噓㨧††匧慣汲瑥☠嘠潩敬❴ਬ††匧南❈›✠睓牯⁤…桓敩摬Ⱗ †✠䵓㨧††匧湵☠䴠潯❮ਬ††堧❙›†✠奘䔠慲Ⱗ †✠坂㨧††䈧慬正☠圠楨整Ⱗ †✠䝈卓㨧†䠧♇卓Ⱗ †✠偄㨧††䐧倦⼠倠慬楴畮❭ਬ††䔧❘›†✠塅䔠慲Ⱗ †✠潗䍴❏›攧䌭牡❤ਬ††圧瑯䱃㨧✠敌敧摮牡❹ਬ††圧瑯乃㨧✠敎❯ਬ††圧瑯❃›✠潗䍴䈠獡❥ਬ††伧䡔剅㨧✠灓捥慩⁬ 瑏敨❲ਬ††倧佒位㨧✠牐浯獯Ⱗ紊ਊ䀊瑳晡彦敭扭牥牟煥極敲੤敤⁦瑳捯彫湥牴⡹敲畱獥⥴਺††敳敬瑣摥獟瑥损摯⁥‽敲畱獥⹴䕇⹔敧⡴猧瑥Ⱗ✠⤧ਊ††污彬敳獴㴠猠牯整⡤ †††氠獩⡴ †††††䌠牡卤瑥漮橢捥獴 †††††⸠敳敬瑣牟汥瑡摥✨牥❡਩††††††愮湮瑯瑡⡥慣摲损畯瑮䌽畯瑮✨牰摯捵獴⤧਩††††Ⱙ †††欠祥氽浡摢⁡㩳猠爮汥慥敳摟瑡⁥晩椠楳獮慴据⡥⹳敲敬獡彥慤整‬慤整瑟灹⥥攠獬⁥慤整瑟灹⡥㤱〰‬ⰱㄠⰩ †††爠癥牥敳吽畲੥††਩ †挠牡獤㴠嬠੝††晩猠汥捥整彤敳彴潣敤਺††††慣摲⁳‽楬瑳ਨ††††††潐敫潭偮潲畤瑣漮橢捥獴 †††††⸠楦瑬牥挨牡彤敳彴损摯㵥敳敬瑣摥獟瑥损摯ⱥ椠彳捡楴敶吽畲⥥ †††††⸠敳敬瑣牟汥瑡摥✨慣摲獟瑥⤧ †††††⸠牯敤彲祢✨慣摲湟浵敢❲‬瘧牡慩瑮獟牯❴਩††††††瘮污敵⡳椧❤‬渧浡❥‬挧牡彤畮扭牥Ⱗ✠慶楲湡彴潳瑲Ⱗ✠慶楲湡彴癯牥楲敤Ⱗ✠慲楲祴Ⱗ✠瑳捯❫‬瀧楲散Ⱗ✠潣摮瑩潩❮‬琧杣獣彶牰摯捵彴摩⤧ †††⤠ †††嘠䱁䑉噟剁䅉呎⁓‽❻❎✬❈✬䡒Ⱗ倧❂✬䉍Ⱗ䰧❂✬䉆Ⱗ儧❂✬䉕Ⱗ䐧❂✬剔Ⱗ匧❅✬䉐❐✬䉍❐✬䍃Ⱗ吧❔੽††††潦⁲⁣湩挠牡獤਺††††††獶㴠挠朮瑥✨慶楲湡彴癯牥楲敤⤧漠⁲✧ †††††挠❛慶彲慬敢❬⁝‽獶椠⁦獶椠⁮䅖䥌彄䅖䥒乁協攠獬⁥丧ਧ †⌠䈠極摬朠潲灵摥搠潲摰睯੮††敳獴睟瑩彨慣摲⁳‽獛映牯猠椠⁮污彬敳獴椠⁦⹳慣摲损畯瑮㸠〠੝††敳獴敟灭祴†††‽獛映牯猠椠⁮污彬敳獴椠⁦⹳慣摲损畯瑮㴠‽崰ਊ††祢敟慲㴠搠晥畡瑬楤瑣氨獩⥴ †映牯猠椠⁮敳獴睟瑩彨慣摲㩳 †††攠慲㴠猠攮慲挮摯⁥晩猠攮慲攠獬⁥伧䡔剅ਧ††††祢敟慲敛慲⹝灡数摮猨਩ †漠瑰潩獮桟浴⁬‽㰧灯楴湯瘠污敵∽㸢ⴭ䌠潨獯⁥⁡敳⁴ⴭ⼼灯楴湯✾ਊ††潦⁲牥彡潣敤椠⁮剅彁剏䕄㩒 †††攠慲獟瑥⁳‽祢敟慲朮瑥攨慲损摯ⱥ嬠⥝ †††椠⁦潮⁴牥彡敳獴਺††††††潣瑮湩敵 †††攠慲江扡汥㴠䔠䅒䱟䉁䱅⹓敧⡴牥彡潣敤‬牥彡潣敤਩††††灯楴湯彳瑨汭⬠‽❦漼瑰牧畯⁰慬敢㵬笢牥彡慬敢絬㸢ਧ††††潦⁲⁳湩攠慲獟瑥㩳 †††††猠汥㴠✠敳敬瑣摥‧晩猠挮摯⁥㴽猠汥捥整彤敳彴潣敤攠獬⁥✧ †††††爠汥慥敳㴠猠牴猨爮汥慥敳摟瑡⥥椠⁦⹳敲敬獡彥慤整攠獬⁥✧ †††††爠汥慥敳江扡汥㴠映‧럂笠敲敬獡絥‧晩爠汥慥敳攠獬⁥✧ †††††漠瑰潩獮桟浴⁬㴫映㰧灯楴湯瘠污敵∽獻挮摯絥•獻汥㹽筛⹳潣敤嵽笠⹳慮敭⁽笨⹳慣摲损畯瑮⥽牻汥慥敳江扡汥㱽漯瑰潩㹮ਧ††††灯楴湯彳瑨汭⬠‽㰧漯瑰牧畯㹰ਧ †⌠䄠祮攠慲渠瑯椠⁮剅彁剏䕄੒††瑯敨彲牥獡㴠猠瑥戨役牥⹡敫獹⤨ ‭敳⡴剅彁剏䕄⥒ †椠⁦瑯敨彲牥獡਺††††灯楴湯彳瑨汭⬠‽㰧灯杴潲灵氠扡汥∽瑏敨≲✾ †††映牯攠慲损摯⁥湩猠牯整⡤瑯敨彲牥獡㨩 †††††映牯猠椠⁮祢敟慲敛慲损摯嵥਺††††††††敳⁬‽猧汥捥整❤椠⁦⹳潣敤㴠‽敳敬瑣摥獟瑥损摯⁥汥敳✠ਧ††††††††敲敬獡⁥‽瑳⡲⹳敲敬獡彥慤整 晩猠爮汥慥敳摟瑡⁥汥敳✠ਧ††††††††灯楴湯彳瑨汭⬠‽❦漼瑰潩⁮慶畬㵥笢⹳潣敤≽笠敳絬嬾獻挮摯絥⁝獻渮浡絥⠠獻挮牡彤潣湵絴㰩漯瑰潩㹮ਧ††††灯楴湯彳瑨汭⬠‽㰧漯瑰牧畯㹰ਧ †⌠䔠灭祴猠瑥⁳瑡戠瑯潴੭††晩猠瑥彳浥瑰㩹 †††漠瑰潩獮桟浴⁬㴫✠漼瑰牧畯⁰慬敢㵬䔢灭祴匠瑥≳✾ †††映牯猠椠⁮敳獴敟灭祴਺††††††敳⁬‽猧汥捥整❤椠⁦⹳潣敤㴠‽敳敬瑣摥獟瑥损摯⁥汥敳✠ਧ††††††灯楴湯彳瑨汭⬠‽❦漼瑰潩⁮慶畬㵥笢⹳潣敤≽笠敳絬嬾獻挮摯絥⁝獻渮浡絥⼼灯楴湯✾ †††漠瑰潩獮桟浴⁬㴫✠⼼灯杴潲灵✾ਊ††慣摲彳瑨汭㴠✠ਧ††晩挠牡獤਺††††敳敬瑣摥獟瑥㴠渠硥⡴猨映牯猠椠⁮污彬敳獴椠⁦⹳潣敤㴠‽敳敬瑣摥獟瑥损摯⥥‬潎敮਩††††敳彴慮敭㴠猠汥捥整彤敳⹴慮敭椠⁦敳敬瑣摥獟瑥攠獬⁥敳敬瑣摥獟瑥损摯੥††††潴慴⁬‽敬⡮慣摲⥳ †††椠彮瑳捯⁫‽畳⡭‱潦⁲⁣湩挠牡獤椠⁦季猧潴正崧㸠〠਩††††潴慴彬湵瑩⁳‽畳⡭季猧潴正崧映牯挠椠⁮慣摲⥳ਊ††††䅖归佃佌卒㴠笠 †††††✠❎›†⌧㡥㡥㡥挻汯牯⌺㌳✳ਬ††††††䠧㨧†✠昣晦挳㭤潣潬㩲㠣㘵〴✴ਬ††††††刧❈›✠攣攸昴㭦潣潬㩲㐣㍣㥤✹ਬ††††††倧❂›✠搣攴摤㭡潣潬㩲ㄣ㔵㈷✴ਬ††††††䴧❂›✠㘣㑦挲㬱潣潬㩲昣晦Ⱗ †††††✠䉌㨧†⌧㡦㝤慤挻汯牯⌺㈷挱㐲Ⱗ †††††✠䉆㨧†⌧捣㕥晦挻汯牯⌺〰〴㔸Ⱗ †††††✠䉑㨧†⌧晦㍦摣挻汯牯⌺㔸㐶㐰Ⱗ †††††✠䉕㨧†⌧㙤㡤㥤挻汯牯⌺戱攱ㄲⰧ †††††✠䉄㨧†⌧㐳愳〴挻汯牯⌺晦❦ਬ††††††吧❒›✠搣㍣㐵㬵潣潬㩲昣晦Ⱗ †††††✠䕓㨧†⌧摦攷㐱挻汯牯⌺晦❦ਬ††††††倧偂㨧✠㈣挰㤹㬷潣潬㩲昣晦Ⱗ †††††✠䉍❐›⌧㘶〱㉦挻汯牯⌺晦❦ਬ††††††䌧❃›✠ㄣ愷戲㬸潣潬㩲昣晦Ⱗ †††††✠呔㨧†⌧晦戶㔳挻汯牯⌺晦❦ਬ††††੽ †††爠睯⁳‽✧ †††映牯挠牡⁤湩挠牡獤਺††††††慶⁲‽慣摲朮瑥✨慶彲慬敢❬ 牯挠牡⹤敧⡴瘧牡慩瑮潟敶牲摩❥ 牯✠❎ †††††瘠牡獟祴敬㴠嘠剁䍟䱏剏⹓敧⡴慶Ⱳ✠攣攸攸㬸潣潬㩲㌣㌳⤧ †††††瀠楲散㴠映潬瑡挨牡孤瀧楲散崧漠⁲⤰ †††††挠牡彤畮⁭‽瑳⡲慣摲❛慣摲湟浵敢❲⥝種楦汬㌨ 晩挠牡孤挧牡彤畮扭牥崧椠⁳潮⁴潎敮攠獬⁥㼧㼿ਧ††††††潲獷⬠‽❦✧琼⁲瑳汹㵥猢牣汯⵬慭杲湩琭灯ㄺ〲硰㸢 ††††††㰠摴猠祴敬∽潦瑮昭浡汩㩹潭潮灳捡㭥潣潬㩲㠣㠸昻湯⵴楳敺ㄺ瀵㭸慰摤湩㩧㈱硰ㄠ瀴≸⌾捻牡彤畮絭⼼摴ਾ†††††††琼⁤瑳汹㵥昢湯⵴楳敺ㄺ瀵㭸慰摤湩㩧㈱硰ㄠ瀴㭸潦瑮眭楥桧㩴〵∰笾慣摲≛慮敭崢㱽琯㹤 ††††††㰠摴猠祴敬∽慰摤湩㩧㈱硰ㄠ瀴≸㰾灳湡猠祴敬∽慢正牧畯摮笺慶彲瑳汹絥瀻摡楤杮㐺硰ㄠ瀲㭸潢摲牥爭摡畩㩳〱硰昻湯⵴楳敺ㄺ瀴㭸潦瑮眭楥桧㩴〷∰笾慶絲⼼灳湡㰾琯㹤 ††††††㰠摴猠祴敬∽潦瑮猭穩㩥㌱硰挻汯牯⌺㠸㬸慰摤湩㩧㈱硰ㄠ瀴≸笾慣摲≛慲楲祴崢漠⁲∢㱽琯㹤 ††††††㰠摴猠祴敬∽潣潬㩲昣㙦㍢㬵潦瑮眭楥桧㩴〶㬰潦瑮猭穩㩥㔱硰瀻摡楤杮ㄺ瀲⁸㐱硰㸢⁒灻楲散⸺昲㱽琯㹤 ††††††㰠摴猠祴敬∽潣潬㩲㠣㠸昻湯⵴楳敺ㄺ瀵㭸慰摤湩㩧㈱硰ㄠ瀴≸笾慣摲≛瑳捯≫絝⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮ㄺ瀲⁸㐱硰㸢椼灮瑵琠灹㵥渢浵敢≲挠慬獳∽瑱≹搠瑡ⵡ摩∽捻牡孤椢≤絝•慤慴漭楲㵧笢慣摲≛瑳捯≫絝ਢ††††††††††††洠湩∽∰瀠慬散潨摬牥∽∭猠祴敬∽楷瑤㩨〹硰瀻摡楤杮㠺硰戻牯敤㩲瀱⁸潳楬⁤搣摤戻牯敤⵲慲楤獵㐺硰琻硥⵴污杩㩮散瑮牥昻湯⵴楳敺ㄺ瀶㭸潦瑮眭楥桧㩴〶∰ ††††††††††††湯湩異㵴琢楨⹳瑳汹⹥潢摲牥潃潬㵲桴獩瘮污敵㴡✽㼧⌧〱㥂ㄸ㨧⌧摤❤㸢⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮ㄺ瀲⁸㐱硰眻楨整猭慰散渺睯慲≰ਾ††††††††戼瑵潴⁮湯汣捩㵫搢汥牐摯笨慣摲❛摩崧ⱽ桴獩∩猠祴敬∽慢正牧畯摮⌺捤㔳㔴挻汯牯⌺晦㭦潢摲牥渺湯㭥潢摲牥爭摡畩㩳瀳㭸慰摤湩㩧瀴⁸〱硰挻牵潳㩲潰湩整㭲潦瑮猭穩㩥㐱硰氻湩ⵥ敨杩瑨ㄺ㘮㸢鳢㲕戯瑵潴㹮 †††††††㰠畢瑴湯漠据楬正∽摡偤慬敹⡤捻牡孤椧❤絝第慣摲❛捴捧癳灟潲畤瑣楟❤⁝牯✠畮汬紧第慣摲❛牰捩❥絝琬楨⥳•瑳汹㵥戢捡杫潲湵㩤昣㤵づ㭢潣潬㩲昣晦戻牯敤㩲潮敮戻牯敤⵲慲楤獵㌺硰瀻摡楤杮㐺硰ㄠ瀰㭸畣獲牯瀺楯瑮牥昻湯⵴楳敺ㄺ瀱㭸楬敮栭楥桧㩴⸱㬶慭杲湩氭晥㩴瀴≸⬾汐祡摥⼼畢瑴湯ਾ†††††††⼼摴ਾ††††††⼼牴ਾ††††††琼⁲摩∽汰祡摥爭睯笭慣摲❛摩崧≽猠祴敬∽楤灳慬㩹潮敮戻捡杫潲湵㩤昣晦敢≢ਾ†††††††琼⁤潣獬慰㵮㈢•瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴㭸潦瑮猭穩㩥㈱硰挻汯牯⌺㈹〴攰㸢蛢₳摁⁤汰祡摥挠灯⁹景㰠瑳潲杮笾慣摲≛慮敭崢㱽猯牴湯㹧⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴≸ਾ††††††††猼汥捥⁴摩∽潣摮笭慣摲❛摩崧≽猠祴敬∽慰摤湩㩧瀵⁸瀸㭸潢摲牥ㄺ硰猠汯摩⌠㕦改戰戻牯敤⵲慲楤獵㐺硰昻湯⵴楳敺ㄺ瀳㭸潦瑮眭楥桧㩴〷∰ਾ†††††††††漼瑰潩⁮慶畬㵥䰢≐䰾⁐胢ₔ楌桧汴⁹汐祡摥⼼灯楴湯ਾ†††††††††漼瑰潩⁮慶畬㵥䴢≐䴾⁐胢ₔ潍敤慲整祬倠慬敹㱤漯瑰潩㹮 ††††††††㰠灯楴湯瘠污敵∽偈㸢偈钀䠠慥楶祬倠慬敹㱤漯瑰潩㹮 ††††††††㰠灯楴湯瘠污敵∽䵄≇䐾䝍钀䐠浡条摥⼼灯楴湯ਾ††††††††⼼敳敬瑣ਾ†††††††⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴㭸潦瑮猭穩㩥㈱硰挻汯牯⌺㈹〴攰•摩∽汰祡摥瀭楲散笭慣摲❛摩崧≽刾笠牰捩㩥㈮給⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴㭸潦瑮猭穩㩥㈱硰挻汯牯⌺㠸∸〾⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴≸ਾ††††††††椼灮瑵琠灹㵥渢浵敢≲椠㵤瀢慬敹ⵤ瑱⵹捻牡孤椧❤絝•業㵮ㄢ•慶畬㵥ㄢ•汰捡桥汯敤㵲儢祴ਢ†††††††††瑳汹㵥眢摩桴㜺瀰㭸慰摤湩㩧瀶㭸潢摲牥ㄺ硰猠汯摩⌠㕦改戰戻牯敤⵲慲楤獵㐺硰昻湯⵴楳敺ㄺ瀴㭸潦瑮眭楥桧㩴〶㬰整瑸愭楬湧挺湥整≲ਾ†††††††⼼摴ਾ†††††††琼⁤瑳汹㵥瀢摡楤杮㘺硰ㄠ瀴≸ਾ††††††††戼瑵潴⁮湯汣捩㵫猢癡健慬敹⡤捻牡孤椧❤絝第慣摲❛牰捩❥絝∩猠祴敬∽慢正牧畯摮⌺〱㥂ㄸ挻汯牯⌺晦㭦潢摲牥渺湯㭥潢摲牥爭摡畩㩳瀴㭸慰摤湩㩧瀶⁸㐱硰挻牵潳㩲潰湩整㭲潦瑮猭穩㩥㌱硰昻湯⵴敷杩瑨㜺〰㸢慓敶⼼畢瑴湯ਾ††††††††戼瑵潴⁮湯汣捩㵫搢捯浵湥⹴敧䕴敬敭瑮祂摉✨汰祡摥爭睯笭慣摲❛摩崧❽⸩瑳汹⹥楤灳慬㵹渧湯❥•瑳汹㵥戢捡杫潲湵㩤㘣㝢㠲㬰潣潬㩲昣晦戻牯敤㩲潮敮戻牯敤⵲慲楤獵㐺硰瀻摡楤杮㘺硰ㄠ瀰㭸畣獲牯瀺楯瑮牥昻湯⵴楳敺ㄺ瀲㭸慭杲湩氭晥㩴瀴≸閜⼼畢瑴湯ਾ†††††††⼼摴ਾ††††††⼼牴✾✧ਊ††††慣摲彳瑨汭㴠映✧ਧ搼癩猠祴敬∽楤灳慬㩹汦硥朻灡ㄺ瀲㭸慭杲湩戭瑯潴㩭㘱硰昻敬⵸牷灡眺慲≰ਾ†搼癩猠祴敬∽慢正牧畯摮⌺晦㭦潢摲牥爭摡畩㩳瀸㭸慰摤湩㩧㈱硰ㄠ瀶㭸潢⵸桳摡睯〺ㄠ硰㐠硰⌠〰㄰昻敬㩸∱ਾ††搼癩猠祴敬∽潦瑮猭穩㩥㈲硰昻湯⵴敷杩瑨㜺〰挻汯牯⌺晦戶㔳㸢瑻瑯污㱽搯癩ਾ††搼癩猠祴敬∽潦瑮猭穩㩥ㄱ硰挻汯牯⌺㠸∸吾瑯污䌠牡獤⼼楤㹶 㰠搯癩ਾ†搼癩猠祴敬∽慢正牧畯摮⌺晦㭦潢摲牥爭摡畩㩳瀸㭸慰摤湩㩧㈱硰ㄠ瀶㭸潢⵸桳摡睯〺ㄠ硰㐠硰⌠〰㄰昻敬㩸∱ਾ††搼癩猠祴敬∽潦瑮猭穩㩥㈲硰昻湯⵴敷杩瑨㜺〰挻汯牯⌺晦戶㔳㸢楻彮瑳捯絫⼼楤㹶 †㰠楤⁶瑳汹㵥昢湯⵴楳敺ㄺ瀱㭸潣潬㩲㠣㠸㸢湉匠潴正⼼楤㹶 㰠搯癩ਾ†搼癩猠祴敬∽慢正牧畯摮⌺晦㭦潢摲牥爭摡畩㩳瀸㭸慰摤湩㩧㈱硰ㄠ瀶㭸潢⵸桳摡睯〺ㄠ硰㐠硰⌠〰㄰昻敬㩸∱ਾ††搼癩猠祴敬∽潦瑮猭穩㩥㈲硰昻湯⵴敷杩瑨㜺〰挻汯牯⌺晦戶㔳㸢瑻瑯污畟楮獴㱽搯癩ਾ††搼癩猠祴敬∽潦瑮猭穩㩥ㄱ硰挻汯牯⌺㠸∸吾瑯污唠楮獴⼼楤㹶 㰠搯癩ਾ†搼癩猠祴敬∽慢正牧畯摮⌺晦㭦潢摲牥爭摡畩㩳瀸㭸慰摤湩㩧㈱硰ㄠ瀶㭸潢⵸桳摡睯〺ㄠ硰㐠硰⌠〰㄰昻敬㩸∱ਾ††愼栠敲㵦⼢灡⽩瑳捯⽫牰湩⽴猿瑥笽敳敬瑣摥獟瑥损摯絥•慴杲瑥∽扟慬歮ਢ†††猠祴敬∽楤灳慬㩹汢捯㭫慢正牧畯摮⌺晦戶㔳挻汯牯⌺晦㭦整瑸愭楬湧挺湥整㭲慰摤湩㩧〱硰戻牯敤⵲慲楤獵㘺硰昻湯⵴敷杩瑨㜺〰琻硥⵴敤潣慲楴湯渺湯㭥潦瑮猭穩㩥㌱硰㸢 ††倠楲瑮䌠畯瑮匠敨瑥 †㰠愯ਾ†⼼楤㹶 㰠楤⁶瑳汹㵥戢捡杫潲湵㩤昣晦戻牯敤⵲慲楤獵㠺硰瀻摡楤杮ㄺ瀲⁸㘱硰戻硯猭慨潤㩷‰瀱⁸瀴⁸〣〰㬱汦硥㈺㸢 †㰠楤⁶瑳汹㵥昢湯⵴楳敺㈺瀰㭸潦瑮眭楥桧㩴〸㬰潣潬㩲昣㙦㍢∵笾敳彴慮敭㱽搯癩ਾ††搼癩猠祴敬∽潦瑮猭穩㩥㈱硰挻汯牯⌺㠸㬸慭杲湩琭灯㈺硰㸢筛敳敬瑣摥獟瑥损摯絥⁝럂笠敳敬瑣摥獟瑥损摯絥⼼楤㹶 㰠搯癩ਾ⼼楤㹶ਊ搼癩椠㵤洢杳㸢⼼楤㹶ਊ搼癩猠祴敬∽潰楳楴湯猺楴正㭹潴㩰㬰⵺湩敤㩸〱㬰慢正牧畯摮⌺晦㭦潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥瀻摡楤杮ㄺ瀰⁸㘱硰搻獩汰祡昺敬㭸番瑳晩⵹潣瑮湥㩴灳捡ⵥ敢睴敥㭮污杩⵮瑩浥㩳散瑮牥戻硯猭慨潤㩷‰瀲⁸瀸⁸〣〰㬱慭杲湩戭瑯潴㩭∰ਾ†搼癩猠祴敬∽潦瑮猭穩㩥㌱硰挻汯牯⌺㘶∶䔾瑮牥焠慵瑮瑩敩⁳‭湯祬挠慨杮摥爠睯⁳慳敶㱤搯癩ਾ†搼癩ਾ††戼瑵潴⁮湯汣捩㵫眢灩卥瑥⤨•瑳汹㵥戢捡杫潲湵㩤䔣㑆㐴㬴潣潬㩲昣晦戻牯敤㩲潮敮瀻摡楤杮ㄺ瀰⁸〲硰戻牯敤⵲慲楤獵㘺硰昻湯⵴楳敺ㄺ瀳㭸畣獲牯瀺楯瑮牥活牡楧⵮楲桧㩴瀸≸圾灩⁥潴〠⼼畢瑴湯ਾ††戼瑵潴⁮湯汣捩㵫猢癡卥潴正⤨•瑳汹㵥戢捡杫潲湵㩤ㄣ䈰㠹㬱潣潬㩲昣晦戻牯敤㩲潮敮瀻摡楤杮ㄺ瀰⁸㠲硰戻牯敤⵲慲楤獵㘺硰昻湯⵴楳敺ㄺ瀴㭸潦瑮眭楥桧㩴〷㬰畣獲牯瀺楯瑮牥㸢慓敶匠潴正⼼畢瑴湯ਾ†⼼楤㹶㰊搯癩ਾ㰊慴汢⁥瑳汹㵥眢摩桴ㄺ〰㬥潢摲牥挭汯慬獰㩥潣汬灡敳戻捡杫潲湵㩤昣晦戻牯敤⵲慲楤獵㠺硰漻敶晲潬㩷楨摤湥戻硯猭慨潤㩷‰瀱⁸瀴⁸〣〰㬱慭杲湩琭灯〺㸢㰊桴慥⁤瑳汹㵥瀢獯瑩潩㩮瑳捩祫琻灯㔺瀷≸ਾ†琼⁲瑳汹㵥戢捡杫潲湵㩤昣昸昸∸ਾ††琼⁨瑳汹㵥琢硥⵴污杩㩮敬瑦瀻摡楤杮ㄺ瀲⁸㐱硰昻湯⵴楳敺ㄺ瀳㭸潣潬㩲㘣㘶戻牯敤⵲潢瑴浯ㄺ硰猠汯摩⌠敥≥眠摩桴∽〷㸢慃摲⌠⼼桴ਾ††琼⁨瑳汹㵥琢硥⵴污杩㩮敬瑦瀻摡楤杮ㄺ瀲⁸㐱硰昻湯⵴楳敺ㄺ瀳㭸潣潬㩲㘣㘶戻牯敤⵲潢瑴浯ㄺ硰猠汯摩⌠敥≥举浡㱥琯㹨 †㰠桴猠祴敬∽整瑸愭楬湧氺晥㭴慰摤湩㩧㈱硰ㄠ瀴㭸潦瑮猭穩㩥㌱硰挻汯牯⌺㘶㬶潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥•楷瑤㵨㤢∰嘾牡慩瑮⼼桴ਾ††琼⁨瑳汹㵥琢硥⵴污杩㩮敬瑦瀻摡楤杮ㄺ瀲⁸㐱硰昻湯⵴楳敺ㄺ瀳㭸潣潬㩲㘣㘶戻牯敤⵲潢瑴浯ㄺ硰猠汯摩⌠敥≥眠摩桴∽㈱∰刾牡瑩㱹琯㹨 †㰠桴猠祴敬∽整瑸愭楬湧氺晥㭴慰摤湩㩧㈱硰ㄠ瀴㭸潦瑮猭穩㩥㌱硰挻汯牯⌺㘶㬶潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥•楷瑤㵨ㄢ〰㸢牐捩㱥琯㹨 †㰠桴猠祴敬∽整瑸愭楬湧氺晥㭴慰摤湩㩧㈱硰ㄠ瀴㭸潦瑮猭穩㩥㌱硰挻汯牯⌺㘶㬶潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥•楷瑤㵨㤢∰䌾牵敲瑮⼼桴ਾ††琼⁨瑳汹㵥琢硥⵴污杩㩮敬瑦瀻摡楤杮ㄺ瀲⁸㐱硰昻湯⵴楳敺ㄺ瀳㭸潣潬㩲㘣㘶戻牯敤⵲潢瑴浯ㄺ硰猠汯摩⌠敥≥眠摩桴∽㈱∰举睥儠祴⼼桴ਾ††琼⁨楷瑤㵨㘢∰㰾琯㹨 㰠琯㹲㰊琯敨摡ਾ琼潢祤㰾牴㰾摴挠汯灳湡∽∸猠祴敬∽敨杩瑨ㄺ〰硰瀻摡楤杮〺㸢⼼摴㰾琯㹲牻睯絳⼼扴摯㹹㰊琯扡敬ਾ㰊捳楲瑰ਾ潣獮⁴䕓彔佃䕄㴠∠獻汥捥整彤敳彴潣敤≽਻畦据楴湯搠汥牐摯椨Ɽ瑢⥮筻 椠⡦挡湯楦浲✨楗数猠潴正琠⁯‰潦⁲桴獩挠牡㽤⤧爩瑥牵㭮 映瑥档✨愯楰猯潴正搯汥瑥⽥⬧摩✫✯第浻瑥潨㩤倧协❔栬慥敤獲笺❻ⵘ千䙒潔敫❮机瑥潃歯敩✨獣晲潴敫❮紩絽⥽ ⸠桴湥爨㸽⹲獪湯⤨⸩桴湥搨㸽筻 †椠⡦⹤畳捣獥⥳筻 ††挠湯瑳爠睯戽湴挮潬敳瑳✨牴⤧਻†††潲⹷畱牥卹汥捥潴⡲琧㩤瑮⵨档汩⡤⤶⤧琮硥䍴湯整瑮✽✰਻†††桳睯獍⡧匧潴正眠灩摥琠⁯✰琬畲⥥਻††絽汥敳愠敬瑲✨慆汩摥琠⁯楷数猠潴正⤧਻†絽㬩紊੽畦据楴湯朠瑥潃歯敩渨笩捻湯瑳瘠✽※⬧潤畣敭瑮挮潯楫㭥潣獮⁴㵰⹶灳楬⡴㬧✠渫✫✽㬩晩瀨氮湥瑧㵨㴽⤲敲畴湲瀠瀮灯⤨献汰瑩✨✻⸩桳晩⡴㬩敲畴湲✧紻੽畦据楴湯猠潨䵷杳琨漬⥫筻 挠湯瑳攠㵬潤畣敭瑮朮瑥汅浥湥䉴䥹⡤洧杳⤧਻†汥椮湮牥呈䱍✽搼癩猠祴敬∽慰摤湩㩧㈱硰戻牯敤⵲慲楤獵㘺硰活牡楧⵮潢瑴浯ㄺ瀲㭸慢正牧畯摮✺⠫歯✿搣昱敡✵✺昣敥攲✲⬩㬧潣潬㩲⬧漨㽫⌧㘰昵㘴㨧⌧㤹戱戱⤧✫㸢⬧⭴㰧搯癩✾਻†敳呴浩潥瑵⠨㴩放⹬湩敮䡲䵔㵌✧㐬〰⤰਻絽昊湵瑣潩⁮慳敶瑓捯⡫笩੻†潣獮⁴湩異獴嬽⸮搮捯浵湥⹴畱牥卹汥捥潴䅲汬✨焮祴⤧⹝楦瑬牥椨㸽⹩慶畬⹥牴浩⤨㴡✽⤧਻†晩ℨ湩異獴氮湥瑧⥨筻桳睯獍⡧丧⁯畱湡楴楴獥攠瑮牥摥Ⱗ慦獬⥥爻瑥牵㭮絽 挠湯瑳甠摰瑡獥椽灮瑵⹳慭⡰㵩⠾筻摩瀺牡敳湉⡴⹩慤慴敳⹴摩Ⱙ瑳捯㩫慰獲䥥瑮椨瘮污敵紩⥽㬩 映瑥档✨愯楰猯潴正甯摰瑡⽥Ⱗ筻敭桴摯✺佐呓Ⱗ敨摡牥㩳筻䌧湯整瑮吭灹❥✺灡汰捩瑡潩⽮獪湯Ⱗ堧䌭剓呆歯湥㨧敧䍴潯楫⡥挧牳瑦歯湥⤧絽戬摯㩹半乏献牴湩楧祦笨畻摰瑡獥絽紩⥽ ⸠桴湥爨㸽⹲獪湯⤨⸩桴湥搨㸽筻 †椠⡦⹤歯笩獻潨䵷杳✨慓敶⁤⬧⹤灵慤整⭤‧慣摲ⅳⰧ牴敵㬩湩異獴昮牯慅档椨㸽筻⹩汣獯獥⡴琧❲⸩畱牥卹汥捥潴⡲琧㩤瑮⵨档汩⡤⤶⤧琮硥䍴湯整瑮椽瘮污敵椻瘮污敵✽㬧⹩瑳汹⹥潢摲牥潃潬㵲⌧摤❤紻⥽紻੽††汥敳猠潨䵷杳✨牅潲㩲✠搫攮牲牯昬污敳㬩 素⥽਻絽昊湵瑣潩⁮楷数敓⡴笩੻†晩ℨ潣普物⡭圧灩⁥污⁬瑳捯⁫湩笠敳敬瑣摥獟瑥损摯絥琠⁯㼰⤧爩瑥牵㭮 映瑥档✨愯楰猯潴正眯灩⽥Ⱗ筻敭桴摯✺佐呓Ⱗ敨摡牥㩳筻䌧湯整瑮吭灹❥✺灡汰捩瑡潩⽮獪湯Ⱗ堧䌭剓呆歯湥㨧敧䍴潯楫⡥挧牳瑦歯湥⤧絽戬摯㩹半乏献牴湩楧祦笨獻瑥损摯㩥䕓彔佃䕄絽紩⥽ ⸠桴湥爨㸽⹲獪湯⤨⸩桴湥搨㸽筻晩搨漮⥫筻桳睯獍⡧圧灩摥✠搫挮畯瑮✫挠牡獤琠⁯✰琬畲⥥搻捯浵湥⹴畱牥卹汥捥潴䅲汬✨摴渺桴挭楨摬㘨✩⸩潦䕲捡⡨摴㸽摴琮硥䍴湯整瑮✽✰㬩絽絽㬩紊੽潣獮⁴佃䑎䵟䱕⁔‽筻偌〺㠮ⰰ偍〺㘮ⰰ偈〺㌮ⰵ䵄㩇⸰〲絽਻畦据楴湯愠摤汐祡摥椨Ɽ捴䥧Ɽ慢敳牐捩ⱥ瑢⥮筻 挠湯瑳爠睯搽捯浵湥⹴敧䕴敬敭瑮祂摉✨汰祡摥爭睯✭椫⥤਻†潲⹷瑳汹⹥楤灳慬㵹潲⹷瑳汹⹥楤灳慬㵹㴽渧湯❥✿慴汢ⵥ潲❷✺潮敮㬧 挠湯瑳猠汥搽捯浵湥⹴敧䕴敬敭瑮祂摉✨潣摮✭椫⥤਻†潣獮⁴牰捩䕥㵬潤畣敭瑮朮瑥汅浥湥䉴䥹⡤瀧慬敹ⵤ牰捩ⵥ⬧摩㬩 映湵瑣潩⁮灵慤整牐捩⡥笩੻††潣獮⁴畭瑬䌽乏彄啍呌獛汥瘮污敵籝ぼ㠮㬰 †瀠楲散汅琮硥䍴湯整瑮✽⁒⬧戨獡健楲散洪汵⥴琮䙯硩摥㈨㬩 素੽†敳⹬湯档湡敧甽摰瑡健楲散਻†灵慤整牐捩⡥㬩紊੽畦据楴湯猠癡健慬敹⡤浮摉戬獡健楲散笩੻†潣獮⁴潣摮搽捯浵湥⹴敧䕴敬敭瑮祂摉✨潣摮✭渫䥭⥤瘮污敵਻†潣獮⁴瑱㵹慰獲䥥瑮搨捯浵湥⹴敧䕴敬敭瑮祂摉✨汰祡摥焭祴✭渫䥭⥤瘮污敵簩ㅼ਻†潣獮⁴畭瑬䌽乏彄啍呌捛湯嵤籼⸰〸਻†潣獮⁴牰捩㵥戨獡健楲散洪汵⥴琮䙯硩摥㈨㬩 映瑥档✨愯楰猯潴正瀯慬敹⽤Ⱗ筻敭桴摯✺佐呓Ⱗ敨摡牥㩳筻䌧湯整瑮吭灹❥✺灡汰捩瑡潩⽮獪湯Ⱗ堧䌭剓呆歯湥㨧敧䍴潯楫⡥挧牳瑦歯湥⤧絽ਬ††潢祤䨺体⹎瑳楲杮晩⡹筻浮灟潲畤瑣楟㩤浮摉挬湯楤楴湯挺湯Ɽ瑳捯㩫瑱ⱹ牰捩㩥慰獲䙥潬瑡瀨楲散紩⥽ 素⥽琮敨⡮㵲爾樮潳⡮⤩琮敨⡮㵤笾੻††晩搨漮⥫筻桳睯獍⡧倧慬敹⁤潣祰猠癡摥‡䑉›⬧⹤牰摯捵彴摩✫술₷⬧潣摮✫술₷❒瀫楲散✫술₷瑑⁹⬧瑱ⱹ牴敵㬩 ††搠捯浵湥⹴敧䕴敬敭瑮祂摉✨汰祡摥爭睯✭渫䥭⥤献祴敬搮獩汰祡✽潮敮㬧 †素敽獬⁥桳睯獍⡧䔧牲牯›⬧⹤牥潲Ⱳ慦獬⥥਻†絽㬩紊੽潤畣敭瑮愮摤癅湥䱴獩整敮⡲欧祥潤湷Ⱗ畦据楴湯攨笩੻†晩攨欮祥㴽✽湅整❲笩੻††潣獮⁴湩異獴嬽⸮搮捯浵湥⹴畱牥卹汥捥潴䅲汬✨焮祴⤧㭝 †挠湯瑳椠硤椽灮瑵⹳湩敤佸⡦潤畣敭瑮愮瑣癩䕥敬敭瑮㬩 †椠⡦摩㹸〽☦摩㱸湩異獴氮湥瑧⵨⤱筻⹥牰癥湥䑴晥畡瑬⤨椻灮瑵孳摩⭸崱昮捯獵⤨椻灮瑵孳摩⭸崱献汥捥⡴㬩絽 素੽絽㬩㰊猯牣灩㹴✧ਧ †栠浴⁬‽❦✧ℼ佄呃偙⁅瑨汭ਾ格浴㹬格慥㹤洼瑥⁡档牡敳㵴產晴㠭㸢琼瑩敬匾潴正䔠瑮祲ⴠ倠歯䉥汵⁫䅓⼼楴汴㹥㰊瑳汹㹥笪扻硯猭穩湩㩧潢摲牥戭硯活牡楧㩮㬰慰摤湩㩧細扽摯筹晻湯⵴慦業祬䄺楲污猬湡⵳敳楲㭦慢正牧畯摮⌺㕦㕦㕦絽琊㩲潨敶⁲摴筻慢正牧畯摮⌺慦慦慦絽摴筻慰摤湩㩧㈱硰ㄠ瀴㭸潢摲牥戭瑯潴㩭瀱⁸潳楬⁤昣昰昰㬰潦瑮猭穩㩥㔱硰絽猊汥捥⁴灯杴潲灵筻潦瑮眭楥桧㩴〷㬰潣潬㩲昣㙦㍢紵੽敳敬瑣漠瑰潩筮晻湯⵴敷杩瑨㐺〰挻汯牯⌺㌳紳㱽猯祴敬ਾ⼼敨摡㰾潢祤ਾ搼癩猠祴敬∽慢正牧畯摮⌺晦戶㔳挻汯牯⌺晦㭦慰摤湩㩧㈱硰㈠瀰㭸慭杲湩戭瑯潴㩭〲硰㸢 㰠ㅨ猠祴敬∽潦瑮猭穩㩥㠱硰搻獩汰祡椺汮湩≥匾潴正䔠瑮祲ⴠ倠歯䉥汵⁫䅓⼼ㅨਾ†愼栠敲㵦⼢摡業⽮•瑳汹㵥挢汯牯⌺晦㭦整瑸搭捥牯瑡潩㩮潮敮昻湯⵴楳敺ㄺ瀳㭸灯捡瑩㩹⸰㬸慭杲湩氭晥㩴〲硰㸢慂正琠⁯摁業㱮愯ਾ⼼楤㹶㰊楤⁶瑳汹㵥洢硡眭摩桴ㄺ〲瀰㭸慭杲湩〺愠瑵㭯慰摤湩㩧‰㘱硰㸢 㰠楤⁶瑳汹㵥戢捡杫潲湵㩤昣晦戻牯敤⵲慲楤獵㠺硰瀻摡楤杮ㄺ瀶㭸慭杲湩戭瑯潴㩭〲硰戻硯猭慨潤㩷‰瀱⁸瀴⁸〣〰∱ਾ††格′瑳汹㵥昢湯⵴楳敺ㄺ瀵㭸慭杲湩戭瑯潴㩭〱硰挻汯牯⌺㌳∳匾汥捥⁴⁡敓㱴栯㸲 †㰠潦浲洠瑥潨㵤䜢呅㸢 ††㰠敳敬瑣渠浡㵥猢瑥•湯档湡敧∽桴獩昮牯⹭畳浢瑩⤨•瑳汹㵥眢摩桴ㄺ〰㬥慰摤湩㩧〱硰戻牯敤㩲瀱⁸潳楬⁤搣摤戻牯敤⵲慲楤獵㘺硰昻湯⵴楳敺ㄺ瀴≸ਾ††††潻瑰潩獮桟浴絬 ††㰠猯汥捥㹴 †㰠是牯㹭 㰠搯癩ਾ†捻牡獤桟浴絬㰊搯癩㰾戯摯㹹⼼瑨汭✾✧ਊ††敲畴湲䠠瑴剰獥潰獮⡥瑨汭‬潣瑮湥彴祴数✽整瑸栯浴㭬挠慨獲瑥甽晴㠭⤧ਊ䀊瑳晡彦敭扭牥牟煥極敲੤敤⁦敤敬整灟潲畤瑣爨煥敵瑳‬牰摯捵彴摩㨩 †椠⁦敲畱獥⹴敭桴摯㴠‽倧协❔਺††††牴㩹 †††††瀠㴠倠歯浥湯牐摯捵⹴扯敪瑣⹳敧⡴摩瀽潲畤瑣楟⥤ †††††瀠献潴正㴠〠 †††††瀠献癡⡥灵慤整晟敩摬㵳❛瑳捯❫⥝ †††††爠瑥牵⁮獊湯敒灳湯敳笨猧捵散獳㨧吠畲絥਩††††硥散瑰倠歯浥湯牐摯捵⹴潄獥潎䕴楸瑳਺††††††敲畴湲䨠潳剮獥潰獮⡥❻畳捣獥❳›慆獬ⱥ✠牥潲❲›丧瑯映畯摮紧‬瑳瑡獵㐽㐰਩††敲畴湲䨠潳剮獥潰獮⡥❻畳捣獥❳›慆獬絥‬瑳瑡獵㐽㔰਩ਊ獀慴晦浟浥敢彲敲畱物摥䀊敲畱物彥佐呓搊晥猠潴正畟摰瑡⡥敲畱獥⥴਺††牴㩹 †††搠瑡⁡‽獪湯氮慯獤爨煥敵瑳戮摯⥹ †††甠摰瑡獥㴠搠瑡⹡敧⡴甧摰瑡獥Ⱗ嬠⥝ †††瀠潲畤瑣⁳‽灻椮㩤瀠映牯瀠椠⁮潐敫潭偮潲畤瑣漮橢捥獴昮汩整⡲摩彟湩嬽孵椧❤⁝潦⁲⁵湩甠摰瑡獥⥝੽††††潴畟摰瑡⁥‽嵛 †††映牯甠椠⁮灵慤整㩳 †††††瀠㴠瀠潲畤瑣⹳敧⡴孵椧❤⥝ †††††椠⁦㩰 †††††††瀠献潴正㴠洠硡〨‬湩⡴孵猧潴正崧⤩ †††††††琠彯灵慤整愮灰湥⡤⥰ †††眠瑩⁨牴湡慳瑣潩⹮瑡浯捩⤨਺††††††潐敫潭偮潲畤瑣漮橢捥獴戮汵彫灵慤整琨彯灵慤整‬❛瑳捯❫⥝ †††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›牔敵‬甧摰瑡摥㨧氠湥琨彯灵慤整紩਩††硥散瑰䔠捸灥楴湯愠⁳㩥 †††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›慆獬ⱥ✠牥潲❲›瑳⡲⥥⥽ਊ䀊瑳晡彦敭扭牥牟煥極敲੤牀煥極敲偟协੔敤⁦瑳捯彫楷数爨煥敵瑳㨩 †琠祲਺††††慤慴㴠樠潳⹮潬摡⡳敲畱獥⹴潢祤਩††††敳彴潣敤㴠搠瑡⹡敧⡴猧瑥损摯❥‬✧਩††††潣湵⁴‽潐敫潭偮潲畤瑣漮橢捥獴昮汩整⡲慣摲獟瑥彟潣敤猽瑥损摯⥥甮摰瑡⡥瑳捯㵫⤰ †††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›牔敵‬挧畯瑮㨧挠畯瑮⥽ †攠捸灥⁴硅散瑰潩⁮獡攠਺††††敲畴湲䨠潳剮獥潰獮⡥❻歯㨧䘠污敳‬攧牲牯㨧猠牴攨紩਩ਊ獀慴晦浟浥敢彲敲畱物摥搊晥猠潴正灟楲瑮爨煥敵瑳㨩 †猠瑥损摯⁥‽敲畱獥⹴䕇⹔敧⡴猧瑥Ⱗ✠⤧ †椠⁦潮⁴敳彴潣敤਺††††敲畴湲䠠瑴剰獥潰獮⡥㰧㉨举⁯敳⁴敳敬瑣摥‮潇戠捡⁫湡⁤档潯敳愠猠瑥映物瑳㰮栯㸲⤧ਊ††牴㩹 †††挠牡彤敳⁴‽慃摲敓⹴扯敪瑣⹳敳敬瑣牟汥瑡摥✨牥❡⸩敧⡴潣敤猽瑥损摯⥥ †攠捸灥⁴慃摲敓⹴潄獥潎䕴楸瑳਺††††敲畴湲䠠瑴剰獥潰獮⡥❦格㸲敓⁴笢敳彴潣敤≽渠瑯映畯摮㰮栯㸲⤧ਊ††慣摲⁳‽楬瑳ਨ††††潐敫潭偮潲畤瑣漮橢捥獴 †††⸠楦瑬牥挨牡彤敳彴损摯㵥敳彴潣敤‬獩慟瑣癩㵥牔敵਩††††漮摲牥扟⡹挧牡彤畮扭牥Ⱗ✠慶楲湡彴潳瑲⤧ †††⸠慶畬獥✨摩Ⱗ✠慮敭Ⱗ✠慣摲湟浵敢❲‬瘧牡慩瑮獟牯❴‬瘧牡慩瑮潟敶牲摩❥‬爧牡瑩❹‬猧潴正Ⱗ✠牰捩❥਩††਩††䅖䥌彄䅖䥒乁協㴠笠丧Ⱗ䠧Ⱗ刧❈✬䉐Ⱗ䴧❂✬䉌Ⱗ䘧❂✬䉑Ⱗ唧❂✬䉄Ⱗ吧❒✬䕓Ⱗ倧偂Ⱗ䴧偂Ⱗ䌧❃✬呔紧 †映牯挠椠⁮慣摲㩳 †††瘠⁳‽⹣敧⡴瘧牡慩瑮潟敶牲摩❥ 牯✠ਧ††††季瘧牡江扡汥崧㴠瘠⁳晩瘠⁳湩嘠䱁䑉噟剁䅉呎⁓汥敳✠❎ਊ††䅖䥒乁彔䅌䕂⁌‽੻††††丧㨧✠潎浲污Ⱗ✠❈›䠧汯❯‬刧❈›刧癥䠠汯❯ਬ††††倧❂›倧歯⁥慂汬Ⱗ✠䉍㨧✠慍瑳牥䈠污❬‬䰧❂›䰧癯⁥慂汬Ⱗ †††✠䉆㨧✠牆敩摮䈠污❬‬儧❂›儧極正䈠污❬‬唧❂›唧瑬慲䈠污❬ਬ††††䐧❂›䐧獵⁫慂汬Ⱗ✠剔㨧✠敔浡删捯敫❴‬匧❅›匧捥敲❴ਬ††††倧偂㨧✠䉐倠瑡整湲Ⱗ✠䉍❐›䴧⁂慐瑴牥❮ਬ††††䌧❃›䌧摯⁥慃摲Ⱗ✠呔㨧✠牔捩⁫牯吠慲敤Ⱗ †素ਊ††牦浯椠整瑲潯獬椠灭牯⁴牧畯扰⁹獡椠牧畯ੰ††牧畯数⁤‽嵛 †映牯渠浵‬牧⁰湩椠牧畯⡰慣摲ⱳ欠祥氽浡摢⁡㩣挠❛慣摲湟浵敢❲⥝਺††††慶楲湡獴㴠氠獩⡴牧⥰ †††朠潲灵摥愮灰湥⡤慶楲湡獴਩ †琠瑯污束潲灵⁳‽敬⡮牧畯数⥤ †挠汯獟穩⁥‽⠭琭瑯污束潲灵⁳⼯㌠਩††潣獬㴠嬠牧畯数孤㨰潣彬楳敺ⱝ朠潲灵摥捛汯獟穩㩥潣彬楳敺㈪ⱝ朠潲灵摥捛汯獟穩⩥㨲嵝ਊ††敤⁦敲摮牥束潲灵瘨牡慩瑮⥳਺††††晩瘠牡慩瑮⁳獩丠湯㩥 †††††爠瑥牵⁮㰧摴挠汯灳湡∽∶猠祴敬∽潢摲牥戭瑯潴㩭瀲⁸潳楬⁤攣敥㸢⼼摴✾ †††爠睯⁳‽✧ †††映牯瘠Ⱪ挠牡⁤湩攠畮敭慲整瘨牡慩瑮⥳਺††††††慶⁲‽慣摲朮瑥✨慶彲慬敢❬ 牯挠牡⹤敧⡴瘧牡慩瑮潟敶牲摩❥ 牯✠❎ †††††瘠牡江扡汥㴠嘠剁䅉呎䱟䉁䱅朮瑥瘨牡‬慶⥲ †††††渠浵獟牴㴠猠牴挨牡孤挧牡彤畮扭牥崧漠⁲✧⸩智汩⡬⤳ †††††渠浡⁥‽慣摲❛慮敭崧椠⁦楶㴠‽‰汥敳✠ਧ††††††畮彭散汬㴠映㰧摴挠慬獳∽畮≭笾畮彭瑳絲⼼摴✾椠⁦楶㴠‽‰汥敳✠琼⁤汣獡㵳渢浵㸢⼼摴✾ †††††渠浡彥散汬㴠映㰧摴挠慬獳∽慮敭㸢湻浡絥⼼摴✾椠⁦楶㴠‽‰汥敳映㰧摴挠慬獳∽慮敭•瑳汹㵥挢汯牯⌺㠸㬸潦瑮猭穩㩥瀷㭸慰摤湩ⵧ敬瑦㠺硰㸢登牡江扡汥㱽琯㹤ਧ††††††潢摲牥㴠✠潢摲牥戭瑯潴㩭瀱⁸潳楬⁤攣敥✻椠⁦楶㰠氠湥瘨牡慩瑮⥳ㄭ攠獬⁥戧牯敤⵲潢瑴浯㈺硰猠汯摩⌠捣㭣ਧ††††††潲獷⬠‽❦琼⁲瑳汹㵥笢潢摲牥≽笾畮彭散汬筽慮敭损汥絬琼⁤汣獡㵳瘢牡㸢登牡㱽琯㹤琼⁤汣獡㵳戢硯㸢⼼摴㰾摴挠慬獳∽潢≸㰾琯㹤琼⁤汣獡㵳戢硯㸢⼼摴㰾琯㹲ਧ††††敲畴湲爠睯ੳ †洠硡牟睯⁳‽潣彬楳敺 †爠睯彳瑨汭㴠✠ਧ††潦⁲⁩湩爠湡敧洨硡牟睯⥳਺††††ㅧ㴠挠汯孳崰楛⁝晩椠㰠氠湥挨汯孳崰 汥敳丠湯੥††††㉧㴠挠汯孳崱楛⁝晩椠㰠氠湥挨汯孳崱 汥敳丠湯੥††††㍧㴠挠汯孳崲楛⁝晩椠㰠氠湥挨汯孳崲 汥敳丠湯੥ †††爠‱‽楬瑳爨湥敤彲牧畯⡰ㅧ⸩灳楬⡴㰧琯㹲⤧椠⁦ㅧ攠獬⁥❛崧਩††††㉲㴠氠獩⡴敲摮牥束潲灵木⤲献汰瑩✨⼼牴✾ 晩朠′汥敳嬠✧⥝ †††爠″‽楬瑳爨湥敤彲牧畯⡰㍧⸩灳楬⡴㰧琯㹲⤧椠⁦㍧攠獬⁥❛崧਩††††ㅲ㴠嬠⁲潦⁲⁲湩爠‱晩爠献牴灩⤨੝††††㉲㴠嬠⁲潦⁲⁲湩爠′晩爠献牴灩⤨੝††††㍲㴠嬠⁲潦⁲⁲湩爠″晩爠献牴灩⤨੝††††慭彸⁶‽慭⡸敬⡮ㅲⰩ氠湥爨⤲‬敬⡮㍲Ⱙㄠ਩ †††戠⁧‽⌧晦晦晦‧晩椠┠㈠㴠‽‰汥敳✠昣昹昹✹ †††映牯瘠⁩湩爠湡敧洨硡癟㨩 †††††挠‱‽爨嬱楶⁝‫㰧琯㹲⤧椠⁦楶㰠氠湥爨⤱攠獬⁥㰧牴㰾摴挠汯灳湡∽∶㰾琯㹤⼼牴✾ †††††挠′‽爨嬲楶⁝‫㰧琯㹲⤧椠⁦楶㰠氠湥爨⤲攠獬⁥㰧牴㰾摴挠汯灳湡∽∶㰾琯㹤⼼牴✾ †††††挠″‽爨嬳楶⁝‫㰧琯㹲⤧椠⁦楶㰠氠湥爨⤳攠獬⁥㰧牴㰾摴挠汯灳湡∽∶㰾琯㹤⼼牴✾ †††††搠晥椠湮牥爨㨩 †††††††椠灭牯⁴敲 †††††††琠獤㴠爠⹥楦摮污⡬❲琼孤㹞⩝⸾㼪⼼摴✾‬Ⱳ爠⹥佄䅔䱌਩††††††††敲畴湲✠⸧潪湩琨獤਩††††††潲獷桟浴⁬㴫映㰧牴猠祴敬∽慢正牧畯摮笺杢≽笾湩敮⡲ㅣ紩琼⁤汣獡㵳搢癩㸢⼼摴笾湩敮⡲㉣紩琼⁤汣獡㵳搢癩㸢⼼摴笾湩敮⡲㍣紩⼼牴尾❮ਊ††敳彴慮敭㴠挠牡彤敳⹴慮敭 †攠慲湟浡⁥‽慣摲獟瑥攮慲渮浡⁥晩挠牡彤敳⹴牥⁡汥敳✠ਧ††敲敬獡⁥‽瑳⡲慣摲獟瑥爮汥慥敳摟瑡⥥椠⁦慣摲獟瑥爮汥慥敳摟瑡⁥汥敳✠ਧ††潴慴彬慣摲⁳‽敬⡮慣摲⥳ਊ††瑨汭㴠映✧㰧䐡䍏奔䕐栠浴㹬㰊瑨汭ਾ格慥㹤㰊敭慴挠慨獲瑥∽瑵ⵦ∸ਾ琼瑩敬匾潴正䌠畯瑮ⴠ笠敳彴慮敭㱽琯瑩敬ਾ猼祴敬ਾ†灀条⁥筻猠穩㩥䄠‴慬摮捳灡㭥洠牡楧㩮㠠浭※絽 ⨠笠⁻潢⵸楳楺杮›潢摲牥戭硯※慭杲湩›㬰瀠摡楤杮›㬰素੽†潢祤笠⁻潦瑮昭浡汩㩹䄠楲污‬慳獮猭牥晩※潦瑮猭穩㩥㠠硰※潣潬㩲⌠ㄱ㬱素੽†栮慥敤⁲筻搠獩汰祡›汦硥※番瑳晩⵹潣瑮湥㩴猠慰散戭瑥敷湥※污杩⵮瑩浥㩳挠湥整㭲 ††††††潢摲牥戭瑯潴㩭㈠硰猠汯摩⌠晦戶㔳※慰摤湩ⵧ潢瑴浯›瀵㭸洠牡楧⵮潢瑴浯›瀶㭸素੽†栮慥敤⁲ㅨ笠⁻潦瑮猭穩㩥ㄠ瀳㭸挠汯牯›昣㙦㍢㬵映湯⵴敷杩瑨›〸㬰素੽†栮慥敤⁲㉨笠⁻潦瑮猭穩㩥ㄠ瀰㭸挠汯牯›㌣㌳※絽 ⸠敨摡牥爭杩瑨笠⁻楤灳慬㩹映敬㭸朠灡›㘱硰※污杩⵮瑩浥㩳挠湥整㭲映湯⵴楳敺›瀸㭸挠汯牯›㘣㘶※絽 ⸠楦汥⁤筻搠獩汰祡›汦硥※汦硥搭物捥楴湯›潣畬湭※慧㩰㈠硰※絽 ⸠楦汥⁤慬敢⁬筻映湯⵴楳敺›瀷㭸挠汯牯›㤣㤹※整瑸琭慲獮潦浲›灵数捲獡㭥素੽†昮敩摬⸠楬敮笠⁻潢摲牥戭瑯潴㩭ㄠ硰猠汯摩⌠㤹㬹眠摩桴›〱瀰㭸栠楥桧㩴ㄠ瀴㭸素੽†慴汢⁥筻眠摩桴›〱┰※潢摲牥挭汯慬獰㩥挠汯慬獰㭥琠扡敬氭祡畯㩴映硩摥※絽 琠敨摡琠⁨筻戠捡杫潲湵㩤⌠晦戶㔳※潣潬㩲⌠晦㭦瀠摡楤杮›瀳⁸瀴㭸 ††††††琠硥⵴污杩㩮氠晥㭴映湯⵴楳敺›瀷㭸映湯⵴敷杩瑨›〷㬰琠硥⵴牴湡晳牯㩭甠灰牥慣敳※絽 琠⁤筻瀠摡楤杮›瀲⁸瀳㭸戠牯敤⵲潢瑴浯›瀱⁸潳楬⁤攣敥※敶瑲捩污愭楬湧›業摤敬※癯牥汦睯›楨摤湥※桷瑩ⵥ灳捡㩥渠睯慲㭰素੽†摴渮浵†筻眠摩桴›㘲硰※潦瑮昭浡汩㩹洠湯獯慰散※潣潬㩲⌠㠸㬸映湯⵴楳敺›瀷㭸素੽†摴渮浡⁥筻映湯⵴敷杩瑨›〶㬰映湯⵴楳敺›瀸㭸漠敶晲潬㩷栠摩敤㭮琠硥⵴癯牥汦睯›汥楬獰獩※絽 琠⹤慶⁲笠⁻楷瑤㩨ㄠ瀸㭸映湯⵴楳敺›瀷㭸映湯⵴敷杩瑨›〷㬰挠汯牯›昣㙦㍢㬵琠硥⵴污杩㩮散瑮牥※絽 琠⹤潢⁸笠⁻楷瑤㩨㌠瀶㭸素੽†摴戮硯㨺晡整⁲筻挠湯整瑮∺㬢搠獩汰祡戺潬正※潢摲牥ㄺ硰猠汯摩⌠慡㭡戠牯敤⵲慲楤獵㈺硰※敨杩瑨ㄺ瀸㭸眠摩桴㌺瀲㭸洠牡楧㩮‰畡潴※絽 琠⹤楤⁶笠⁻楷瑤㩨㘠硰※慢正牧畯摮›昣昰昰㬰素੽†昮潯整⁲筻洠牡楧⵮潴㩰㘠硰※潢摲牥琭灯›瀱⁸潳楬⁤搣摤※慰摤湩ⵧ潴㩰㐠硰਻††††††搠獩汰祡›汦硥※番瑳晩⵹潣瑮湥㩴猠慰散戭瑥敷湥※潦瑮猭穩㩥㜠硰※潣潬㩲⌠慡㭡素੽†瀮条ⵥ敨摡牥笠⁻楤灳慬㩹渠湯㭥素੽†浀摥慩瀠楲瑮笠੻††渮ⵯ牰湩⁴筻搠獩汰祡›潮敮℠浩潰瑲湡㭴素੽††潢祤笠⁻眭扥楫⵴牰湩⵴潣潬⵲摡番瑳›硥捡㭴瀠楲瑮挭汯牯愭橤獵㩴攠慸瑣※絽 †⸠慰敧栭慥敤⁲筻搠獩汰祡›汢捯㭫瀠獯瑩潩㩮爠湵楮杮栨慥敤⥲※潦瑮猭穩㩥㤠硰※潣潬㩲⌠晦戶㔳※潦瑮眭楥桧㩴㜠〰※整瑸愭楬湧›楲桧㭴素੽††灀条⁥筻䀠潴⵰楲桧⁴筻挠湯整瑮›汥浥湥⡴敨摡牥㬩素⁽絽 素੽⼼瑳汹㹥㰊栯慥㹤㰊潢祤ਾ搼癩挠慬獳∽慰敧栭慥敤≲笾敳彴慮敭⁽럂笠敳彴潣敤㱽搯癩ਾ㰊楤⁶汣獡㵳渢ⵯ牰湩≴猠祴敬∽慢正牧畯摮⌺晦戶㔳挻汯牯⌺晦㭦慰摤湩㩧瀸⁸㐱硰活牡楧⵮潢瑴浯ㄺ瀰㭸楤灳慬㩹汦硥朻灡ㄺ瀲㭸污杩⵮瑩浥㩳散瑮牥㸢 㰠瑳潲杮倾歯䉥汵⁫瑓捯⁫潃湵⁴‭獻瑥湟浡絥⼼瑳潲杮ਾ†戼瑵潴⁮湯汣捩㵫眢湩潤⹷牰湩⡴∩猠祴敬∽慢正牧畯摮⌺晦㭦潣潬㩲昣㙦㍢㬵潢摲牥渺湯㭥慰摤湩㩧瀵⁸㐱硰戻牯敤⵲慲楤獵㐺硰昻湯⵴敷杩瑨㜺〰挻牵潳㩲潰湩整≲倾楲瑮⼼畢瑴湯ਾ†愼栠敲㵦⼢灡⽩瑳捯⽫湥牴⽹猿瑥笽敳彴潣敤≽猠祴敬∽潣潬㩲昣晦昻湯⵴楳敺ㄺ瀲≸䈾捡㱫愯ਾ⼼楤㹶ਊ搼癩挠慬獳∽敨摡牥㸢 㰠楤㹶 †㰠ㅨ猠祴敬∽潦瑮猭穩㩥㘱硰挻汯牯⌺晦戶㔳昻湯⵴敷杩瑨㠺〰㸢獻瑥湟浡絥⼼ㅨਾ††格㸲潐敫畂歬匠⁁瑓捯⁫潃湵⁴럂笠牥彡慮敭⁽럂笠敳彴潣敤⁽럂笠敲敬獡絥술₷瑻瑯污损牡獤⁽慶楲湡獴⼼㉨ਾ†⼼楤㹶 㰠楤⁶汣獡㵳栢慥敤⵲楲桧≴ਾ††搼癩挠慬獳∽楦汥≤㰾慬敢㹬慄整⼼慬敢㹬搼癩挠慬獳∽楬敮•瑳汹㵥眢摩桴㠺瀰≸㰾搯癩㰾搯癩ਾ††搼癩挠慬獳∽楦汥≤㰾慬敢㹬潃湵整⁤祂⼼慬敢㹬搼癩挠慬獳∽楬敮•瑳汹㵥眢摩桴ㄺ〱硰㸢⼼楤㹶⼼楤㹶 㰠搯癩ਾ⼼楤㹶ਊ琼扡敬ਾ†琼敨摡ਾ††琼㹲 ††㰠桴猠祴敬∽楷瑤㩨㐲硰㸢㰣琯㹨琼㹨慃摲丠浡㱥琯㹨琼⁨瑳汹㵥眢摩桴ㄺ瀶≸嘾⼼桴ਾ†††琼⁨瑳汹㵥眢摩桴㌺瀴≸ㄾ⼼桴㰾桴猠祴敬∽楷瑤㩨㐳硰㸢㰲琯㹨琼⁨瑳汹㵥眢摩桴㌺瀴≸㌾⼼桴ਾ†††琼⁨瑳汹㵥眢摩桴㔺硰㸢⼼桴ਾ†††琼⁨瑳汹㵥眢摩桴㈺瀴≸⌾⼼桴㰾桴䌾牡⁤慎敭⼼桴㰾桴猠祴敬∽楷瑤㩨㘱硰㸢㱖琯㹨 ††㰠桴猠祴敬∽楷瑤㩨㐳硰㸢㰱琯㹨琼⁨瑳汹㵥眢摩桴㌺瀴≸㈾⼼桴㰾桴猠祴敬∽楷瑤㩨㐳硰㸢㰳琯㹨 ††㰠桴猠祴敬∽楷瑤㩨瀵≸㰾琯㹨 ††㰠桴猠祴敬∽楷瑤㩨㐲硰㸢㰣琯㹨琼㹨慃摲丠浡㱥琯㹨琼⁨瑳汹㵥眢摩桴ㄺ瀶≸嘾⼼桴ਾ†††琼⁨瑳汹㵥眢摩桴㌺瀴≸ㄾ⼼桴㰾桴猠祴敬∽楷瑤㩨㐳硰㸢㰲琯㹨琼⁨瑳汹㵥眢摩桴㌺瀴≸㌾⼼桴ਾ††⼼牴ਾ†⼼桴慥㹤 㰠扴摯㹹牻睯彳瑨汭㱽琯潢祤ਾ⼼慴汢㹥ਊ搼癩挠慬獳∽潦瑯牥㸢 㰠灳湡倾歯䉥汵⁫䅓술₷‴效潬獩⁥瑓敲瑥‬楂捲汨楥桧丠牯桴술₷湥畱物敩䁳潰敫畢歬挮⹯慺⼼灳湡ਾ†猼慰㹮牐湩整㩤㰠灳湡椠㵤渢睯㸢⼼灳湡㰾猯慰㹮㰊搯癩ਾ猼牣灩㹴潤畣敭瑮朮瑥汅浥湥䉴䥹⡤渧睯⤧琮硥䍴湯整瑮㴠渠睥䐠瑡⡥⸩潴潌慣敬瑓楲杮✨湥娭❁㬩⼼捳楲瑰ਾ⼼潢祤ਾ⼼瑨汭✾✧ਊ††敲畴湲䠠瑴剰獥潰獮⡥瑨汭‬潣瑮湥彴祴数✽整瑸栯浴㭬挠慨獲瑥甽晴㠭⤧ਊ䀊獣晲敟數灭ੴ獀慴晦浟浥敢彲敲畱物摥䀊敲畱物彥佐呓搊晥猠潴正慟摤灟慬敹⡤敲畱獥⥴਺††∢䌢敲瑡⁥⁡汰祡摥挭湯楤楴湯挠灯⁹景愠⁮硥獩楴杮丠⁍牰摯捵⹴∢ਢ††牴㩹 †††搠瑡⁡‽獪湯氮慯獤爨煥敵瑳戮摯⥹ †††渠彭摩㴠椠瑮搨瑡孡渧彭牰摯捵彴摩崧਩††††潣摮瑩潩⁮‽慤慴❛潣摮瑩潩❮੝††††瑳捯⁫‽慭⡸ⰱ椠瑮搨瑡⹡敧⡴猧潴正Ⱗㄠ⤩਩††††牰捩⁥‽汦慯⡴慤慴❛牰捩❥⥝ਊ††††晩挠湯楤楴湯渠瑯椠⁮✨偌Ⱗ✠偍Ⱗ✠偈Ⱗ✠䵄❇㨩 †††††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›慆獬ⱥ✠牥潲❲›䤧癮污摩挠湯楤楴湯紧਩ †††渠⁭‽潐敫潭偮潲畤瑣漮橢捥獴献汥捥彴敲慬整⡤挧牡彤敳❴‬挧牡彤敳彴敟慲Ⱗ✠慣整潧祲⤧朮瑥椨㵤浮楟⥤ਊ††††‣桃捥⁫晩瀠慬敹⁤潣祰愠牬慥祤攠楸瑳⁳潦⁲桴獩挠湯楤楴湯 †††攠楸瑳湩⁧‽潐敫潭偮潲畤瑣漮橢捥獴昮汩整⡲ †††††琠杣獣彶牰摯捵彴摩渽⹭捴捧癳灟潲畤瑣楟Ɽ †††††挠湯楤楴湯挽湯楤楴湯ਬ††††††慶楲湡彴癯牥楲敤渽⹭慶楲湡彴癯牥楲敤ਬ††††⸩硥汣摵⡥摩渽彭摩⸩楦獲⡴਩ †††椠⁦硥獩楴杮਺††††††‣灕慤整猠潴正漠⁮硥獩楴杮瀠慬敹⁤潣祰 †††††攠楸瑳湩⹧瑳捯⁫㴫猠潴正 †††††攠楸瑳湩⹧牰捩⁥‽牰捩੥††††††硥獩楴杮献癡⡥灵慤整晟敩摬㵳❛瑳捯❫‬瀧楲散Ⱗ✠灵慤整彤瑡崧਩††††††敲畴湲䨠潳剮獥潰獮⡥❻歯㨧吠畲ⱥ✠牰摯捵彴摩㨧攠楸瑳湩⹧摩‬愧瑣潩❮›甧摰瑡摥紧਩ †††⌠䌠敲瑡⁥敮⁷汰祡摥瀠潲畤瑣爠睯 †††瀠慬敹⁤‽潐敫潭偮潲畤瑣ਨ††††††慮敭渽⹭慮敭ਬ††††††慮敭機灡湡獥㵥浮渮浡彥慪慰敮敳ਬ††††††慣摲獟瑥渽⹭慣摲獟瑥ਬ††††††慣整潧祲渽⹭慣整潧祲ਬ††††††慲楲祴渽⹭慲楲祴ਬ††††††潣摮瑩潩㵮潣摮瑩潩Ɱ †††††瘠牡慩瑮潟敶牲摩㵥浮瘮牡慩瑮潟敶牲摩ⱥ †††††瘠牡慩瑮獟牯㵴浮瘮牡慩瑮獟牯ⱴ †††††挠牡彤畮扭牥渽⹭慣摲湟浵敢Ⱳ †††††渠浵敢㵲浮渮浵敢Ⱳ †††††瀠歯摥硥湟浵敢㵲浮瀮歯摥硥湟浵敢Ⱳ †††††猠灵牥祴数渽⹭畳数瑲灹ⱥ †††††挠牡彤畳瑢灹獥渽⹭慣摲獟扵祴数ⱳ †††††椠慭敧畟汲渽⹭浩条彥牵ⱬ †††††椠慭敧獟慭汬畟汲渽⹭浩条彥浳污彬牵ⱬ †††††琠杣獣彶牰摯捵彴摩渽⹭捴捧癳灟潲畤瑣楟Ɽ †††††瀠楲散瀽楲散ਬ††††††瑳捯㵫瑳捯Ⱬ †††††椠彳捡楴敶吽畲ⱥ †††††氠来污獟慴摮牡㵤浮氮来污獟慴摮牡Ɽ †††††氠来污敟灸湡敤㵤浮氮来污敟灸湡敤Ɽ †††††氠来污畟汮浩瑩摥渽⹭敬慧彬湵楬業整Ɽ †††⤠ †††瀠慬敹⹤慳敶⤨ਊ††††‣潃祰瀠歯浥湯琠灹獥 †††椠⁦浮瀮歯浥湯瑟灹獥攮楸瑳⡳㨩 †††††瀠慬敹⹤潰敫潭彮祴数⹳敳⡴浮瀮歯浥湯瑟灹獥愮汬⤨਩ †††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›牔敵‬瀧潲畤瑣楟❤›汰祡摥椮Ɽ✠捡楴湯㨧✠牣慥整❤⥽ਊ††硥散瑰倠歯浥湯牐摯捵⹴潄獥潎䕴楸瑳਺††††敲畴湲䨠潳剮獥潰獮⡥❻歯㨧䘠污敳‬攧牲牯㨧✠䵎瀠潲畤瑣渠瑯映畯摮紧਩††硥散瑰䔠捸灥楴湯愠⁳㩥 †††爠瑥牵⁮獊湯敒灳湯敳笨漧❫›慆獬ⱥ✠牥潲❲›瑳⡲⥥⥽ਊ搊晥猠瑥彳楬瑳爨煥敵瑳㨩 †猠瑥⁳‽慃摲敓⹴扯敪瑣⹳敳敬瑣牟汥瑡摥✨牥❡⸩湡潮慴整ਨ††††捰䌽畯瑮✨牰摯捵獴⤧ †⤠昮汩整⡲捰彟瑧〽⸩牯敤彲祢✨爭汥慥敳摟瑡❥‬渧浡❥਩††慤慴㴠嬠੝††潦⁲⁳湩猠瑥㩳 †††搠瑡⹡灡数摮笨 †††††✠潣敤㨧猠挮摯ⱥ †††††✠慮敭㨧猠渮浡ⱥ †††††✠祳扭汯畟汲㨧猠献浹潢彬牵⁬牯✠Ⱗ †††††✠潬潧畟汲㨧猠氮杯彯牵⁬牯✠Ⱗ †††††✠敲敬獡彥慤整㨧猠牴猨爮汥慥敳摟瑡⥥椠⁦⹳敲敬獡彥慤整攠獬⁥✧ਬ††††††攧慲损摯❥›⹳牥⹡潣敤椠⁦⹳牥⁡汥敳✠Ⱗ †††††✠牥彡慮敭㨧猠攮慲渮浡⁥晩猠攮慲攠獬⁥✧ਬ††††††爧来汵瑡潩彮慭歲㨧猠爮来汵瑡潩彮慭歲漠⁲✧ਬ††††⥽ †爠瑥牵⁮獊湯敒灳湯敳笨爧獥汵獴㨧搠瑡絡਩ਊ捀牳彦硥浥瑰䀊瑳晡彦敭扭牥牟煥極敲੤敤⁦畢摮敬獟潴正敟瑮祲爨煥敵瑳㨩 †戠湵汤獥㴠氠獩⡴ †††倠歯浥湯牐摯捵⹴扯敪瑣ੳ††††昮汩整⡲慣整潧祲彟汳杵✽畢摮敬❳਩††††献汥捥彴敲慬整⡤挧牡彤敳❴‬挧牡彤敳彴敟慲⤧ †††⸠牯敤彲祢✨慣摲獟瑥彟敲敬獡彥慤整Ⱗ✠慣摲獟瑥彟慮敭⤧ †††⸠硥汣摵⡥慣摲獟瑥彟敲敬獡彥慤整彟獩畮汬吽畲⥥ †††⸠慶畬獥✨摩Ⱗ✠慮敭Ⱗ✠慣摲獟瑥彟慮敭Ⱗ✠慣摲獟瑥彟潣敤Ⱗ✠慣摲獟瑥彟牥彡湟浡❥ਬ††††††††挧牡彤敳彴江杯彯牵❬‬挧牡彤敳彴獟浹潢彬牵❬‬猧潴正Ⱗ✠牰捩❥‬椧彳捡楴敶⤧ †⤠ਊ††慳敶彤獭⁧‽✧ †椠⁦敲畱獥⹴敭桴摯㴠‽倧协❔਺††††灵慤整⁤‽ਰ††††潦⁲⁢湩戠湵汤獥਺††††††楢⁤‽瑳⡲孢椧❤⥝ †††††渠睥獟潴正㴠爠煥敵瑳倮协⹔敧⡴猧潴正❟⬠戠摩਩††††††敮彷牰捩⁥‽敲畱獥⹴佐呓朮瑥✨牰捩彥‧‫楢⥤ †††††渠睥慟瑣癩⁥‽敲畱獥⹴佐呓朮瑥✨捡楴敶❟⬠戠摩 㴽✠湯ਧ††††††晩渠睥獟潴正椠⁳潮⁴潎敮਺††††††††牴㩹 †††††††††倠歯浥湯牐摯捵⹴扯敪瑣⹳楦瑬牥椨㵤孢椧❤⥝甮摰瑡⡥ †††††††††††猠潴正椽瑮渨睥獟潴正Ⱙ †††††††††††瀠楲散昽潬瑡渨睥灟楲散 晩渠睥灟楲散攠獬⁥ⰰ †††††††††††椠彳捡楴敶渽睥慟瑣癩ⱥ †††††††††⤠ †††††††††甠摰瑡摥⬠‽਱††††††††硥散瑰䔠捸灥楴湯਺††††††††††慰獳 †††戠湵汤獥㴠氠獩⡴ †††††倠歯浥湯牐摯捵⹴扯敪瑣ੳ††††††昮汩整⡲慣整潧祲彟汳杵✽畢摮敬❳਩††††††献汥捥彴敲慬整⡤挧牡彤敳❴‬挧牡彤敳彴敟慲⤧ †††††⸠牯敤彲祢✨慣摲獟瑥彟敲敬獡彥慤整Ⱗ✠慣摲獟瑥彟慮敭⤧ †††††⸠硥汣摵⡥慣摲獟瑥彟敲敬獡彥慤整彟獩畮汬吽畲⥥ †††††⸠慶畬獥✨摩Ⱗ✠慮敭Ⱗ✠慣摲獟瑥彟慮敭Ⱗ✠慣摲獟瑥彟潣敤Ⱗ✠慣摲獟瑥彟牥彡湟浡❥ਬ††††††††††挧牡彤敳彴江杯彯牵❬‬挧牡彤敳彴獟浹潢彬牵❬‬猧潴正Ⱗ✠牰捩❥‬椧彳捡楴敶⤧ †††⤠ †††猠癡摥浟杳㴠映㰧楤⁶瑳汹㵥戢捡杫潲湵㩤搣攴摤㭡潣潬㩲ㄣ㔵㈷㬴慰摤湩㩧〱硰ㄠ瀶㭸潢摲牥爭摡畩㩳瀶㭸慭杲湩戭瑯潴㩭㘱硰昻湯⵴敷杩瑨㘺〰㸢慓敶⁤畻摰瑡摥⁽畢摮敬⁳畳捣獥晳汵祬㰡搯癩✾ਊ††潲獷㴠✠ਧ††潦⁲⁢湩戠湵汤獥਺††††潬潧㴠戠❛慣摲獟瑥彟潬潧畟汲崧漠⁲孢挧牡彤敳彴獟浹潢彬牵❬⁝牯✠ਧ††††潬潧桟浴⁬‽❦椼杭猠捲∽汻杯絯•瑳汹㵥栢楥桧㩴㠲硰活硡眭摩桴㘺瀰㭸扯敪瑣昭瑩挺湯慴湩瘻牥楴慣⵬污杩㩮業摤敬活牡楧⵮楲桧㩴瀸≸✾椠⁦潬潧攠獬⁥✧ †††攠慲㴠戠❛慣摲獟瑥彟牥彡湟浡❥⁝牯✠ਧ††††敳彴慮敭㴠戠❛慣摲獟瑥彟慮敭崧漠⁲孢渧浡❥੝††††捡楴敶损敨正摥㴠✠档捥敫❤椠⁦孢椧彳捡楴敶崧攠獬⁥✧ †††瀠楲散㴠映潬瑡戨❛牰捩❥⁝牯〠਩††††瑳捯⁫‽孢猧潴正崧漠⁲ਰ††††潲彷杢㴠✠昣昸晦✸椠⁦孢椧彳捡楴敶崧攠獬⁥⌧晦晦晦ਧ††††潲獷⬠‽❦✧琼⁲瑳汹㵥戢捡杫潲湵㩤牻睯扟絧戻牯敤⵲潢瑴浯ㄺ硰猠汯摩⌠敥≥ਾ††††††琼⁤瑳汹㵥瀢摡楤杮㠺硰ㄠ瀰㭸潦瑮猭穩㩥㈱硰挻汯牯⌺㠸∸笾牥絡⼼摴ਾ††††††琼⁤瑳汹㵥瀢摡楤杮㠺硰ㄠ瀰㭸潦瑮猭穩㩥㌱硰㸢汻杯彯瑨汭㱽瑳潲杮笾敳彴慮敭㱽猯牴湯㹧⼼摴ਾ††††††琼⁤瑳汹㵥瀢摡楤杮㠺硰ㄠ瀰≸㰾湩異⁴祴数∽畮扭牥•慮敭∽牰捩彥扻❛摩崧≽瘠污敵∽灻楲散⸺昲≽猠整㵰〢〮∱洠湩∽∰猠祴敬∽楷瑤㩨〹硰瀻摡楤杮㔺硰㠠硰戻牯敤㩲瀱⁸潳楬⁤搣摤戻牯敤⵲慲楤獵㐺硰昻湯⵴楳敺ㄺ瀳≸㰾琯㹤 †††††㰠摴猠祴敬∽慰摤湩㩧瀸⁸〱硰㸢椼灮瑵琠灹㵥渢浵敢≲渠浡㵥猢潴正筟孢椧❤絝•慶畬㵥笢瑳捯絫•業㵮〢•瑳汹㵥眢摩桴㜺瀰㭸慰摤湩㩧瀵⁸瀸㭸潢摲牥ㄺ硰猠汯摩⌠摤㭤潢摲牥爭摡畩㩳瀴㭸潦瑮猭穩㩥㌱硰㸢⼼摴ਾ††††††琼⁤瑳汹㵥瀢摡楤杮㠺硰ㄠ瀰㭸整瑸愭楬湧挺湥整≲㰾湩異⁴祴数∽档捥扫硯•慮敭∽捡楴敶筟孢椧❤絝•慻瑣癩彥档捥敫絤猠祴敬∽楷瑤㩨㠱硰栻楥桧㩴㠱硰挻牵潳㩲潰湩整≲㰾琯㹤 †††㰠琯㹲✧ਧ †愠瑣癩彥潣湵⁴‽畳⡭‱潦⁲⁢湩戠湵汤獥椠⁦孢椧彳捡楴敶崧਩††潴慴⁬‽敬⡮畢摮敬⥳ਊ††瑨汭㴠映✧㰧䐡䍏奔䕐栠浴㹬㰊瑨汭㰾敨摡㰾敭慴挠慨獲瑥∽瑵ⵦ∸㰾楴汴㹥畂摮敬匠潴正ⴠ倠歯䉥汵⁫䅓⼼楴汴㹥㰊瑳汹㹥戊摯筹晻湯⵴慦業祬䄺楲污猬湡⵳敳楲㭦慢正牧畯摮⌺㕦㕦㕦活牡楧㩮㬰慰摤湩㩧〲硰絽⸊牷灡筻慭⵸楷瑤㩨〹瀰㭸慭杲湩〺愠瑵㭯慢正牧畯摮眺楨整戻牯敤⵲慲楤獵㠺硰瀻摡楤杮㈺瀴㭸潢⵸桳摡睯〺㈠硰㠠硰爠执⡡ⰰⰰⰰㄮ紩੽ㅨ筻潣潬㩲昣㙦㍢㬵潦瑮猭穩㩥㈲硰活牡楧㩮‰‰瀶絸੽献慴獴筻潣潬㩲㘣㘶昻湯⵴楳敺ㄺ瀳㭸慭杲湩戭瑯潴㩭㘱硰絽琊扡敬筻楷瑤㩨〱┰戻牯敤⵲潣汬灡敳挺汯慬獰絥੽桴筻慢正牧畯摮⌺晦戶㔳挻汯牯眺楨整瀻摡楤杮ㄺ瀰㭸整瑸愭楬湧氺晥㭴潦瑮猭穩㩥㈱硰絽琊㩲潨敶筲扻捡杫潲湵㩤昣晦昸ℵ浩潰瑲湡絴੽戮湴筻慢正牧畯摮⌺晦戶㔳挻汯牯眺楨整戻牯敤㩲潮敮瀻摡楤杮ㄺ瀰⁸㐲硰戻牯敤⵲慲楤獵㘺硰昻湯⵴楳敺ㄺ瀴㭸潦瑮眭楥桧㩴潢摬挻牵潳㩲潰湩整絲੽戮捡筫捻汯牯⌺晦戶㔳琻硥⵴敤潣慲楴湯渺湯㭥潦瑮猭穩㩥㌱硰搻獩汰祡椺汮湩ⵥ汢捯㭫慭杲湩戭瑯潴㩭㘱硰絽㰊猯祴敬㰾栯慥㹤戼摯㹹㰊楤⁶汣獡㵳眢慲≰ਾ愼栠敲㵦⼢灡⽩瑳捯⽫湥牴⽹•汣獡㵳戢捡≫☾慬畱㭯䈠捡⁫潴䌠牡⁤瑓捯⁫湅牴㱹愯ਾ格㸱潃灭敬整匠瑥䈠湵汤⁥瑓捯㱫栯㸱㰊楤⁶汣獡㵳猢慴獴㸢瑻瑯污⁽畢摮敬⁳潴慴⁬洦摩潤㭴笠捡楴敶损畯瑮⁽捡楴敶漠⁮楳整⼼楤㹶笊慳敶彤獭絧㰊潦浲洠瑥潨㵤瀢獯≴ਾ琼扡敬ਾ琼敨摡㰾牴ਾ†琼⁨瑳汹㵥眢摩桴ㄺ〲硰㸢牅㱡琯㹨 㰠桴匾瑥丠浡㱥琯㹨 㰠桴猠祴敬∽楷瑤㩨ㄱ瀰≸倾楲散⠠⥒⼼桴ਾ†琼⁨瑳汹㵥眢摩桴㤺瀰≸匾潴正⼼桴ਾ†琼⁨瑳汹㵥眢摩桴㜺瀰㭸整瑸愭楬湧挺湥整≲䄾瑣癩㱥琯㹨㰊琯㹲⼼桴慥㹤㰊扴摯㹹牻睯絳⼼扴摯㹹㰊琯扡敬ਾ搼癩猠祴敬∽慭杲湩琭灯ㄺ瀶㭸楤灳慬㩹汦硥朻灡ㄺ瀲㭸污杩⵮瑩浥㩳散瑮牥㸢 㰠畢瑴湯琠灹㵥猢扵業≴挠慬獳∽瑢≮匾癡⁥污⁬畢摮敬㱳戯瑵潴㹮 㰠灳湡猠祴敬∽潦瑮猭穩㩥㈱硰挻汯牯⌺㠸∸吾捩⁫捁楴敶琠⁯慭敫戠湵汤⁥楶楳汢⁥湯猠瑩㱥猯慰㹮㰊搯癩ਾ⼼潦浲ਾ⼼楤㹶⼼潢祤㰾栯浴㹬✧ਧ †爠瑥牵⁮瑈灴敒灳湯敳栨浴ⱬ挠湯整瑮瑟灹㵥琧硥⽴瑨汭※档牡敳㵴瑵ⵦ✸਩ਊਊ
+from rest_framework import viewsets, filters
+from django.db.models import Case, When, IntegerField, Value
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
+from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
+from .models import PokemonProduct, Category, PokemonType
+from .serializers import PokemonProductSerializer, CategorySerializer, PokemonTypeSerializer
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
 
-@require_GET
-def checklist_stock(request):
-    raw = request.GET.get("product_ids", "")
-    if not raw:
-        return JsonResponse([], safe=False)
+class PokemonProductFilter(django_filters.FilterSet):
+    era = django_filters.CharFilter(field_name='card_set__era__code', lookup_expr='iexact')
+    card_set = django_filters.CharFilter(field_name='card_set__code', lookup_expr='iexact')
+    energy_type = django_filters.CharFilter(field_name='pokemon_types__name', lookup_expr='iexact')
+    supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
+    rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
+    category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
+    pokedex = django_filters.NumberFilter(field_name='pokedex_number', lookup_expr='exact')
+    subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
+    min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
+    max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
+    in_stock = django_filters.BooleanFilter(field_name='stock', method='filter_in_stock')
+
+    def filter_in_stock(self, queryset, name, value):
+        if value:
+            return queryset.filter(stock__gt=0)
+        return queryset
+
+    class Meta:
+        model = PokemonProduct
+        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype']
+
+
+class PokemonProductViewSet(viewsets.ModelViewSet):
+    queryset = PokemonProduct.objects.filter(is_active=True).select_related(
+        'category', 'card_set', 'card_set__era'
+    ).prefetch_related('pokemon_types')
+    serializer_class = PokemonProductSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = PokemonProductFilter
+    search_fields = ['name', 'card_set__name', 'description', 'artist', 'pokedex_number', 'card_number']
+    ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
+    ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticatedOrReadOnly()]
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticatedOrReadOnly()]
+
+
+class PokemonTypeViewSet(viewsets.ModelViewSet):
+    queryset = PokemonType.objects.all()
+    serializer_class = PokemonTypeSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticatedOrReadOnly()]
+
+
+from collections import defaultdict
+from datetime import date as date_type
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpResponse, JsonResponse
+from django.db import transaction
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Count
+import json
+
+from .models import PokemonProduct, CardSet, Era
+
+ERA_ORDER = [
+    'MEG', 'SV', 'SWSH', 'SM', 'XY', 'BW', 'HGSS', 'DP', 'EX',
+    'WotCO', 'WotCL', 'WotCN', 'WotC', 'OTHER', 'PROMO',
+]
+
+ERA_LABELS = {
+    'MEG':   'Mega Evolution',
+    'SV':    'Scarlet & Violet',
+    'SWSH':  'Sword & Shield',
+    'SM':    'Sun & Moon',
+    'XY':    'XY Era',
+    'BW':    'Black & White',
+    'HGSS':  'HG&SS',
+    'DP':    'D&P / Platinum',
+    'EX':    'EX Era',
+    'WotCO': 'e-Card',
+    'WotCL': 'Legendary',
+    'WotCN': 'Neo',
+    'WotC':  'WotC Base',
+    'OTHER': 'Special / Other',
+    'PROMO': 'Promos',
+}
+
+
+@staff_member_required
+def stock_entry(request):
+    selected_set_code = request.GET.get('set', '')
+
+    all_sets = sorted(
+        list(
+            CardSet.objects
+            .select_related('era')
+            .annotate(card_count=Count('products'))
+        ),
+        key=lambda s: s.release_date if isinstance(s.release_date, date_type) else date_type(1900, 1, 1),
+        reverse=True
+    )
+
+    cards = []
+    if selected_set_code:
+        cards = list(
+            PokemonProduct.objects
+            .filter(card_set__code=selected_set_code, is_active=True)
+            .select_related('card_set')
+            .order_by('card_number', 'variant_sort')
+            .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
+        )
+        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+        for c in cards:
+            vs = c.get('variant_override') or ''
+            c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
+
+    # Build grouped dropdown
+    sets_with_cards = [s for s in all_sets if s.card_count > 0]
+    sets_empty      = [s for s in all_sets if s.card_count == 0]
+
+    by_era = defaultdict(list)
+    for s in sets_with_cards:
+        era = s.era.code if s.era else 'OTHER'
+        by_era[era].append(s)
+
+    options_html = '<option value="">-- Choose a set --</option>'
+
+    for era_code in ERA_ORDER:
+        era_sets = by_era.get(era_code, [])
+        if not era_sets:
+            continue
+        era_label = ERA_LABELS.get(era_code, era_code)
+        options_html += f'<optgroup label="{era_label}">'
+        for s in era_sets:
+            sel = 'selected' if s.code == selected_set_code else ''
+            release = str(s.release_date) if s.release_date else ''
+            release_label = f' · {release}' if release else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
+        options_html += '</optgroup>'
+
+    # Any era not in ERA_ORDER
+    other_eras = set(by_era.keys()) - set(ERA_ORDER)
+    if other_eras:
+        options_html += '<optgroup label="Other">'
+        for era_code in sorted(other_eras):
+            for s in by_era[era_code]:
+                sel = 'selected' if s.code == selected_set_code else ''
+                release = str(s.release_date) if s.release_date else ''
+                options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count})</option>'
+        options_html += '</optgroup>'
+
+    # Empty sets at bottom
+    if sets_empty:
+        options_html += '<optgroup label="Empty Sets">'
+        for s in sets_empty:
+            sel = 'selected' if s.code == selected_set_code else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}</option>'
+        options_html += '</optgroup>'
+
+    cards_html = ''
+    if cards:
+        selected_set = next((s for s in all_sets if s.code == selected_set_code), None)
+        set_name = selected_set.name if selected_set else selected_set_code
+        total = len(cards)
+        in_stock = sum(1 for c in cards if c['stock'] > 0)
+        total_units = sum(c['stock'] for c in cards)
+
+        VAR_COLORS = {
+            'N':   '#e8e8e8;color:#333',
+            'H':   '#fff3cd;color:#856404',
+            'RH':  '#e8e4ff;color:#4c3d99',
+            'PB':  '#d4edda;color:#155724',
+            'MB':  '#6f42c1;color:#fff',
+            'LB':  '#f8d7da;color:#721c24',
+            'FB':  '#cce5ff;color:#004085',
+            'QB':  '#fff3cd;color:#856404',
+            'UB':  '#d6d8d9;color:#1b1e21',
+            'DB':  '#343a40;color:#fff',
+            'TR':  '#dc3545;color:#fff',
+            'SE':  '#fd7e14;color:#fff',
+            'PBP': '#20c997;color:#fff',
+            'MBP': '#6610f2;color:#fff',
+            'CC':  '#17a2b8;color:#fff',
+            'TT':  '#ff6b35;color:#fff',
+        }
+
+        rows = ''
+        for card in cards:
+            var = card.get('var_label') or card.get('variant_override') or 'N'
+            var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
+            price = float(card['price'] or 0)
+            card_num = str(card['card_number']).zfill(3) if card['card_number'] is not None else '???'
+            rows += f'''<tr style="scroll-margin-top:120px">
+              <td style="font-family:monospace;color:#888;font-size:15px;padding:12px 14px">#{card_num}</td>
+              <td style="font-size:15px;padding:12px 14px;font-weight:500">{card["name"]}</td>
+              <td style="padding:12px 14px"><span style="background:{var_style};padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700">{var}</span></td>
+              <td style="font-size:13px;color:#888;padding:12px 14px">{card["rarity"] or ""}</td>
+              <td style="color:#ff6b35;font-weight:600;font-size:15px;padding:12px 14px">R {price:.2f}</td>
+              <td style="color:#888;font-size:15px;padding:12px 14px">{card["stock"]}</td>
+              <td style="padding:12px 14px"><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
+                         min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
+                         oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
+              <td style="padding:12px 14px;white-space:nowrap">
+                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">✕</button>
+                <button onclick="addPlayed({card['id']},{card['tcgcsv_product_id'] or 'null'},{card['price']},this)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">+Played</button>
+              </td>
+            </tr>
+            <tr id="played-row-{card['id']}" style="display:none;background:#fffbeb">
+              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">↳ Add played copy of <strong>{card["name"]}</strong></td>
+              <td style="padding:6px 14px">
+                <select id="cond-{card['id']}" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:4px;font-size:13px;font-weight:700">
+                  <option value="LP">LP — Lightly Played</option>
+                  <option value="MP">MP — Moderately Played</option>
+                  <option value="HP">HP — Heavily Played</option>
+                  <option value="DMG">DMG — Damaged</option>
+                </select>
+              </td>
+              <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
+              <td style="padding:6px 14px;font-size:12px;color:#888">0</td>
+              <td style="padding:6px 14px">
+                <input type="number" id="played-qty-{card['id']}" min="1" value="1" placeholder="Qty"
+                  style="width:70px;padding:6px;border:1px solid #f59e0b;border-radius:4px;font-size:14px;font-weight:600;text-align:center">
+              </td>
+              <td style="padding:6px 14px">
+                <button onclick="savePlayed({card['id']},{card['price']})" style="background:#10B981;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:700">Save</button>
+                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">✕</button>
+              </td>
+            </tr>'''
+
+        cards_html = f'''
+<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <div style="font-size:22px;font-weight:700;color:#ff6b35">{total}</div>
+    <div style="font-size:11px;color:#888">Total Cards</div>
+  </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <div style="font-size:22px;font-weight:700;color:#ff6b35">{in_stock}</div>
+    <div style="font-size:11px;color:#888">In Stock</div>
+  </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <div style="font-size:22px;font-weight:700;color:#ff6b35">{total_units}</div>
+    <div style="font-size:11px;color:#888">Total Units</div>
+  </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <a href="/api/stock/print/?set={selected_set_code}" target="_blank"
+       style="display:block;background:#ff6b35;color:#fff;text-align:center;padding:10px;border-radius:6px;font-weight:700;text-decoration:none;font-size:13px">
+      Print Count Sheet
+    </a>
+  </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
+    <div style="font-size:20px;font-weight:800;color:#ff6b35">{set_name}</div>
+    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] · {selected_set_code}</div>
+  </div>
+</div>
+
+<div id="msg"></div>
+
+<div style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #eee;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0001;margin-bottom:0">
+  <div style="font-size:13px;color:#666">Enter quantities - only changed rows saved</div>
+  <div>
+    <button onclick="wipeSet()" style="background:#EF4444;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;cursor:pointer;margin-right:8px">Wipe to 0</button>
+    <button onclick="saveStock()" style="background:#10B981;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">Save Stock</button>
+  </div>
+</div>
+
+<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #0001;margin-top:0">
+<thead style="position:sticky;top:57px">
+  <tr style="background:#f8f8f8">
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="70">Card #</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee">Name</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Variant</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">Rarity</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="100">Price</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Current</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">New Qty</th>
+    <th width="60"></th>
+  </tr>
+</thead>
+<tbody><tr><td colspan="8" style="height:100px;padding:0"></td></tr>{rows}</tbody>
+</table>
+
+<script>
+const SET_CODE = "{selected_set_code}";
+function delProd(id,btn){{
+  if(!confirm('Wipe stock to 0 for this card?'))return;
+  fetch('/api/stock/delete/'+id+'/',{{method:'POST',headers:{{'X-CSRFToken':getCookie('csrftoken')}}}})
+  .then(r=>r.json()).then(d=>{{
+    if(d.success){{
+      const row=btn.closest('tr');
+      row.querySelector('td:nth-child(6)').textContent='0';
+      showMsg('Stock wiped to 0',true);
+    }}else alert('Failed to wipe stock');
+  }});
+}}
+function getCookie(n){{const v='; '+document.cookie;const p=v.split('; '+n+'=');if(p.length===2)return p.pop().split(';').shift();return'';}}
+function showMsg(t,ok){{
+  const el=document.getElementById('msg');
+  el.innerHTML='<div style="padding:12px;border-radius:6px;margin-bottom:12px;background:'+(ok?'#d1fae5':'#fee2e2')+';color:'+(ok?'#065f46':'#991b1b')+'">'+t+'</div>';
+  setTimeout(()=>el.innerHTML='',4000);
+}}
+function saveStock(){{
+  const inputs=[...document.querySelectorAll('.qty')].filter(i=>i.value.trim()!=='');
+  if(!inputs.length){{showMsg('No quantities entered',false);return;}}
+  const updates=inputs.map(i=>({{id:parseInt(i.dataset.id),stock:parseInt(i.value)}}));
+  fetch('/api/stock/update/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{updates}})}})
+  .then(r=>r.json()).then(d=>{{
+    if(d.ok){{showMsg('Saved '+d.updated+' cards!',true);inputs.forEach(i=>{{i.closest('tr').querySelector('td:nth-child(6)').textContent=i.value;i.value='';i.style.borderColor='#ddd';}});}}
+    else showMsg('Error: '+d.error,false);
+  }});
+}}
+function wipeSet(){{
+  if(!confirm('Wipe all stock in {selected_set_code} to 0?'))return;
+  fetch('/api/stock/wipe/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{set_code:SET_CODE}})}})
+  .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(6)').forEach(td=>td.textContent='0');}}}});
+}}
+const COND_MULT = {{LP:0.80,MP:0.60,HP:0.35,DMG:0.20}};
+function addPlayed(id,tcgId,basePrice,btn){{
+  const row=document.getElementById('played-row-'+id);
+  row.style.display=row.style.display==='none'?'table-row':'none';
+  const sel=document.getElementById('cond-'+id);
+  const priceEl=document.getElementById('played-price-'+id);
+  function updatePrice(){{
+    const mult=COND_MULT[sel.value]||0.80;
+    priceEl.textContent='R '+(basePrice*mult).toFixed(2);
+  }}
+  sel.onchange=updatePrice;
+  updatePrice();
+}}
+function savePlayed(nmId,basePrice){{
+  const cond=document.getElementById('cond-'+nmId).value;
+  const qty=parseInt(document.getElementById('played-qty-'+nmId).value)||1;
+  const mult=COND_MULT[cond]||0.80;
+  const price=(basePrice*mult).toFixed(2);
+  fetch('/api/stock/played/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},
+    body:JSON.stringify({{nm_product_id:nmId,condition:cond,stock:qty,price:parseFloat(price)}})
+  }}).then(r=>r.json()).then(d=>{{
+    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' · '+cond+' · R'+price+' · Qty '+qty,true);
+      document.getElementById('played-row-'+nmId).style.display='none';
+    }}else showMsg('Error: '+d.error,false);
+  }});
+}}
+document.addEventListener('keydown',function(e){{
+  if(e.key==='Enter'){{
+    const inputs=[...document.querySelectorAll('.qty')];
+    const idx=inputs.indexOf(document.activeElement);
+    if(idx>=0&&idx<inputs.length-1){{e.preventDefault();inputs[idx+1].focus();inputs[idx+1].select();}}
+  }}
+}});
+</script>'''
+
+    html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Stock Entry - PokeBulk SA</title>
+<style>*{{box-sizing:border-box;margin:0;padding:0}}body{{font-family:Arial,sans-serif;background:#f5f5f5}}
+tr:hover td{{background:#fafafa}}td{{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:15px}}
+select optgroup{{font-weight:700;color:#ff6b35}}
+select option{{font-weight:400;color:#333}}</style>
+</head><body>
+<div style="background:#ff6b35;color:#fff;padding:12px 20px;margin-bottom:20px">
+  <h1 style="font-size:18px;display:inline">Stock Entry - PokeBulk SA</h1>
+  <a href="/admin/" style="color:#fff;text-decoration:none;font-size:13px;opacity:0.8;margin-left:20px">Back to Admin</a>
+</div>
+<div style="max-width:1200px;margin:0 auto;padding:0 16px">
+  <div style="background:#fff;border-radius:8px;padding:16px;margin-bottom:20px;box-shadow:0 1px 4px #0001">
+    <h2 style="font-size:15px;margin-bottom:10px;color:#333">Select a Set</h2>
+    <form method="GET">
+      <select name="set" onchange="this.form.submit()" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px">
+        {options_html}
+      </select>
+    </form>
+  </div>
+  {cards_html}
+</div></body></html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@staff_member_required
+def delete_product(request, product_id):
+    if request.method == 'POST':
+        try:
+            p = PokemonProduct.objects.get(id=product_id)
+            p.stock = 0
+            p.save(update_fields=['stock'])
+            return JsonResponse({'success': True})
+        except PokemonProduct.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
+    return JsonResponse({'success': False}, status=405)
+
+
+@staff_member_required
+@require_POST
+def stock_update(request):
     try:
-        pids = [int(p.strip()) for p in raw.split(",") if p.strip().isdigit()]
-    except ValueError:
-        return JsonResponse({"error": "Invalid product_ids"}, status=400)
-    if not pids:
-        return JsonResponse([], safe=False)
-    pids = pids[:1000]
-    from products.models import PokemonProduct
-    in_stock = list(PokemonProduct.objects.filter(product_id__in=pids, stock_quantity__gt=0).values_list("product_id", flat=True))
-    return JsonResponse(in_stock, safe=False)
+        data = json.loads(request.body)
+        updates = data.get('updates', [])
+        products = {p.id: p for p in PokemonProduct.objects.filter(id__in=[u['id'] for u in updates])}
+        to_update = []
+        for u in updates:
+            p = products.get(u['id'])
+            if p:
+                p.stock = max(0, int(u['stock']))
+                to_update.append(p)
+        with transaction.atomic():
+            PokemonProduct.objects.bulk_update(to_update, ['stock'])
+        return JsonResponse({'ok': True, 'updated': len(to_update)})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+
+@staff_member_required
+@require_POST
+def stock_wipe(request):
+    try:
+        data = json.loads(request.body)
+        set_code = data.get('set_code', '')
+        count = PokemonProduct.objects.filter(card_set__code=set_code).update(stock=0)
+        return JsonResponse({'ok': True, 'count': count})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+
+@staff_member_required
+def stock_print(request):
+    set_code = request.GET.get('set', '')
+    if not set_code:
+        return HttpResponse('<h2>No set selected. Go back and choose a set first.</h2>')
+
+    try:
+        card_set = CardSet.objects.select_related('era').get(code=set_code)
+    except CardSet.DoesNotExist:
+        return HttpResponse(f'<h2>Set "{set_code}" not found.</h2>')
+
+    cards = list(
+        PokemonProduct.objects
+        .filter(card_set__code=set_code, is_active=True)
+        .order_by('card_number', 'variant_sort')
+        .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
+    )
+    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+    for c in cards:
+        vs = c.get('variant_override') or ''
+        c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
+
+    VARIANT_LABEL = {
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Rev Holo',
+        'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
+        'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
+        'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
+        'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
+        'CC': 'Code Card', 'TT': 'Trick or Trade',
+    }
+
+    from itertools import groupby as igroup
+    grouped = []
+    for num, grp in igroup(cards, key=lambda c: c['card_number']):
+        variants = list(grp)
+        grouped.append(variants)
+
+    total_groups = len(grouped)
+    col_size = -(-total_groups // 3)
+    cols = [grouped[0:col_size], grouped[col_size:col_size*2], grouped[col_size*2:]]
+
+    def render_group(variants):
+        if variants is None:
+            return '<td colspan="6" style="border-bottom:2px solid #eee"></td>'
+        rows = ''
+        for vi, card in enumerate(variants):
+            var = card.get('var_label') or card.get('variant_override') or 'N'
+            var_label = VARIANT_LABEL.get(var, var)
+            num_str = str(card['card_number'] or '').zfill(3)
+            name = card['name'] if vi == 0 else ''
+            num_cell = f'<td class="num">{num_str}</td>' if vi == 0 else '<td class="num"></td>'
+            name_cell = f'<td class="name">{name}</td>' if vi == 0 else f'<td class="name" style="color:#888;font-size:7px;padding-left:8px">{var_label}</td>'
+            border = 'border-bottom:1px solid #eee;' if vi < len(variants)-1 else 'border-bottom:2px solid #ccc;'
+            rows += f'<tr style="{border}">{num_cell}{name_cell}<td class="var">{var}</td><td class="box"></td><td class="box"></td><td class="box"></td></tr>'
+        return rows
+
+    max_rows = col_size
+    rows_html = ''
+    for i in range(max_rows):
+        g1 = cols[0][i] if i < len(cols[0]) else None
+        g2 = cols[1][i] if i < len(cols[1]) else None
+        g3 = cols[2][i] if i < len(cols[2]) else None
+
+        r1 = list(render_group(g1).split('</tr>') if g1 else [''])
+        r2 = list(render_group(g2).split('</tr>') if g2 else [''])
+        r3 = list(render_group(g3).split('</tr>') if g3 else [''])
+        r1 = [r for r in r1 if r.strip()]
+        r2 = [r for r in r2 if r.strip()]
+        r3 = [r for r in r3 if r.strip()]
+        max_v = max(len(r1), len(r2), len(r3), 1)
+
+        bg = '#ffffff' if i % 2 == 0 else '#f9f9f9'
+        for vi in range(max_v):
+            c1 = (r1[vi] + '</tr>') if vi < len(r1) else '<tr><td colspan="6"></td></tr>'
+            c2 = (r2[vi] + '</tr>') if vi < len(r2) else '<tr><td colspan="6"></td></tr>'
+            c3 = (r3[vi] + '</tr>') if vi < len(r3) else '<tr><td colspan="6"></td></tr>'
+            def inner(r):
+                import re
+                tds = re.findall(r'<td[^>]*>.*?</td>', r, re.DOTALL)
+                return ''.join(tds)
+            rows_html += f'<tr style="background:{bg}">{inner(c1)}<td class="div"></td>{inner(c2)}<td class="div"></td>{inner(c3)}</tr>\n'
+
+    set_name = card_set.name
+    era_name = card_set.era.name if card_set.era else ''
+    release = str(card_set.release_date) if card_set.release_date else ''
+    total_cards = len(cards)
+
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Stock Count - {set_name}</title>
+<style>
+  @page {{ size: A4 landscape; margin: 8mm; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
+  .header {{ display: flex; justify-content: space-between; align-items: center;
+             border-bottom: 2px solid #ff6b35; padding-bottom: 5px; margin-bottom: 6px; }}
+  .header h1 {{ font-size: 13px; color: #ff6b35; font-weight: 800; }}
+  .header h2 {{ font-size: 10px; color: #333; }}
+  .header-right {{ display: flex; gap: 16px; align-items: center; font-size: 8px; color: #666; }}
+  .field {{ display: flex; flex-direction: column; gap: 2px; }}
+  .field label {{ font-size: 7px; color: #999; text-transform: uppercase; }}
+  .field .line {{ border-bottom: 1px solid #999; width: 100px; height: 14px; }}
+  table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
+  thead th {{ background: #ff6b35; color: #fff; padding: 3px 4px;
+              text-align: left; font-size: 7px; font-weight: 700; text-transform: uppercase; }}
+  td {{ padding: 2px 3px; border-bottom: 1px solid #eee; vertical-align: middle; overflow: hidden; white-space: nowrap; }}
+  td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
+  td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
+  td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
+  td.box  {{ width: 36px; }}
+  td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:18px; width:32px; margin:0 auto; }}
+  td.div  {{ width: 6px; background: #f0f0f0; }}
+  .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
+             display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
+  .page-header {{ display: none; }}
+  @media print {{
+    .no-print {{ display: none !important; }}
+    body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    .page-header {{ display: block; position: running(header); font-size: 9px; color: #ff6b35; font-weight: 700; text-align: right; }}
+    @page {{ @top-right {{ content: element(header); }} }}
+  }}
+</style>
+</head>
+<body>
+<div class="page-header">{set_name} · {set_code}</div>
+
+<div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
+  <strong>PokeBulk Stock Count - {set_name}</strong>
+  <button onclick="window.print()" style="background:#fff;color:#ff6b35;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer">Print</button>
+  <a href="/api/stock/entry/?set={set_code}" style="color:#fff;font-size:12px">Back</a>
+</div>
+
+<div class="header">
+  <div>
+    <h1 style="font-size:16px;color:#ff6b35;font-weight:800">{set_name}</h1>
+    <h2>PokeBulk SA Stock Count · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
+  </div>
+  <div class="header-right">
+    <div class="field"><label>Date</label><div class="line" style="width:80px"></div></div>
+    <div class="field"><label>Counted By</label><div class="line" style="width:110px"></div></div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+      <th style="width:5px"></th>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+      <th style="width:5px"></th>
+      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+    </tr>
+  </thead>
+  <tbody>{rows_html}</tbody>
+</table>
+
+<div class="footer">
+  <span>PokeBulk SA · 4 Heloise Street, Birchleigh North · enquiries@pokebulk.co.za</span>
+  <span>Printed: <span id="now"></span></span>
+</div>
+<script>document.getElementById('now').textContent = new Date().toLocaleString('en-ZA');</script>
+</body>
+</html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@csrf_exempt
+@staff_member_required
+@require_POST
+def stock_add_played(request):
+    """Create a played-condition copy of an existing NM product."""
+    try:
+        data = json.loads(request.body)
+        nm_id = int(data['nm_product_id'])
+        condition = data['condition']
+        stock = max(1, int(data.get('stock', 1)))
+        price = float(data['price'])
+
+        if condition not in ('LP', 'MP', 'HP', 'DMG'):
+            return JsonResponse({'ok': False, 'error': 'Invalid condition'})
+
+        nm = PokemonProduct.objects.select_related('card_set', 'card_set__era', 'category').get(id=nm_id)
+
+        # Check if played copy already exists for this condition
+        existing = PokemonProduct.objects.filter(
+            tcgcsv_product_id=nm.tcgcsv_product_id,
+            condition=condition,
+            variant_override=nm.variant_override,
+        ).exclude(id=nm_id).first()
+
+        if existing:
+            # Update stock on existing played copy
+            existing.stock += stock
+            existing.price = price
+            existing.save(update_fields=['stock', 'price', 'updated_at'])
+            return JsonResponse({'ok': True, 'product_id': existing.id, 'action': 'updated'})
+
+        # Create new played product row
+        played = PokemonProduct(
+            name=nm.name,
+            name_japanese=nm.name_japanese,
+            card_set=nm.card_set,
+            category=nm.category,
+            rarity=nm.rarity,
+            condition=condition,
+            variant_override=nm.variant_override,
+            variant_sort=nm.variant_sort,
+            card_number=nm.card_number,
+            number=nm.number,
+            pokedex_number=nm.pokedex_number,
+            supertype=nm.supertype,
+            card_subtypes=nm.card_subtypes,
+            image_url=nm.image_url,
+            image_small_url=nm.image_small_url,
+            tcgcsv_product_id=nm.tcgcsv_product_id,
+            price=price,
+            stock=stock,
+            is_active=True,
+            legal_standard=nm.legal_standard,
+            legal_expanded=nm.legal_expanded,
+            legal_unlimited=nm.legal_unlimited,
+        )
+        played.save()
+
+        # Copy pokemon types
+        if nm.pokemon_types.exists():
+            played.pokemon_types.set(nm.pokemon_types.all())
+
+        return JsonResponse({'ok': True, 'product_id': played.id, 'action': 'created'})
+
+    except PokemonProduct.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'NM product not found'})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+
+def sets_list(request):
+    sets = CardSet.objects.select_related('era').annotate(
+        pc=Count('products')
+    ).filter(pc__gt=0).order_by('-release_date', 'name')
+    data = []
+    for s in sets:
+        data.append({
+            'code': s.code,
+            'name': s.name,
+            'symbol_url': s.symbol_url or '',
+            'logo_url': s.logo_url or '',
+            'release_date': str(s.release_date) if s.release_date else '',
+            'era_code': s.era.code if s.era else '',
+            'era_name': s.era.name if s.era else '',
+            'regulation_mark': s.regulation_mark or '',
+        })
+    return JsonResponse({'results': data})
+
+
+@csrf_exempt
+@staff_member_required
+def bundle_stock_entry(request):
+    bundles = list(
+        PokemonProduct.objects
+        .filter(category__slug='bundles')
+        .select_related('card_set', 'card_set__era')
+        .order_by('card_set__release_date', 'card_set__name')
+        .exclude(card_set__release_date__isnull=True)
+        .values('id', 'name', 'card_set__name', 'card_set__code', 'card_set__era__name',
+                'card_set__logo_url', 'card_set__symbol_url', 'stock', 'price', 'is_active')
+    )
+
+    saved_msg = ''
+    if request.method == 'POST':
+        updated = 0
+        for b in bundles:
+            bid = str(b['id'])
+            new_stock = request.POST.get('stock_' + bid)
+            new_price = request.POST.get('price_' + bid)
+            new_active = request.POST.get('active_' + bid) == 'on'
+            if new_stock is not None:
+                try:
+                    PokemonProduct.objects.filter(id=b['id']).update(
+                        stock=int(new_stock),
+                        price=float(new_price) if new_price else 0,
+                        is_active=new_active,
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+        bundles = list(
+            PokemonProduct.objects
+            .filter(category__slug='bundles')
+            .select_related('card_set', 'card_set__era')
+            .order_by('card_set__release_date', 'card_set__name')
+            .exclude(card_set__release_date__isnull=True)
+            .values('id', 'name', 'card_set__name', 'card_set__code', 'card_set__era__name',
+                    'card_set__logo_url', 'card_set__symbol_url', 'stock', 'price', 'is_active')
+        )
+        saved_msg = f'<div style="background:#d4edda;color:#155724;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-weight:600">Saved {updated} bundles successfully!</div>'
+
+    rows = ''
+    for b in bundles:
+        logo = b['card_set__logo_url'] or b['card_set__symbol_url'] or ''
+        logo_html = f'<img src="{logo}" style="height:28px;max-width:60px;object-fit:contain;vertical-align:middle;margin-right:8px">' if logo else ''
+        era = b['card_set__era__name'] or ''
+        set_name = b['card_set__name'] or b['name']
+        active_checked = 'checked' if b['is_active'] else ''
+        price = float(b['price'] or 0)
+        stock = b['stock'] or 0
+        row_bg = '#f8fff8' if b['is_active'] else '#ffffff'
+        rows += f'''<tr style="background:{row_bg};border-bottom:1px solid #eee">
+            <td style="padding:8px 10px;font-size:12px;color:#888">{era}</td>
+            <td style="padding:8px 10px;font-size:13px">{logo_html}<strong>{set_name}</strong></td>
+            <td style="padding:8px 10px"><input type="number" name="price_{b['id']}" value="{price:.2f}" step="0.01" min="0" style="width:90px;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px"></td>
+            <td style="padding:8px 10px"><input type="number" name="stock_{b['id']}" value="{stock}" min="0" style="width:70px;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px"></td>
+            <td style="padding:8px 10px;text-align:center"><input type="checkbox" name="active_{b['id']}" {active_checked} style="width:18px;height:18px;cursor:pointer"></td>
+        </tr>'''
+
+    active_count = sum(1 for b in bundles if b['is_active'])
+    total = len(bundles)
+
+    html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Bundle Stock - PokeBulk SA</title>
+<style>
+body{{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}}
+.wrap{{max-width:900px;margin:0 auto;background:white;border-radius:8px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.1)}}
+h1{{color:#ff6b35;font-size:22px;margin:0 0 6px}}
+.stats{{color:#666;font-size:13px;margin-bottom:16px}}
+table{{width:100%;border-collapse:collapse}}
+th{{background:#ff6b35;color:white;padding:10px;text-align:left;font-size:12px}}
+tr:hover{{background:#fff8f5!important}}
+.btn{{background:#ff6b35;color:white;border:none;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer}}
+.back{{color:#ff6b35;text-decoration:none;font-size:13px;display:inline-block;margin-bottom:16px}}
+</style></head><body>
+<div class="wrap">
+<a href="/api/stock/entry/" class="back">&laquo; Back to Card Stock Entry</a>
+<h1>Complete Set Bundle Stock</h1>
+<div class="stats">{total} bundles total &middot; {active_count} active on site</div>
+{saved_msg}
+<form method="post">
+<table>
+<thead><tr>
+  <th style="width:120px">Era</th>
+  <th>Set Name</th>
+  <th style="width:110px">Price (R)</th>
+  <th style="width:90px">Stock</th>
+  <th style="width:70px;text-align:center">Active</th>
+</tr></thead>
+<tbody>{rows}</tbody>
+</table>
+<div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+  <button type="submit" class="btn">Save all bundles</button>
+  <span style="font-size:12px;color:#888">Tick Active to make bundle visible on site</span>
+</div>
+</form>
+</div></body></html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+
+
+
