@@ -870,3 +870,23 @@ th{{background:#1a1a2e;padding:8px 10px;font-size:11px;text-align:left;color:#a0
 </div></body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+
+@require_GET
+def checklist_stock(request):
+    raw = request.GET.get('product_ids', '')
+    if not raw:
+        return JsonResponse([], safe=False)
+    try:
+        pids = [int(p.strip()) for p in raw.split(',') if p.strip().isdigit()]
+    except ValueError:
+        return JsonResponse({'error': 'Invalid'}, status=400)
+    if not pids:
+        return JsonResponse([], safe=False)
+    pids = pids[:1000]
+    from products.models import PokemonProduct
+    in_stock = list(PokemonProduct.objects.filter(product_id__in=pids, stock_quantity__gt=0).values_list('product_id', flat=True))
+    return JsonResponse(in_stock, safe=False)
