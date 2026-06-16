@@ -888,5 +888,5 @@ def checklist_stock(request):
         return JsonResponse([], safe=False)
     pids = pids[:1000]
     from products.models import PokemonProduct
-    in_stock = list(PokemonProduct.objects.filter(product_id__in=pids, stock_quantity__gt=0).values_list('product_id', flat=True))
+    in_stock = list(PokemonProduct.objects.filter(tcgcsv_product_id__in=pids, stock_quantity__gt=0).values_list('tcgcsv_product_id', flat=True))
     return JsonResponse(in_stock, safe=False)
