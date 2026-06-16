@@ -799,6 +799,74 @@ tr:hover{{background:#fff8f5!important}}
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
+@staff_member_required
+def checklist_stock(request):
+    """Stock checklist — shows all cards per set with current stock levels."""
+    from .models import CardSet
+    set_code = request.GET.get('set', '')
+    sets = CardSet.objects.filter(
+        products__isnull=False
+    ).distinct().order_by('-release_date', 'name')
 
+    products = []
+    selected_set = None
+    if set_code:
+        selected_set = CardSet.objects.filter(code=set_code).first()
+        if selected_set:
+            products = list(
+                PokemonProduct.objects
+                .filter(card_set__code=set_code)
+                .order_by('card_number', 'variant_sort')
+                .values('id', 'name', 'number', 'variant_sort', 'rarity', 'stock', 'price', 'condition')
+            )
 
+    rows = ''
+    for p in products:
+        stock_val = p['stock'] or 0
+        stock_color = '#22c55e' if stock_val > 0 else '#ef4444'
+        rows += f'''<tr style="border-bottom:1px solid #2a2a3a">
+            <td style="padding:6px 10px;font-size:12px;color:#a0a0b0">{p["number"] or "-"}</td>
+            <td style="padding:6px 10px;font-size:12px;color:#fff">{p["name"]}</td>
+            <td style="padding:6px 10px;font-size:12px;color:#a0a0b0">{p["variant_sort"] or "N"}</td>
+            <td style="padding:6px 10px;font-size:12px;color:#a0a0b0">{p["rarity"] or "-"}</td>
+            <td style="padding:6px 10px;font-size:12px;color:#a0a0b0">{p["condition"] or "NM"}</td>
+            <td style="padding:6px 10px;font-size:12px;font-weight:bold;color:{stock_color}">{stock_val}</td>
+            <td style="padding:6px 10px;font-size:12px;color:#a0a0b0">R {float(p["price"] or 0):.2f}</td>
+        </tr>'''
 
+    set_options = ''.join(
+        f'<option value="{s.code}" {"selected" if s.code == set_code else ""}>{s.name} ({s.code})</option>'
+        for s in sets
+    )
+
+    total_in_stock = sum(1 for p in products if (p['stock'] or 0) > 0)
+    total_cards = len(products)
+
+    html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stock Checklist</title>
+<style>body{{background:#0e0e16;color:#fff;font-family:Arial,sans-serif;margin:0;padding:20px}}
+select,button{{background:#1a1a2e;color:#fff;border:1px solid #2a2a3a;padding:8px 14px;border-radius:6px;font-size:13px}}
+button{{background:#ff6b35;border-color:#ff6b35;cursor:pointer;font-weight:bold}}
+table{{width:100%;border-collapse:collapse}}
+th{{background:#1a1a2e;padding:8px 10px;font-size:11px;text-align:left;color:#a0a0b0;text-transform:uppercase;letter-spacing:.05em}}
+</style></head><body>
+<div style="max-width:900px;margin:0 auto">
+<h2 style="color:#ff6b35;margin-bottom:20px">📋 Stock Checklist</h2>
+<form method="get" style="display:flex;gap:12px;align-items:center;margin-bottom:24px">
+  <select name="set" style="flex:1;max-width:400px">
+    <option value="">— Select a Set —</option>
+    {set_options}
+  </select>
+  <button type="submit">View</button>
+  {"" if not set_code else f'<a href="?set={set_code}&fmt=print" target="_blank" style="background:#333;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:13px;border:1px solid #555">🖨 Print</a>'}
+</form>
+{"" if not selected_set else f'<div style="margin-bottom:16px;color:#a0a0b0;font-size:13px"><strong style="color:#fff">{selected_set.name}</strong> &nbsp;|&nbsp; {total_in_stock} / {total_cards} cards in stock</div>'}
+{"<p style='color:#555;font-size:13px'>Select a set above to view its stock checklist.</p>" if not set_code else f"""
+<table>
+  <thead><tr>
+    <th>#</th><th>Card Name</th><th>Variant</th><th>Rarity</th><th>Condition</th><th>Stock</th><th>Price</th>
+  </tr></thead>
+  <tbody>{rows}</tbody>
+</table>"""}
+</div></body></html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
