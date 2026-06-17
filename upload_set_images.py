@@ -161,7 +161,7 @@ def main():
             continue
 
         changed = False
-        force = cs.era and cs.era.code == 'MEG'
+        force = (cs.era and cs.era.code == 'MEG') or code in ('BLK', 'WHT')
 
         # Upload logo
         if logo_fn and (not cs.logo_url or force):
