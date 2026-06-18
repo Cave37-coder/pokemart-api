@@ -56,12 +56,10 @@ class OrderAdmin(admin.ModelAdmin):
         if obj.pk:
             pull_url = reverse('print-order', args=[obj.pk])
             inv_url = reverse('print-invoice', args=[obj.pk])
-            send_url = reverse('send-invoice', args=[obj.pk])
             return format_html(
                 '''<a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;margin-right:6px">🖨 Pull Sheet</a>
-                <a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;margin-right:6px">📄 Invoice</a>
-                <a href="{}" style="background:#10B981;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px">📧 Send Invoice</a>''',
-                pull_url, inv_url, send_url
+                <a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555">📄 Invoice</a>''',
+                pull_url, inv_url
             )
         return '-'
     print_button.short_description = 'Print'
