@@ -308,6 +308,7 @@ def print_order(request, order_id):
 <h2 style="margin-bottom:4px;font-size:14px">Cards to Pack - Grouped by Set</h2>
 {sets_html}
 <table style="width:100%;border-collapse:collapse;margin-top:4px">
+  <tr style="font-weight:bold;background:#fff3e8"><td colspan="5" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
   <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
   <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
   <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {order.total_price:.2f}</td><td></td></tr>
