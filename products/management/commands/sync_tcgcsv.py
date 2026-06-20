@@ -12,7 +12,8 @@ import time
 import requests
 from decimal import Decimal, ROUND_UP
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import transaction, close_old_connections
+from django.db.utils import OperationalError, InterfaceError
 from products.models import PokemonProduct, CardSet, Era, Category
 
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
@@ -492,7 +493,32 @@ class Command(BaseCommand):
 
         for i, (code, (gid, sname, era_code)) in enumerate(config.items(), 1):
             self.stdout.write(f"[{i}/{total}] {code} - {sname} (group {gid})")
-            stats = _sync_group(code, gid, sname, era_code, rate, dry_run)
+
+            max_attempts = 3
+            stats = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    stats = _sync_group(code, gid, sname, era_code, rate, dry_run)
+                    break
+                except (OperationalError, InterfaceError) as e:
+                    self.stdout.write(
+                        f"  !! DB connection error on attempt {attempt}/{max_attempts}: {e}"
+                    )
+                    close_old_connections()
+                    if attempt < max_attempts:
+                        time.sleep(2 * attempt)
+                        self.stdout.write(f"  retrying {code}...")
+                    else:
+                        self.stdout.write(
+                            f"  !! GIVING UP on {code} after {max_attempts} attempts, moving on"
+                        )
+                        stats = dict(created=0, skipped=0, no_price=0, non_card=0)
+                except Exception as e:
+                    self.stdout.write(f"  !! UNEXPECTED ERROR on {code}: {e}")
+                    close_old_connections()
+                    stats = dict(created=0, skipped=0, no_price=0, non_card=0)
+                    break
+
             self.stdout.write(
                 f"  created={stats['created']}  skipped={stats['skipped']}"
                 f"  no_price={stats['no_price']}  non_card={stats['non_card']}"
