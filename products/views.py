@@ -1,5 +1,5 @@
 from rest_framework import viewsets, filters
-from django.db.models import Case, When, IntegerField, Value
+from django.db.models import Case, When, IntegerField, Value, Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
@@ -19,15 +19,44 @@ class PokemonProductFilter(django_filters.FilterSet):
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
     in_stock = django_filters.BooleanFilter(field_name='stock', method='filter_in_stock')
+    legal_standard = django_filters.BooleanFilter(field_name='legal_standard', method='filter_legal_standard')
+    legality = django_filters.CharFilter(method='filter_legality')
 
     def filter_in_stock(self, queryset, name, value):
         if value:
             return queryset.filter(stock__gt=0)
         return queryset
 
+    def filter_legal_standard(self, queryset, name, value):
+        if value:
+            return queryset.filter(legal_standard=True)
+        return queryset
+
+    def filter_legality(self, queryset, name, value):
+        # Drives the Browse Cards dropdown: All formats / Standard 2026
+        # (H/I/J) / Expanded / Rotated -- SV era (G) / Rotated -- SwSh era
+        # (F). rotated_g/rotated_f filter on the ACTUAL mark value (per-card
+        # regulation_mark, falling back to card_set.regulation_mark when
+        # blank) rather than a legal/illegal boolean -- useful as a standalone
+        # "show me G-marked stock" filter for clearance, distinct from
+        # legal_standard.
+        if value == 'standard':
+            return queryset.filter(legal_standard=True)
+        elif value == 'expanded':
+            return queryset.filter(legal_expanded=True)
+        elif value == 'rotated_g':
+            return queryset.filter(
+                Q(regulation_mark='G') | (Q(regulation_mark='') & Q(card_set__regulation_mark='G'))
+            )
+        elif value == 'rotated_f':
+            return queryset.filter(
+                Q(regulation_mark='F') | (Q(regulation_mark='') & Q(card_set__regulation_mark='F'))
+            )
+        return queryset
+
     class Meta:
         model = PokemonProduct
-        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype']
+        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality']
 
 
 class PokemonProductViewSet(viewsets.ModelViewSet):
@@ -71,6 +100,7 @@ from collections import defaultdict
 from datetime import date as date_type
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -801,6 +831,14 @@ tr:hover{{background:#fff8f5!important}}
 
 @staff_member_required
 def checklist_stock(request):
+    # NOTE (flagged by Claude, 2026-06-20): a second function named
+    # `checklist_stock` is defined further down this file (the JsonResponse
+    # API endpoint for checking stock by tcgcsv_product_id). Because Python
+    # binds the name at module load time, that LATER definition silently
+    # overwrites this one — meaning this HTML staff page is currently
+    # UNREACHABLE from urls.py, even though the URL route still resolves
+    # without error. Rename one of these two functions (and update
+    # urls.py / any templates referencing it) to restore this page.
     """Stock checklist — shows all cards per set with current stock levels."""
     from .models import CardSet
     set_code = request.GET.get('set', '')
@@ -877,6 +915,10 @@ from django.views.decorators.http import require_GET
 
 @require_GET
 def checklist_stock(request):
+    # NOTE (flagged by Claude, 2026-06-20): this function shares its name
+    # with the HTML staff checklist page defined earlier in this file.
+    # This is the one urls.py actually resolves to right now — the other
+    # one is dead code until the names are made unique.
     raw = request.GET.get('product_ids', '')
     if not raw:
         return JsonResponse([], safe=False)
@@ -890,3 +932,290 @@ def checklist_stock(request):
     from products.models import PokemonProduct
     in_stock = list(PokemonProduct.objects.filter(tcgcsv_product_id__in=pids, stock__gt=0).values_list('tcgcsv_product_id', flat=True))
     return JsonResponse(in_stock, safe=False)
+
+
+
+
+# --- Set management page: per-row and bulk variant apply / delete ---------
+
+VARIANT_LABEL_FULL = {
+    'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
+    'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
+    'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
+    'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
+    'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
+    'CC': 'Code Card', 'TT': 'Trick or Trade',
+}
+
+
+def _build_manage_set_dropdown_html(selected_set_code):
+    """Era-grouped <option> list, same structure/ordering as stock_entry's dropdown."""
+    all_sets = sorted(
+        list(
+            CardSet.objects
+            .select_related('era')
+            .annotate(card_count=Count('products'))
+        ),
+        key=lambda s: s.release_date if isinstance(s.release_date, date_type) else date_type(1900, 1, 1),
+        reverse=True
+    )
+    sets_with_cards = [s for s in all_sets if s.card_count > 0]
+    sets_empty = [s for s in all_sets if s.card_count == 0]
+
+    by_era = defaultdict(list)
+    for s in sets_with_cards:
+        era = s.era.code if s.era else 'OTHER'
+        by_era[era].append(s)
+
+    options_html = '<option value="">-- Choose a set --</option>'
+
+    for era_code in ERA_ORDER:
+        era_sets = by_era.get(era_code, [])
+        if not era_sets:
+            continue
+        era_label = ERA_LABELS.get(era_code, era_code)
+        options_html += f'<optgroup label="{era_label}">'
+        for s in era_sets:
+            sel = 'selected' if s.code == selected_set_code else ''
+            release = str(s.release_date) if s.release_date else ''
+            release_label = f' · {release}' if release else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
+        options_html += '</optgroup>'
+
+    other_eras = set(by_era.keys()) - set(ERA_ORDER)
+    if other_eras:
+        options_html += '<optgroup label="Other">'
+        for era_code in sorted(other_eras):
+            for s in by_era[era_code]:
+                sel = 'selected' if s.code == selected_set_code else ''
+                options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count})</option>'
+        options_html += '</optgroup>'
+
+    if sets_empty:
+        options_html += '<optgroup label="Empty Sets">'
+        for s in sets_empty:
+            sel = 'selected' if s.code == selected_set_code else ''
+            options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name}</option>'
+        options_html += '</optgroup>'
+
+    return options_html
+
+
+@staff_member_required
+def manage_set(request):
+    from django.middleware.csrf import get_token
+    csrf_token = get_token(request)
+
+    selected_set_code = request.GET.get('set', '').strip()
+    message = ''
+    card_set = None
+
+    if selected_set_code:
+        card_set = CardSet.objects.filter(code=selected_set_code).first()
+        if not card_set:
+            message = f'Set "{selected_set_code}" not found.'
+            selected_set_code = ''
+
+    if request.method == 'POST' and card_set:
+        action = request.POST.get('action')
+
+        if action in ('delete_single', 'apply_variant_single'):
+            try:
+                product_id = int(request.POST.get('product_id', ''))
+            except (TypeError, ValueError):
+                product_id = None
+
+            p = PokemonProduct.objects.filter(id=product_id, card_set=card_set).first() if product_id else None
+            if not p:
+                message = 'Product not found — nothing changed.'
+            elif action == 'delete_single':
+                name = p.name
+                p.delete()
+                message = f'Deleted "{name}".'
+            else:
+                new_variant = request.POST.get('variant_value', '').strip()
+                if not new_variant:
+                    message = 'No variant chosen — nothing changed.'
+                else:
+                    p.variant_override = new_variant
+                    new_pb_id = p.generate_pb_id()
+                    if new_pb_id:
+                        p.pb_id = new_pb_id
+                    p.save()
+                    message = f"Applied variant '{new_variant}' to \"{p.name}\"."
+
+        elif action in ('delete', 'apply_variant'):
+            selected_ids = [int(i) for i in request.POST.getlist('selected') if i.isdigit()]
+            if not selected_ids:
+                message = 'No products were selected — nothing changed.'
+            else:
+                qs = PokemonProduct.objects.filter(id__in=selected_ids, card_set=card_set)
+                if action == 'delete':
+                    deleted_count = qs.count()
+                    qs.delete()
+                    message = f'Deleted {deleted_count} product(s).'
+                else:
+                    new_variant = request.POST.get('variant_value', '').strip()
+                    if not new_variant:
+                        message = 'No variant was chosen — nothing changed.'
+                    else:
+                        updated = 0
+                        with transaction.atomic():
+                            for p in qs:
+                                p.variant_override = new_variant
+                                new_pb_id = p.generate_pb_id()
+                                if new_pb_id:
+                                    p.pb_id = new_pb_id
+                                p.save()
+                                updated += 1
+                        message = f"Applied variant '{new_variant}' to {updated} product(s)."
+        else:
+            message = 'Unrecognized action — nothing changed.'
+
+    dropdown_html = _build_manage_set_dropdown_html(selected_set_code)
+    msg_html = f'<div class="msg">{message}</div>' if message else ''
+
+    if not card_set:
+        html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manage Sets - PokeBulk SA</title>
+<style>
+* {{ box-sizing:border-box }}
+body {{ font-family:Arial,sans-serif;background:#0d0d12;color:#eee;padding:24px;margin:0 }}
+select {{ background:#1a1a24;border:1px solid #2a2a3a;color:#fff;padding:8px 12px;border-radius:6px;font-size:14px;width:100% }}
+optgroup {{ color:#ff6b35 }}
+.box {{ background:#14141c;border-radius:8px;padding:20px;max-width:600px }}
+.msg {{ background:#1a1a24;border-left:3px solid #ff6b35;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:13px }}
+</style></head><body>
+<h1 style="font-size:20px;margin-bottom:16px">Manage Set Products</h1>
+{msg_html}
+<div class="box">
+  <form method="get">
+    <select name="set" onchange="this.form.submit()">{dropdown_html}</select>
+  </form>
+</div>
+</body></html>'''
+        return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+    search = request.GET.get('q', '').strip()
+    stock_filter = request.GET.get('stock', '')
+
+    products = PokemonProduct.objects.filter(card_set=card_set).order_by(
+        'card_number', 'variant_sort', 'name'
+    )
+    if search:
+        products = products.filter(name__icontains=search)
+    if stock_filter == 'in':
+        products = products.filter(stock__gt=0)
+    elif stock_filter == 'out':
+        products = products.filter(stock=0)
+
+    products = list(products)
+
+    variant_options = ''.join(
+        f'<option value="{code}">{code} - {label}</option>'
+        for code, label in VARIANT_LABEL_FULL.items()
+    )
+
+    rows = ''
+    for p in products:
+        img = p.image_small_url or p.image_url or ''
+        if img:
+            img_tag = f'<img src="{img}" style="width:36px;height:50px;object-fit:cover;border-radius:4px;background:#222">'
+        else:
+            img_tag = '<div style="width:36px;height:50px;background:#333;border-radius:4px"></div>'
+        stock_color = '#4ade80' if p.stock > 0 else '#f43f5e'
+        variant_display = p.variant_override or '-'
+        variant_label = VARIANT_LABEL_FULL.get(p.variant_override, '')
+
+        row_variant_options = ''.join(
+            f'<option value="{code}" {"selected" if code == p.variant_override else ""}>{code} - {label}</option>'
+            for code, label in VARIANT_LABEL_FULL.items()
+        )
+
+        rows += f'''<tr style="border-bottom:1px solid #2a2a3a">
+            <td style="padding:6px 8px"><input type="checkbox" name="selected" value="{p.id}" form="bulk-form"></td>
+            <td style="padding:6px 8px">{img_tag}</td>
+            <td style="padding:6px 8px;font-size:12px">{p.card_number if p.card_number is not None else '--'}</td>
+            <td style="padding:6px 8px;font-size:12px">{p.name}</td>
+            <td style="padding:6px 8px;font-size:12px">{p.get_rarity_display()}</td>
+            <td style="padding:6px 8px;font-size:12px;font-weight:bold" title="{variant_label}">{variant_display}</td>
+            <td style="padding:6px 8px;font-size:12px;color:#888">{p.variant_sort}</td>
+            <td style="padding:6px 8px;font-size:12px;color:{stock_color};font-weight:bold">{p.stock}</td>
+            <td style="padding:6px 8px;font-size:12px">R {p.price:.2f}</td>
+            <td style="padding:6px 8px;font-size:10px;color:#888">{p.pb_id}</td>
+            <td style="padding:6px 8px;font-size:10px;color:#888">{p.id}</td>
+            <td style="padding:6px 8px;white-space:nowrap">
+              <form method="post" action="?set={selected_set_code}" style="display:inline-flex;gap:4px;align-items:center;margin:0">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+                <input type="hidden" name="action" value="apply_variant_single">
+                <input type="hidden" name="product_id" value="{p.id}">
+                <select name="variant_value" style="padding:3px 4px;font-size:11px">{row_variant_options}</select>
+                <button type="submit" style="background:#2a2a3a;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer">Apply</button>
+              </form>
+              <form method="post" action="?set={selected_set_code}" style="display:inline;margin:0" onsubmit="return confirm('Delete this product? This cannot be undone.')">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+                <input type="hidden" name="action" value="delete_single">
+                <input type="hidden" name="product_id" value="{p.id}">
+                <button type="submit" style="background:#dc2626;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:4px">Delete</button>
+              </form>
+            </td>
+        </tr>'''
+
+    html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manage {card_set.code} - PokeBulk SA</title>
+<style>
+* {{ box-sizing:border-box }}
+body {{ font-family:Arial,sans-serif;background:#0d0d12;color:#eee;padding:0;margin:0 }}
+table {{ border-collapse:collapse;width:100%;background:#14141c }}
+th {{ background:#1a1a24;font-size:11px;text-align:left;padding:8px;color:#a0a0b0;border-bottom:1px solid #2a2a3a;position:sticky;top:118px;z-index:90 }}
+input[type=text] {{ background:#0d0d12;border:1px solid #2a2a3a;color:#fff;padding:6px 10px;border-radius:6px }}
+select {{ background:#0d0d12;border:1px solid #2a2a3a;color:#fff;padding:6px 10px;border-radius:6px }}
+button {{ background:#ff6b35;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold }}
+button.danger {{ background:#dc2626 }}
+button.secondary {{ background:#2a2a3a;font-weight:normal }}
+.msg {{ background:#1a1a24;border-left:3px solid #ff6b35;padding:10px 14px;border-radius:6px;font-size:13px }}
+.topbar {{ position:sticky;top:0;z-index:100;background:#0d0d12;padding:16px 20px;border-bottom:1px solid #2a2a3a;box-shadow:0 4px 10px rgba(0,0,0,0.4) }}
+.content {{ padding:0 20px 20px }}
+optgroup {{ color:#ff6b35 }}
+</style>
+</head><body>
+
+<div class="topbar">
+  <h1 style="font-size:18px;margin-bottom:8px">Manage Set: {card_set.name} [{card_set.code}]</h1>
+  <form method="get" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+    <select name="set" onchange="this.form.submit()" style="min-width:260px">{dropdown_html}</select>
+    <input type="text" name="q" placeholder="Search card name..." value="{search}">
+    <select name="stock" onchange="this.form.submit()">
+      <option value="" {"selected" if stock_filter == "" else ""}>All stock</option>
+      <option value="in" {"selected" if stock_filter == "in" else ""}>In stock only</option>
+      <option value="out" {"selected" if stock_filter == "out" else ""}>Out of stock only</option>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button type="button" class="secondary" onclick="document.querySelectorAll('input[name=selected]').forEach(c=>c.checked=true)">Select All</button>
+    <button type="button" class="secondary" onclick="document.querySelectorAll('input[name=selected]').forEach(c=>c.checked=false)">Select None</button>
+    <select name="variant_value" form="bulk-form">
+      <option value="">-- choose variant --</option>
+      {variant_options}
+    </select>
+    <button type="submit" form="bulk-form" name="action" value="apply_variant" onclick="return confirm('Apply the selected variant to all checked products?')">Apply Variant (bulk)</button>
+    <button type="submit" form="bulk-form" name="action" value="delete" class="danger" onclick="return confirm('Permanently delete all checked products? This cannot be undone.')">Delete Selected (bulk)</button>
+  </div>
+  {msg_html}
+  <div style="color:#888;font-size:12px;margin-top:6px">{len(products)} product(s) shown</div>
+</div>
+
+<form method="post" id="bulk-form" action="?set={selected_set_code}">
+  <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+</form>
+
+<div class="content">
+  <table>
+    <thead><tr>
+      <th></th><th>Image</th><th>Card #</th><th>Name</th><th>Rarity</th><th>Variant</th><th>Sort</th><th>Stock</th><th>Price</th><th>pb_id</th><th>ID</th><th>Row actions</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+</div>
+</body></html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')

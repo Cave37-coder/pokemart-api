@@ -116,6 +116,14 @@ class PokemonProduct(models.Model):
     legal_standard = models.BooleanField(null=True, blank=True)
     legal_expanded = models.BooleanField(null=True, blank=True)
     legal_unlimited = models.BooleanField(default=True)
+    # Per-card regulation mark (e.g. "H", "I", "J"). Takes priority over
+    # card_set.regulation_mark when computing Standard legality -- confirmed
+    # 2026-06-20 that regulation mark is NOT always uniform across an entire
+    # set (pokemontcg.io exposes it per individual card, not per set), so
+    # the set-level field alone is an unsafe approximation for SV/MEG-era
+    # cards in particular. Blank means "no per-card override known yet,
+    # fall back to card_set.regulation_mark".
+    regulation_mark = models.CharField(max_length=5, blank=True, default='')
 
     # Card stats
     hp = models.PositiveIntegerField(null=True, blank=True)

@@ -19,4 +19,5 @@ urlpatterns = [
     path("sets/", views.sets_list, name="sets-list"),
     path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
     path("checklists/stock-check/", views.checklist_stock, name="checklist-stock"),
+    path("manage/", views.manage_set, name="manage-set"),
 ]
