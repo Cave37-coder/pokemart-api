@@ -15,6 +15,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
     category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
     pokedex = django_filters.NumberFilter(field_name='pokedex_number', lookup_expr='exact')
+    card_number = django_filters.NumberFilter(field_name='card_number', lookup_expr='exact')
     subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
@@ -56,7 +57,7 @@ class PokemonProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = PokemonProduct
-        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality']
+        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality', 'card_number']
 
 
 class PokemonProductViewSet(viewsets.ModelViewSet):
