@@ -59,11 +59,21 @@ class MeView(generics.RetrieveUpdateAPIView):
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+# Fields required for a "complete" profile, per the 2026-06-21 decision to
+# require First Name / Last Name / Email / Phone Number for communication
+# purposes. Kept as a single list so the frontend "complete your profile"
+# popup (and any future check) only needs to read profile_complete below
+# rather than re-implementing this logic -- if the required set ever
+# changes, it only needs to change here.
+REQUIRED_PROFILE_FIELDS = ["first_name", "last_name", "email", "phone_number"]
+
+
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         u = request.user
+        profile_complete = all(getattr(u, field, "") for field in REQUIRED_PROFILE_FIELDS)
         return Response({
             "id": u.id, "username": u.username, "email": u.email,
             "first_name": u.first_name, "last_name": u.last_name,
@@ -75,6 +85,7 @@ class ProfileView(APIView):
             "pudo_locker_name": u.pudo_locker_name,
             "pudo_locker_address": u.pudo_locker_address,
             "pudo_locker_code": u.pudo_locker_code,
+            "profile_complete": profile_complete,
         })
 
     def patch(self, request):
