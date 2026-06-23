@@ -125,6 +125,12 @@ class PokemonProduct(models.Model):
     # fall back to card_set.regulation_mark".
     regulation_mark = models.CharField(max_length=5, blank=True, default='')
 
+    # Comma-separated Prize Pack series numbers this exact card+variant has
+    # appeared in, e.g. "7,8,9" — a card can legitimately appear in multiple
+    # series since the official Pokemon.com checklists overlap. Blank means
+    # "not a Prize Pack reprint, or not yet matched against the official lists".
+    prize_pack_series = models.CharField(max_length=50, blank=True, default='')
+
     # Card stats
     hp = models.PositiveIntegerField(null=True, blank=True)
     artist = models.CharField(max_length=200, blank=True)
