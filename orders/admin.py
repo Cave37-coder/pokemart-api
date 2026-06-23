@@ -21,16 +21,21 @@ class OrderTrackingInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'status', 'payment_method', 'eft_confirmed', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
-    list_filter = ['status', 'payment_method', 'eft_confirmed', 'delivery_method']
+    list_display = ['id', 'user', 'status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
+    list_filter = ['status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'delivery_method']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
-    readonly_fields = ['created_at', 'updated_at', 'print_button']
+    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info']
     ordering = ['-created_at']
     inlines = [OrderItemInline, OrderTrackingInline]
 
     fieldsets = (
         ('Order Info', {
-            'fields': ('user', 'status', 'total_price', 'created_at', 'updated_at', 'print_button')
+            'fields': (
+                ('user', 'customer_info'),
+                'status',
+                ('payment_confirmed', 'payment_confirmed_method'),
+                'total_price', 'created_at', 'updated_at', 'print_button',
+            )
         }),
         ('Payment', {
             'fields': ('payment_method', 'eft_confirmed', 'stripe_payment_intent')
@@ -51,6 +56,17 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('customer_note', 'internal_note')
         }),
     )
+
+    def customer_info(self, obj):
+        if not obj.pk or not obj.user:
+            return '-'
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip() or '—'
+        phone = getattr(obj.user, 'phone_number', '') or '—'
+        return format_html(
+            '<strong>{}</strong> &nbsp;|&nbsp; 📞 {}',
+            full_name, phone
+        )
+    customer_info.short_description = 'Name / Contact No'
 
     def print_button(self, obj):
         if obj.pk:
