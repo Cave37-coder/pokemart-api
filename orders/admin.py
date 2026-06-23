@@ -24,7 +24,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
     list_filter = ['status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'delivery_method']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
-    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info']
+    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display']
     ordering = ['-created_at']
     inlines = [OrderItemInline, OrderTrackingInline]
 
@@ -33,8 +33,10 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': (
                 ('user', 'customer_info'),
                 'status',
-                ('payment_confirmed', 'payment_confirmed_method'),
-                'total_price', 'created_at', 'updated_at', 'print_button',
+                'payment_confirmed',
+                'payment_confirmed_method',
+                ('total_price', 'shipping_display', 'invoice_total_display'),
+                'created_at', 'updated_at', 'print_button',
             )
         }),
         ('Payment', {
@@ -67,6 +69,29 @@ class OrderAdmin(admin.ModelAdmin):
             full_name, phone
         )
     customer_info.short_description = 'Name / Contact No'
+
+    def shipping_display(self, obj):
+        if not obj.pk:
+            return '-'
+        return f"R {float(obj.shipping_cost or 0):.2f}"
+    shipping_display.short_description = 'Shipping'
+
+    def invoice_total_display(self, obj):
+        """Live total = subtotal of current line items + shipping_cost, calculated
+        the same way the printed invoice does. Compare against the stored
+        'Total price' field above — if they don't match, total_price is stale
+        (e.g. an order placed before the shipping-fee checkout fix) and should
+        be corrected manually."""
+        if not obj.pk:
+            return '-'
+        subtotal = sum(float(i.price_at_purchase) * i.quantity for i in obj.items.all())
+        total = subtotal + float(obj.shipping_cost or 0)
+        stored = float(obj.total_price or 0)
+        mismatch = abs(total - stored) > 0.01
+        color = '#ff4444' if mismatch else '#2e7d32'
+        note = ' ⚠ differs from Total price' if mismatch else ''
+        return format_html('<strong style="color:{}">R {:.2f}</strong>{}', color, total, note)
+    invoice_total_display.short_description = 'Total (live)'
 
     def print_button(self, obj):
         if obj.pk:
