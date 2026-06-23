@@ -77,11 +77,18 @@ class CheckoutView(APIView):
                     {'error': f'Insufficient stock for {item.product.name}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        total = sum(item.subtotal for item in items)
+        subtotal = sum(item.subtotal for item in items)
         payment_method = request.data.get('payment_method', 'payfast')
         shipping_method = request.data.get('shipping_method', 'pudo_locker')
         is_eft = payment_method == 'eft'
         is_coc = shipping_method == 'collection'
+
+        try:
+            shipping_cost = Decimal(str(request.data.get('shipping_cost', 0) or 0))
+        except Exception:
+            shipping_cost = Decimal('0')
+
+        total = subtotal + shipping_cost
 
         order = Order.objects.create(
             user=request.user,
@@ -89,7 +96,7 @@ class CheckoutView(APIView):
             status='pending_eft' if is_eft else ('awaiting_payment' if payment_method == 'payfast' else 'pending'),
             payment_method='coc' if is_coc else payment_method,
             shipping_method=shipping_method,
-            shipping_cost=request.data.get('shipping_cost', 0),
+            shipping_cost=shipping_cost,
             delivery_method='collection' if is_coc else 'courier',
             delivery_address_line1=request.data.get('address_line1', ''),
             delivery_address_line2=request.data.get('address_line2', ''),
