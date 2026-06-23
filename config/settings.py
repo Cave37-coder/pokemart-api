@@ -95,7 +95,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Johannesburg'
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
@@ -146,3 +146,14 @@ SIMPLE_JWT = {
 
 SITE_URL = config('SITE_URL', default='https://pokebulk.co.za')
 API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.app')
+
+# Email (cPanel SMTP - orders@pokebulk.co.za)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='mail.pokebulk.co.za')
+EMAIL_PORT = config('EMAIL_PORT', cast=int, default=465)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', cast=bool, default=True)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=False)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='PokeBulk SA <orders@pokebulk.co.za>')
+EMAIL_TIMEOUT = 15

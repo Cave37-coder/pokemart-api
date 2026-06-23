@@ -1,9 +1,13 @@
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from django.utils.html import strip_tags
 from rest_framework import generics, status
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -329,10 +333,10 @@ def print_order(request, order_id):
 
 
 
-@staff_member_required
-def print_invoice(request, order_id):
-    from django.utils import timezone
-    order = get_object_or_404(Order, id=order_id)
+def _build_invoice_html(order, show_controls=True):
+    """Builds the full invoice HTML for an order. Shared by the browser
+    print view and the email-send view. show_controls=False strips the
+    Print/Close buttons (no point emailing those to a customer)."""
     items = list(order.items.select_related(
         'product', 'product__card_set', 'product__card_set__era'
     ).order_by('product__card_set__name', 'product__card_number'))
@@ -393,13 +397,15 @@ def print_invoice(request, order_id):
     waybill_row = f'<tr><td style="color:#555;padding:1px 0;font-size:11px">Waybill</td><td style="padding:1px 0;font-size:11px;font-weight:bold">{order.waybill_number}</td></tr>' if order.waybill_number else ''
     eft_notice = '<div style="background:#f5f5f5;border-radius:6px;padding:6px 14px;margin-bottom:10px;font-size:11px;color:#333"><strong>Banking details:</strong> Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current &nbsp;|&nbsp; Branch: 198765 &nbsp;|&nbsp; Acc: 1301474037</div>' if order.payment_method in ['eft', 'coc'] else ''
 
+    controls_html = '''<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
+  <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:bold">Print Invoice</button>
+  <button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:9px 16px;border-radius:6px;font-size:13px;cursor:pointer">Close</button>
+</div>''' if show_controls else ''
+
     html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>{invoice_num} - PokeBulk SA</title>
 <style>* {{ box-sizing:border-box;margin:0;padding:0 }} body {{ font-family:Arial,sans-serif;padding:16px;color:#222;font-size:12px;line-height:1.2 }} @media print {{ .no-print {{ display:none !important }} @page {{ margin:10mm;size:A4 }} }} table {{ border-collapse:collapse }} th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:4px 8px;text-align:left;border-bottom:2px solid #ddd }}</style>
 </head><body>
-<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
-  <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:bold">Print Invoice</button>
-  <button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:9px 16px;border-radius:6px;font-size:13px;cursor:pointer">Close</button>
-</div>
+{controls_html}
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:3px solid #ff6b35;margin-bottom:12px">
   <div><div style="font-size:17px;font-weight:bold;color:#ff6b35">Poke Bulk SA <span style="color:#222">(Pty) Ltd</span></div>
   <div style="font-size:11px;color:#555;line-height:1.3;margin-top:2px">Reg. No: 2024/615040/07<br>4 Heloise Street, Birchleigh North, Kempton Park, 1618<br>Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za</div></div>
@@ -443,4 +449,46 @@ def print_invoice(request, order_id):
   Thank you for your order! &nbsp;|&nbsp; Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Reg. No: 2024/615040/07 &nbsp;|&nbsp; enquiries@pokebulk.co.za
 </div>
 </body></html>'''
+    return html, invoice_num, customer_email
+
+
+@staff_member_required
+def print_invoice(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    html, _, _ = _build_invoice_html(order, show_controls=True)
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@staff_member_required
+def email_invoice(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
+
+    if not customer_email:
+        messages.error(request, f"Order #{order.id}: customer has no email address on file — nothing sent.")
+        return redirect(reverse('admin:orders_order_change', args=[order.id]))
+
+    subject = f'Your PokeBulk SA Invoice — Order #{order.id} ({invoice_num})'
+    text_body = strip_tags(html)
+
+    email = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        to=[customer_email],
+        bcc=['enquiries@pokebulk.co.za'],
+    )
+    email.attach_alternative(html, 'text/html')
+
+    try:
+        email.send(fail_silently=False)
+        OrderTracking.objects.create(
+            order=order,
+            status=order.status,
+            note=f'Invoice emailed to {customer_email}.',
+            created_by=request.user,
+        )
+        messages.success(request, f"Invoice for Order #{order.id} emailed to {customer_email}.")
+    except Exception as e:
+        messages.error(request, f"Failed to email Order #{order.id} invoice: {e}")
+
+    return redirect(reverse('admin:orders_order_change', args=[order.id]))
