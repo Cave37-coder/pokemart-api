@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters
+﻿from rest_framework import viewsets, filters
 from django.db.models import Case, When, IntegerField, Value, Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
@@ -22,6 +22,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     in_stock = django_filters.BooleanFilter(field_name='stock', method='filter_in_stock')
     legal_standard = django_filters.BooleanFilter(field_name='legal_standard', method='filter_legal_standard')
     legality = django_filters.CharFilter(method='filter_legality')
+    prize_pack_series = django_filters.CharFilter(field_name='prize_pack_series', lookup_expr='icontains')
 
     def filter_in_stock(self, queryset, name, value):
         if value:
@@ -57,7 +58,7 @@ class PokemonProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = PokemonProduct
-        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality', 'card_number']
+        fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality', 'card_number', 'prize_pack_series']
 
 
 class PokemonProductViewSet(viewsets.ModelViewSet):
@@ -182,7 +183,7 @@ def stock_entry(request):
         for s in era_sets:
             sel = 'selected' if s.code == selected_set_code else ''
             release = str(s.release_date) if s.release_date else ''
-            release_label = f' · {release}' if release else ''
+            release_label = f' Â· {release}' if release else ''
             options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
         options_html += '</optgroup>'
 
@@ -249,18 +250,18 @@ def stock_entry(request):
                          min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
               <td style="padding:12px 14px;white-space:nowrap">
-                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">✕</button>
+                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">âœ•</button>
                 <button onclick="addPlayed({card['id']},{card['tcgcsv_product_id'] or 'null'},{card['price']},this)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">+Played</button>
               </td>
             </tr>
             <tr id="played-row-{card['id']}" style="display:none;background:#fffbeb">
-              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">↳ Add played copy of <strong>{card["name"]}</strong></td>
+              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">â†³ Add played copy of <strong>{card["name"]}</strong></td>
               <td style="padding:6px 14px">
                 <select id="cond-{card['id']}" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:4px;font-size:13px;font-weight:700">
-                  <option value="LP">LP — Lightly Played</option>
-                  <option value="MP">MP — Moderately Played</option>
-                  <option value="HP">HP — Heavily Played</option>
-                  <option value="DMG">DMG — Damaged</option>
+                  <option value="LP">LP â€” Lightly Played</option>
+                  <option value="MP">MP â€” Moderately Played</option>
+                  <option value="HP">HP â€” Heavily Played</option>
+                  <option value="DMG">DMG â€” Damaged</option>
                 </select>
               </td>
               <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
@@ -271,7 +272,7 @@ def stock_entry(request):
               </td>
               <td style="padding:6px 14px">
                 <button onclick="savePlayed({card['id']},{card['price']})" style="background:#10B981;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:700">Save</button>
-                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">✕</button>
+                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">âœ•</button>
               </td>
             </tr>'''
 
@@ -297,7 +298,7 @@ def stock_entry(request):
   </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
     <div style="font-size:20px;font-weight:800;color:#ff6b35">{set_name}</div>
-    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] · {selected_set_code}</div>
+    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] Â· {selected_set_code}</div>
   </div>
 </div>
 
@@ -382,7 +383,7 @@ function savePlayed(nmId,basePrice){{
   fetch('/api/stock/played/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},
     body:JSON.stringify({{nm_product_id:nmId,condition:cond,stock:qty,price:parseFloat(price)}})
   }}).then(r=>r.json()).then(d=>{{
-    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' · '+cond+' · R'+price+' · Qty '+qty,true);
+    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' Â· '+cond+' Â· R'+price+' Â· Qty '+qty,true);
       document.getElementById('played-row-'+nmId).style.display='none';
     }}else showMsg('Error: '+d.error,false);
   }});
@@ -593,7 +594,7 @@ def stock_print(request):
 </style>
 </head>
 <body>
-<div class="page-header">{set_name} · {set_code}</div>
+<div class="page-header">{set_name} Â· {set_code}</div>
 
 <div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
   <strong>PokeBulk Stock Count - {set_name}</strong>
@@ -604,7 +605,7 @@ def stock_print(request):
 <div class="header">
   <div>
     <h1 style="font-size:16px;color:#ff6b35;font-weight:800">{set_name}</h1>
-    <h2>PokeBulk SA Stock Count · {era_name} · {set_code} · {release} · {total_cards} variants</h2>
+    <h2>PokeBulk SA Stock Count Â· {era_name} Â· {set_code} Â· {release} Â· {total_cards} variants</h2>
   </div>
   <div class="header-right">
     <div class="field"><label>Date</label><div class="line" style="width:80px"></div></div>
@@ -629,7 +630,7 @@ def stock_print(request):
 </table>
 
 <div class="footer">
-  <span>PokeBulk SA · 4 Heloise Street, Birchleigh North · enquiries@pokebulk.co.za</span>
+  <span>PokeBulk SA Â· 4 Heloise Street, Birchleigh North Â· enquiries@pokebulk.co.za</span>
   <span>Printed: <span id="now"></span></span>
 </div>
 <script>document.getElementById('now').textContent = new Date().toLocaleString('en-ZA');</script>
@@ -836,11 +837,11 @@ def checklist_stock(request):
     # `checklist_stock` is defined further down this file (the JsonResponse
     # API endpoint for checking stock by tcgcsv_product_id). Because Python
     # binds the name at module load time, that LATER definition silently
-    # overwrites this one — meaning this HTML staff page is currently
+    # overwrites this one â€” meaning this HTML staff page is currently
     # UNREACHABLE from urls.py, even though the URL route still resolves
     # without error. Rename one of these two functions (and update
     # urls.py / any templates referencing it) to restore this page.
-    """Stock checklist — shows all cards per set with current stock levels."""
+    """Stock checklist â€” shows all cards per set with current stock levels."""
     from .models import CardSet
     set_code = request.GET.get('set', '')
     sets = CardSet.objects.filter(
@@ -889,14 +890,14 @@ table{{width:100%;border-collapse:collapse}}
 th{{background:#1a1a2e;padding:8px 10px;font-size:11px;text-align:left;color:#a0a0b0;text-transform:uppercase;letter-spacing:.05em}}
 </style></head><body>
 <div style="max-width:900px;margin:0 auto">
-<h2 style="color:#ff6b35;margin-bottom:20px">📋 Stock Checklist</h2>
+<h2 style="color:#ff6b35;margin-bottom:20px">ðŸ“‹ Stock Checklist</h2>
 <form method="get" style="display:flex;gap:12px;align-items:center;margin-bottom:24px">
   <select name="set" style="flex:1;max-width:400px">
-    <option value="">— Select a Set —</option>
+    <option value="">â€” Select a Set â€”</option>
     {set_options}
   </select>
   <button type="submit">View</button>
-  {"" if not set_code else f'<a href="?set={set_code}&fmt=print" target="_blank" style="background:#333;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:13px;border:1px solid #555">🖨 Print</a>'}
+  {"" if not set_code else f'<a href="?set={set_code}&fmt=print" target="_blank" style="background:#333;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:13px;border:1px solid #555">ðŸ–¨ Print</a>'}
 </form>
 {"" if not selected_set else f'<div style="margin-bottom:16px;color:#a0a0b0;font-size:13px"><strong style="color:#fff">{selected_set.name}</strong> &nbsp;|&nbsp; {total_in_stock} / {total_cards} cards in stock</div>'}
 {"<p style='color:#555;font-size:13px'>Select a set above to view its stock checklist.</p>" if not set_code else f"""
@@ -918,7 +919,7 @@ from django.views.decorators.http import require_GET
 def checklist_stock(request):
     # NOTE (flagged by Claude, 2026-06-20): this function shares its name
     # with the HTML staff checklist page defined earlier in this file.
-    # This is the one urls.py actually resolves to right now — the other
+    # This is the one urls.py actually resolves to right now â€” the other
     # one is dead code until the names are made unique.
     raw = request.GET.get('product_ids', '')
     if not raw:
@@ -979,7 +980,7 @@ def _build_manage_set_dropdown_html(selected_set_code):
         for s in era_sets:
             sel = 'selected' if s.code == selected_set_code else ''
             release = str(s.release_date) if s.release_date else ''
-            release_label = f' · {release}' if release else ''
+            release_label = f' Â· {release}' if release else ''
             options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
         options_html += '</optgroup>'
 
@@ -1028,7 +1029,7 @@ def manage_set(request):
 
             p = PokemonProduct.objects.filter(id=product_id, card_set=card_set).first() if product_id else None
             if not p:
-                message = 'Product not found — nothing changed.'
+                message = 'Product not found â€” nothing changed.'
             elif action == 'delete_single':
                 name = p.name
                 p.delete()
@@ -1036,7 +1037,7 @@ def manage_set(request):
             else:
                 new_variant = request.POST.get('variant_value', '').strip()
                 if not new_variant:
-                    message = 'No variant chosen — nothing changed.'
+                    message = 'No variant chosen â€” nothing changed.'
                 else:
                     p.variant_override = new_variant
                     new_pb_id = p.generate_pb_id()
@@ -1048,7 +1049,7 @@ def manage_set(request):
         elif action in ('delete', 'apply_variant'):
             selected_ids = [int(i) for i in request.POST.getlist('selected') if i.isdigit()]
             if not selected_ids:
-                message = 'No products were selected — nothing changed.'
+                message = 'No products were selected â€” nothing changed.'
             else:
                 qs = PokemonProduct.objects.filter(id__in=selected_ids, card_set=card_set)
                 if action == 'delete':
@@ -1058,7 +1059,7 @@ def manage_set(request):
                 else:
                     new_variant = request.POST.get('variant_value', '').strip()
                     if not new_variant:
-                        message = 'No variant was chosen — nothing changed.'
+                        message = 'No variant was chosen â€” nothing changed.'
                     else:
                         updated = 0
                         with transaction.atomic():
@@ -1071,7 +1072,7 @@ def manage_set(request):
                                 updated += 1
                         message = f"Applied variant '{new_variant}' to {updated} product(s)."
         else:
-            message = 'Unrecognized action — nothing changed.'
+            message = 'Unrecognized action â€” nothing changed.'
 
     dropdown_html = _build_manage_set_dropdown_html(selected_set_code)
     msg_html = f'<div class="msg">{message}</div>' if message else ''
@@ -1220,3 +1221,4 @@ optgroup {{ color:#ff6b35 }}
 </body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
