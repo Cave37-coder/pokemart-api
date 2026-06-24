@@ -125,6 +125,42 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} - {self.user.username} [{self.get_status_display()}]"
 
+    def save(self, *args, **kwargs):
+        """
+        Automatic stock restoration on cancellation, and re-decrement if an
+        order is un-cancelled. Fires no matter which path triggered the save
+        — Django admin or the API's OrderStatusUpdateView — since both end
+        up calling this same save() method. Stock decrement on order
+        creation is handled separately in CheckoutView (this only reacts to
+        a STATUS CHANGE on an existing order, never on initial creation).
+        """
+        restore_stock = False
+        redecrement_stock = False
+
+        if self.pk:
+            old_status = Order.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+            if old_status is not None and old_status != self.status:
+                if self.status == 'cancelled' and old_status != 'cancelled':
+                    restore_stock = True
+                elif old_status == 'cancelled' and self.status != 'cancelled':
+                    redecrement_stock = True
+
+        super().save(*args, **kwargs)
+
+        if restore_stock:
+            self._adjust_stock(direction=1)
+        elif redecrement_stock:
+            self._adjust_stock(direction=-1)
+
+    def _adjust_stock(self, direction):
+        """direction=+1 restores stock (order cancelled), direction=-1
+        re-reserves it (order un-cancelled back to an active status)."""
+        for item in self.items.select_related('product').all():
+            if item.product is None:
+                continue
+            item.product.stock = max(0, item.product.stock + (direction * item.quantity))
+            item.product.save(update_fields=['stock'])
+
 
 class OrderTracking(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="tracking")
