@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -25,9 +25,10 @@ from .serializers import (
 class CartView(generics.RetrieveAPIView):
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
-
     def get_object(self):
-        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        cart, _ = Cart.objects.prefetch_related(
+            'items__product__category', 'items__product__card_set', 'items__product__pokemon_types',
+        ).get_or_create(user=self.request.user)
         return cart
 
 
@@ -50,6 +51,9 @@ class CartAddView(APIView):
         else:
             item.quantity = quantity
         item.save()
+        cart = Cart.objects.prefetch_related(
+            'items__product__category', 'items__product__card_set', 'items__product__pokemon_types',
+        ).get(pk=cart.pk)
         return Response(CartSerializer(cart).data)
 
 
@@ -465,10 +469,10 @@ def email_invoice(request, order_id):
     html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
 
     if not customer_email:
-        messages.error(request, f"Order #{order.id}: customer has no email address on file — nothing sent.")
+        messages.error(request, f"Order #{order.id}: customer has no email address on file â€” nothing sent.")
         return redirect(reverse('admin:orders_order_change', args=[order.id]))
 
-    subject = f'Your PokeBulk SA Invoice — Order #{order.id} ({invoice_num})'
+    subject = f'Your PokeBulk SA Invoice â€” Order #{order.id} ({invoice_num})'
     text_body = strip_tags(html)
 
     email = EmailMultiAlternatives(
@@ -492,3 +496,5 @@ def email_invoice(request, order_id):
         messages.error(request, f"Failed to email Order #{order.id} invoice: {e}")
 
     return redirect(reverse('admin:orders_order_change', args=[order.id]))
+
+
