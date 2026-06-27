@@ -1,4 +1,4 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -25,10 +25,9 @@ from .serializers import (
 class CartView(generics.RetrieveAPIView):
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticated]
+
     def get_object(self):
-        cart, _ = Cart.objects.prefetch_related(
-            'items__product__category', 'items__product__card_set', 'items__product__pokemon_types',
-        ).get_or_create(user=self.request.user)
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
         return cart
 
 
@@ -51,9 +50,6 @@ class CartAddView(APIView):
         else:
             item.quantity = quantity
         item.save()
-        cart = Cart.objects.prefetch_related(
-            'items__product__category', 'items__product__card_set', 'items__product__pokemon_types',
-        ).get(pk=cart.pk)
         return Response(CartSerializer(cart).data)
 
 
@@ -212,6 +208,15 @@ def print_order(request, order_id):
     from django.utils import timezone
     from itertools import groupby
 
+    VARIANT_LABEL_FULL = {
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
+        'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
+        'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
+        'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
+        'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
+        'CC': 'Code Card', 'TT': 'Trick or Trade',
+    }
+
     order = get_object_or_404(Order, id=order_id)
     items = list(order.items.select_related(
         'product', 'product__card_set', 'product__card_set__era'
@@ -239,13 +244,13 @@ def print_order(request, order_id):
             p = sku_lookup.get(item.product_sku)
         if p:
             num = str(p.card_number or '').zfill(3)
-            var = p.variant_sort or 'N'
+            var_code = p.variant_override or 'N'
             name = p.name
         else:
             num = '--'
-            var = '?'
+            var_code = '?'
             name = item.product_name or item.product_sku or 'Unknown card'
-        return num, name, var
+        return num, name, var_code
 
     sets_html = ''
     for (set_name, set_code), group in groupby(sorted(items, key=get_set_key), key=get_set_key):
@@ -254,12 +259,20 @@ def print_order(request, order_id):
         total_qty = sum(item.quantity for item in cards)
         rows = ''
         for i, item in enumerate(cards, 1):
-            num, name, var = get_item_display(item)
-            var_colors = {'N': '#e8e8e8;color:#333', 'H': '#fff3cd;color:#856404', 'RH': '#e8e4ff;color:#4c3d99'}
-            var_style = var_colors.get(var, '#e8e8e8;color:#333')
+            num, name, var_code = get_item_display(item)
+            var_label = VARIANT_LABEL_FULL.get(var_code, var_code or 'Unknown')
+            var_colors = {
+                'N': '#e8e8e8;color:#333', 'H': '#fff3cd;color:#856404', 'RH': '#e8e4ff;color:#4c3d99',
+                'PB': '#fce4ec;color:#ad1457', 'MB': '#ede7f6;color:#5e35b1', 'LB': '#fff0f3;color:#c2185b',
+                'FB': '#e8f5e9;color:#2e7d32', 'QB': '#fff3e0;color:#e65100', 'UB': '#e3f2fd;color:#1565c0',
+                'DB': '#efebe9;color:#4e342e', 'TR': '#eceff1;color:#37474f', 'SE': '#fffde7;color:#f57f17',
+                'PBP': '#fce4ec;color:#ad1457', 'MBP': '#ede7f6;color:#5e35b1',
+                'CC': '#f5f5f5;color:#616161', 'TT': '#fce4ec;color:#880e4f',
+            }
+            var_style = var_colors.get(var_code, '#e8e8e8;color:#333')
             rows += f'''<tr>
               <td>{i}</td><td>{num}</td><td>{name}</td>
-              <td><span style="background:{var_style};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:bold">{var}</span></td>
+              <td><span style="background:{var_style};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span></td>
               <td>{item.quantity}</td><td>R {item.price_at_purchase:.2f}</td>
               <td style="font-size:13px">[ ]</td>
             </tr>'''
@@ -341,6 +354,14 @@ def _build_invoice_html(order, show_controls=True):
     """Builds the full invoice HTML for an order. Shared by the browser
     print view and the email-send view. show_controls=False strips the
     Print/Close buttons (no point emailing those to a customer)."""
+    VARIANT_LABEL_FULL = {
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
+        'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
+        'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
+        'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
+        'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
+        'CC': 'Code Card', 'TT': 'Trick or Trade',
+    }
     items = list(order.items.select_related(
         'product', 'product__card_set', 'product__card_set__era'
     ).order_by('product__card_set__name', 'product__card_number'))
@@ -357,7 +378,8 @@ def _build_invoice_html(order, show_controls=True):
         p = item.product or sku_lookup.get(item.product_sku)
         if p is not None:
             num = str(p.card_number or '').zfill(3)
-            var = p.variant_sort or 'N'
+            var_code = p.variant_override or 'N'
+            var = VARIANT_LABEL_FULL.get(var_code, var_code)
             set_name = p.card_set.name if p.card_set else '-'
             set_code = p.card_set.code if p.card_set else ''
             rarity = (p.rarity or '').replace('_', ' ').title()
@@ -469,10 +491,10 @@ def email_invoice(request, order_id):
     html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
 
     if not customer_email:
-        messages.error(request, f"Order #{order.id}: customer has no email address on file â€” nothing sent.")
+        messages.error(request, f"Order #{order.id}: customer has no email address on file — nothing sent.")
         return redirect(reverse('admin:orders_order_change', args=[order.id]))
 
-    subject = f'Your PokeBulk SA Invoice â€” Order #{order.id} ({invoice_num})'
+    subject = f'Your PokeBulk SA Invoice — Order #{order.id} ({invoice_num})'
     text_body = strip_tags(html)
 
     email = EmailMultiAlternatives(
@@ -496,5 +518,3 @@ def email_invoice(request, order_id):
         messages.error(request, f"Failed to email Order #{order.id} invoice: {e}")
 
     return redirect(reverse('admin:orders_order_change', args=[order.id]))
-
-
