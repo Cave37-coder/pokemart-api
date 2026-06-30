@@ -3,7 +3,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
+from .serializers import (
+    RegisterSerializer, LoginSerializer, UserSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -102,3 +110,90 @@ class ProfileView(APIView):
                 setattr(u, field, request.data[field])
         u.save()
         return self.get(request)
+
+
+class PasswordResetRequestView(APIView):
+    """
+    Takes an email, and if a matching active user exists, emails them a
+    reset link. Always returns a generic success message regardless of
+    whether the email matched a real account -- this is deliberate, to
+    avoid leaking which emails are registered (a common account-enumeration
+    vulnerability). The actual email is only sent on a real match.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        User = get_user_model()
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            site_url = getattr(settings, 'SITE_URL', 'https://pokebulk.co.za')
+            reset_url = f'{site_url}/auth/reset-password/{uid}/{token}'
+
+            text_body = (
+                f"Hi {user.first_name or user.username},\n\n"
+                f"We received a request to reset your PokeBulk SA password. "
+                f"Click the link below to choose a new one:\n\n{reset_url}\n\n"
+                f"This link expires in a few hours and can only be used once. "
+                f"If you didn't request this, you can safely ignore this email "
+                f"-- your password will not be changed.\n\n"
+                f"-- PokeBulk SA"
+            )
+            html_body = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;padding:20px">
+<h2 style="color:#ff6b35">Reset your password</h2>
+<p>Hi {user.first_name or user.username},</p>
+<p>We received a request to reset your PokeBulk SA password. Click the button below to choose a new one:</p>
+<p><a href="{reset_url}" style="background:#ff6b35;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">Reset Password</a></p>
+<p style="font-size:12px;color:#888">This link expires in a few hours and can only be used once. If you didn't request this, you can safely ignore this email -- your password will not be changed.</p>
+<p style="font-size:12px;color:#888">-- PokeBulk SA</p>
+</body></html>'''
+
+            try:
+                email_msg = EmailMultiAlternatives(
+                    subject='Reset your PokeBulk SA password',
+                    body=text_body,
+                    to=[user.email],
+                )
+                email_msg.attach_alternative(html_body, 'text/html')
+                email_msg.send(fail_silently=False)
+            except Exception:
+                # Don't leak SMTP failures to the client -- still return the
+                # generic success message either way, per the anti-enumeration
+                # design above. If emails are silently failing, that's a
+                # backend monitoring concern, not something to surface here.
+                pass
+
+        return Response({
+            'detail': 'If an account exists with that email, a reset link has been sent.'
+        })
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        uid = serializer.validated_data['uid']
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+
+        User = get_user_model()
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'error': 'Invalid or expired reset link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({'error': 'Invalid or expired reset link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+        return Response({'detail': 'Password has been reset successfully.'})
