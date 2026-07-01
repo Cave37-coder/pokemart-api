@@ -7,11 +7,35 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import EmailMultiAlternatives
+from django.core.cache import cache
 from django.conf import settings
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
 )
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '')
+
+
+def check_rate_limit(key, limit, window_seconds):
+    """
+    Returns (allowed: bool, attempts_remaining: int).
+    Uses Django's cache to track attempts per key within a rolling window.
+    key    -- unique string identifying the rate-limit bucket (e.g. "login:1.2.3.4")
+    limit  -- max attempts allowed within the window
+    window -- seconds before the count resets
+    """
+    cache_key = f"rl:{key}"
+    count = cache.get(cache_key, 0)
+    if count >= limit:
+        return False, 0
+    cache.set(cache_key, count + 1, timeout=window_seconds)
+    return True, limit - count - 1
 
 
 class RegisterView(generics.CreateAPIView):
@@ -34,6 +58,13 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        ip = get_client_ip(request)
+        allowed, remaining = check_rate_limit(f"login:{ip}", limit=10, window_seconds=600)
+        if not allowed:
+            return Response(
+                {'error': 'Too many login attempts. Please try again in 10 minutes.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data
@@ -123,6 +154,12 @@ class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        ip = get_client_ip(request)
+        allowed, _ = check_rate_limit(f"pwreset:{ip}", limit=3, window_seconds=900)
+        if not allowed:
+            return Response(
+                {'detail': 'If an account exists with that email, a reset link has been sent.'}
+            )
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
