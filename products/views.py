@@ -1,4 +1,4 @@
-﻿from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters
 from django.db.models import Case, When, IntegerField, Value, Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
@@ -250,18 +250,18 @@ def stock_entry(request):
                          min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
               <td style="padding:12px 14px;white-space:nowrap">
-                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">âœ•</button>
+                <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">✕</button>
                 <button onclick="addPlayed({card['id']},{card['tcgcsv_product_id'] or 'null'},{card['price']},this)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">+Played</button>
               </td>
             </tr>
             <tr id="played-row-{card['id']}" style="display:none;background:#fffbeb">
-              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">â†³ Add played copy of <strong>{card["name"]}</strong></td>
+              <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">↳ Add played copy of <strong>{card["name"]}</strong></td>
               <td style="padding:6px 14px">
                 <select id="cond-{card['id']}" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:4px;font-size:13px;font-weight:700">
-                  <option value="LP">LP â€” Lightly Played</option>
-                  <option value="MP">MP â€” Moderately Played</option>
-                  <option value="HP">HP â€” Heavily Played</option>
-                  <option value="DMG">DMG â€” Damaged</option>
+                  <option value="LP">LP "” Lightly Played</option>
+                  <option value="MP">MP "” Moderately Played</option>
+                  <option value="HP">HP "” Heavily Played</option>
+                  <option value="DMG">DMG "” Damaged</option>
                 </select>
               </td>
               <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
@@ -272,7 +272,7 @@ def stock_entry(request):
               </td>
               <td style="padding:6px 14px">
                 <button onclick="savePlayed({card['id']},{card['price']})" style="background:#10B981;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:700">Save</button>
-                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">âœ•</button>
+                <button onclick="document.getElementById('played-row-{card['id']}').style.display='none'" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 10px;cursor:pointer;font-size:12px;margin-left:4px">✕</button>
               </td>
             </tr>'''
 
@@ -837,11 +837,11 @@ def checklist_stock(request):
     # `checklist_stock` is defined further down this file (the JsonResponse
     # API endpoint for checking stock by tcgcsv_product_id). Because Python
     # binds the name at module load time, that LATER definition silently
-    # overwrites this one â€” meaning this HTML staff page is currently
+    # overwrites this one "” meaning this HTML staff page is currently
     # UNREACHABLE from urls.py, even though the URL route still resolves
     # without error. Rename one of these two functions (and update
     # urls.py / any templates referencing it) to restore this page.
-    """Stock checklist â€” shows all cards per set with current stock levels."""
+    """Stock checklist "” shows all cards per set with current stock levels."""
     from .models import CardSet
     set_code = request.GET.get('set', '')
     sets = CardSet.objects.filter(
@@ -893,7 +893,7 @@ th{{background:#1a1a2e;padding:8px 10px;font-size:11px;text-align:left;color:#a0
 <h2 style="color:#ff6b35;margin-bottom:20px">ðŸ“‹ Stock Checklist</h2>
 <form method="get" style="display:flex;gap:12px;align-items:center;margin-bottom:24px">
   <select name="set" style="flex:1;max-width:400px">
-    <option value="">â€” Select a Set â€”</option>
+    <option value="">"” Select a Set "”</option>
     {set_options}
   </select>
   <button type="submit">View</button>
@@ -919,7 +919,7 @@ from django.views.decorators.http import require_GET
 def checklist_stock(request):
     # NOTE (flagged by Claude, 2026-06-20): this function shares its name
     # with the HTML staff checklist page defined earlier in this file.
-    # This is the one urls.py actually resolves to right now â€” the other
+    # This is the one urls.py actually resolves to right now "” the other
     # one is dead code until the names are made unique.
     raw = request.GET.get('product_ids', '')
     if not raw:
@@ -1029,7 +1029,7 @@ def manage_set(request):
 
             p = PokemonProduct.objects.filter(id=product_id, card_set=card_set).first() if product_id else None
             if not p:
-                message = 'Product not found â€” nothing changed.'
+                message = 'Product not found "” nothing changed.'
             elif action == 'delete_single':
                 name = p.name
                 p.delete()
@@ -1037,7 +1037,7 @@ def manage_set(request):
             else:
                 new_variant = request.POST.get('variant_value', '').strip()
                 if not new_variant:
-                    message = 'No variant chosen â€” nothing changed.'
+                    message = 'No variant chosen "” nothing changed.'
                 else:
                     p.variant_override = new_variant
                     new_pb_id = p.generate_pb_id()
@@ -1049,7 +1049,7 @@ def manage_set(request):
         elif action in ('delete', 'apply_variant'):
             selected_ids = [int(i) for i in request.POST.getlist('selected') if i.isdigit()]
             if not selected_ids:
-                message = 'No products were selected â€” nothing changed.'
+                message = 'No products were selected "” nothing changed.'
             else:
                 qs = PokemonProduct.objects.filter(id__in=selected_ids, card_set=card_set)
                 if action == 'delete':
@@ -1059,7 +1059,7 @@ def manage_set(request):
                 else:
                     new_variant = request.POST.get('variant_value', '').strip()
                     if not new_variant:
-                        message = 'No variant was chosen â€” nothing changed.'
+                        message = 'No variant was chosen "” nothing changed.'
                     else:
                         updated = 0
                         with transaction.atomic():
@@ -1072,7 +1072,7 @@ def manage_set(request):
                                 updated += 1
                         message = f"Applied variant '{new_variant}' to {updated} product(s)."
         else:
-            message = 'Unrecognized action â€” nothing changed.'
+            message = 'Unrecognized action "” nothing changed.'
 
     dropdown_html = _build_manage_set_dropdown_html(selected_set_code)
     msg_html = f'<div class="msg">{message}</div>' if message else ''
