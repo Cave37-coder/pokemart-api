@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -27,8 +28,19 @@ class CartView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        cart, _ = Cart.objects.get_or_create(user=self.request.user)
-        return cart
+        Cart.objects.get_or_create(user=self.request.user)
+        # The nested PokemonProductSerializer pulls in category, card_set (+ its era),
+        # and pokemon_types for every item. Without prefetching those specifically,
+        # each cart item fires 3-4 extra queries -- this is what was causing
+        # WORKER TIMEOUT / 500s on /api/cart/ for carts with several items.
+        return Cart.objects.prefetch_related(
+            Prefetch(
+                'items',
+                queryset=CartItem.objects.select_related(
+                    'product__category', 'product__card_set__era'
+                ).prefetch_related('product__pokemon_types')
+            )
+        ).get(user=self.request.user)
 
 
 class CartAddView(APIView):
@@ -139,7 +151,15 @@ class OrderListView(generics.ListAPIView):
     def get_queryset(self):
         return Order.objects.filter(
             user=self.request.user
-        ).prefetch_related('items__product', 'tracking')
+        ).prefetch_related(
+            Prefetch(
+                'items',
+                queryset=OrderItem.objects.select_related(
+                    'product__category', 'product__card_set__era'
+                ).prefetch_related('product__pokemon_types')
+            ),
+            'tracking',
+        )
 
 
 class OrderDetailView(generics.RetrieveAPIView):
@@ -149,7 +169,15 @@ class OrderDetailView(generics.RetrieveAPIView):
     def get_queryset(self):
         return Order.objects.filter(
             user=self.request.user
-        ).prefetch_related('items__product', 'tracking')
+        ).prefetch_related(
+            Prefetch(
+                'items',
+                queryset=OrderItem.objects.select_related(
+                    'product__category', 'product__card_set__era'
+                ).prefetch_related('product__pokemon_types')
+            ),
+            'tracking',
+        )
 
 
 class OrderStatusUpdateView(APIView):
@@ -196,7 +224,15 @@ class AdminOrderListView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related('items__product', 'tracking').select_related('user')
+        qs = Order.objects.prefetch_related(
+            Prefetch(
+                'items',
+                queryset=OrderItem.objects.select_related(
+                    'product__category', 'product__card_set__era'
+                ).prefetch_related('product__pokemon_types')
+            ),
+            'tracking',
+        ).select_related('user')
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
