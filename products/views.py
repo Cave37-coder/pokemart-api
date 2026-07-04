@@ -103,6 +103,7 @@ from datetime import date as date_type
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils.html import escape
 from django.db import transaction
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -1021,7 +1022,7 @@ def manage_set(request):
     if request.method == 'POST' and card_set:
         action = request.POST.get('action')
 
-        if action in ('delete_single', 'apply_variant_single'):
+        if action in ('delete_single', 'apply_variant_single', 'rename_single'):
             try:
                 product_id = int(request.POST.get('product_id', ''))
             except (TypeError, ValueError):
@@ -1034,6 +1035,15 @@ def manage_set(request):
                 name = p.name
                 p.delete()
                 message = f'Deleted "{name}".'
+            elif action == 'rename_single':
+                new_name = request.POST.get('new_name', '').strip()
+                if not new_name:
+                    message = 'Name cannot be empty "” nothing changed.'
+                else:
+                    old_name = p.name
+                    p.name = new_name
+                    p.save()
+                    message = f'Renamed "{old_name}" to "{new_name}".'
             else:
                 new_variant = request.POST.get('variant_value', '').strip()
                 if not new_variant:
@@ -1137,7 +1147,15 @@ optgroup {{ color:#ff6b35 }}
             <td style="padding:6px 8px"><input type="checkbox" name="selected" value="{p.id}" form="bulk-form"></td>
             <td style="padding:6px 8px">{img_tag}</td>
             <td style="padding:6px 8px;font-size:12px">{p.card_number if p.card_number is not None else '--'}</td>
-            <td style="padding:6px 8px;font-size:12px">{p.name}</td>
+            <td style="padding:6px 8px;font-size:12px">
+              <form method="post" action="?set={selected_set_code}" style="display:flex;gap:4px;align-items:center;margin:0">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+                <input type="hidden" name="action" value="rename_single">
+                <input type="hidden" name="product_id" value="{p.id}">
+                <input type="text" name="new_name" value="{escape(p.name)}" style="width:150px;padding:3px 6px;font-size:11px">
+                <button type="submit" style="background:#2a2a3a;color:#fff;border:none;padding:3px 8px;border-radius:4px;font-size:11px;cursor:pointer">Save</button>
+              </form>
+            </td>
             <td style="padding:6px 8px;font-size:12px">{p.get_rarity_display()}</td>
             <td style="padding:6px 8px;font-size:12px;font-weight:bold" title="{variant_label}">{variant_display}</td>
             <td style="padding:6px 8px;font-size:12px;color:#888">{p.variant_sort}</td>
