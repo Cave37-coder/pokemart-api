@@ -1236,6 +1236,23 @@ optgroup {{ color:#ff6b35 }}
     <tbody>{rows}</tbody>
   </table>
 </div>
+<script>
+// Preserve scroll position across any form submission on this page (rename,
+// variant apply, delete, bulk actions) -- otherwise every save reloads the
+// page and the browser resets scroll to the top, forcing a re-scroll every time.
+document.querySelectorAll('form').forEach(function(f) {{
+  f.addEventListener('submit', function() {{
+    sessionStorage.setItem('pb_manage_scroll', window.scrollY);
+  }});
+}});
+window.addEventListener('DOMContentLoaded', function() {{
+  var y = sessionStorage.getItem('pb_manage_scroll');
+  if (y !== null) {{
+    window.scrollTo(0, parseInt(y, 10));
+    sessionStorage.removeItem('pb_manage_scroll');
+  }}
+}});
+</script>
 </body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
