@@ -1,3 +1,4 @@
+import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +10,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import EmailMultiAlternatives
 from django.core.cache import cache
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
@@ -200,11 +203,13 @@ class PasswordResetRequestView(APIView):
                 email_msg.attach_alternative(html_body, 'text/html')
                 email_msg.send(fail_silently=False)
             except Exception:
-                # Don't leak SMTP failures to the client -- still return the
-                # generic success message either way, per the anti-enumeration
-                # design above. If emails are silently failing, that's a
-                # backend monitoring concern, not something to surface here.
-                pass
+                # Still return the generic success message either way, per the
+                # anti-enumeration design above -- but log the real failure so
+                # it's visible in Railway logs instead of vanishing silently.
+                logger.exception(
+                    "Password reset email failed to send for user_id=%s email=%s",
+                    user.pk, user.email,
+                )
 
         return Response({
             'detail': 'If an account exists with that email, a reset link has been sent.'

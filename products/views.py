@@ -184,7 +184,7 @@ def stock_entry(request):
         for s in era_sets:
             sel = 'selected' if s.code == selected_set_code else ''
             release = str(s.release_date) if s.release_date else ''
-            release_label = f' Â· {release}' if release else ''
+            release_label = f' - {release}' if release else ''
             options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
         options_html += '</optgroup>'
 
@@ -299,7 +299,7 @@ def stock_entry(request):
   </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
     <div style="font-size:20px;font-weight:800;color:#ff6b35">{set_name}</div>
-    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] Â· {selected_set_code}</div>
+    <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] - {selected_set_code}</div>
   </div>
 </div>
 
@@ -384,7 +384,7 @@ function savePlayed(nmId,basePrice){{
   fetch('/api/stock/played/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},
     body:JSON.stringify({{nm_product_id:nmId,condition:cond,stock:qty,price:parseFloat(price)}})
   }}).then(r=>r.json()).then(d=>{{
-    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' Â· '+cond+' Â· R'+price+' Â· Qty '+qty,true);
+    if(d.ok){{showMsg('Played copy saved! ID: '+d.product_id+' - '+cond+' - R'+price+' - Qty '+qty,true);
       document.getElementById('played-row-'+nmId).style.display='none';
     }}else showMsg('Error: '+d.error,false);
   }});
@@ -506,9 +506,13 @@ def stock_print(request):
         variants = list(grp)
         grouped.append(variants)
 
-    total_groups = len(grouped)
-    col_size = -(-total_groups // 3)
-    cols = [grouped[0:col_size], grouped[col_size:col_size*2], grouped[col_size*2:]]
+    # Round-robin the card groups across the 3 columns so the printed sheet
+    # reads in true card-number sequence (row 1: cards 1,2,3 / row 2: cards 4,5,6...)
+    # instead of the old block layout (col1: 1..N/3, col2: N/3+1..2N/3, col3: 2N/3+1..N).
+    cols = [[], [], []]
+    for i, g in enumerate(grouped):
+        cols[i % 3].append(g)
+    col_size = max(len(cols[0]), len(cols[1]), len(cols[2]))
 
     def render_group(variants):
         if variants is None:
@@ -562,8 +566,9 @@ def stock_print(request):
 <meta charset="utf-8">
 <title>Stock Count - {set_name}</title>
 <style>
-  @page {{ size: A4 landscape; margin: 8mm; }}
+  @page {{ size: A4 landscape; margin: 10mm; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  html, body {{ width: 100%; height: 100%; }}
   body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
   .header {{ display: flex; justify-content: space-between; align-items: center;
              border-bottom: 2px solid #ff6b35; padding-bottom: 5px; margin-bottom: 6px; }}
@@ -595,7 +600,7 @@ def stock_print(request):
 </style>
 </head>
 <body>
-<div class="page-header">{set_name} Â· {set_code}</div>
+<div class="page-header">{set_name} - {set_code}</div>
 
 <div class="no-print" style="background:#ff6b35;color:#fff;padding:8px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center">
   <strong>PokeBulk Stock Count - {set_name}</strong>
@@ -606,7 +611,7 @@ def stock_print(request):
 <div class="header">
   <div>
     <h1 style="font-size:16px;color:#ff6b35;font-weight:800">{set_name}</h1>
-    <h2>PokeBulk SA Stock Count Â· {era_name} Â· {set_code} Â· {release} Â· {total_cards} variants</h2>
+    <h2>PokeBulk SA Stock Count - {era_name} - {set_code} - {release} - {total_cards} variants</h2>
   </div>
   <div class="header-right">
     <div class="field"><label>Date</label><div class="line" style="width:80px"></div></div>
@@ -631,7 +636,7 @@ def stock_print(request):
 </table>
 
 <div class="footer">
-  <span>PokeBulk SA Â· 4 Heloise Street, Birchleigh North Â· enquiries@pokebulk.co.za</span>
+  <span>PokeBulk SA - 4 Heloise Street, Birchleigh North - enquiries@pokebulk.co.za</span>
   <span>Printed: <span id="now"></span></span>
 </div>
 <script>document.getElementById('now').textContent = new Date().toLocaleString('en-ZA');</script>
@@ -981,7 +986,7 @@ def _build_manage_set_dropdown_html(selected_set_code):
         for s in era_sets:
             sel = 'selected' if s.code == selected_set_code else ''
             release = str(s.release_date) if s.release_date else ''
-            release_label = f' Â· {release}' if release else ''
+            release_label = f' - {release}' if release else ''
             options_html += f'<option value="{s.code}" {sel}>[{s.code}] {s.name} ({s.card_count}){release_label}</option>'
         options_html += '</optgroup>'
 
