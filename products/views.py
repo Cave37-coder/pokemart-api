@@ -566,7 +566,7 @@ def stock_print(request):
 <meta charset="utf-8">
 <title>Stock Count - {set_name}</title>
 <style>
-  @page {{ size: A4 landscape; margin: 10mm; }}
+  @page {{ size: A4 landscape; margin: 13mm; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   html, body {{ width: 100%; height: 100%; }}
   body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
