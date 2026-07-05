@@ -622,13 +622,13 @@ def stock_print(request):
 <table>
   <thead>
     <tr>
-      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
       <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
-      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
       <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
-      <th style="width:24px">#</th><th>Card Name</th><th style="width:16px">V</th>
+      <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
       <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
     </tr>
   </thead>
