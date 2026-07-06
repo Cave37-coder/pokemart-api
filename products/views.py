@@ -297,6 +297,12 @@ def stock_entry(request):
       Print Count Sheet
     </a>
   </div>
+  <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
+    <a href="/api/stock/dividers/?set={selected_set_code}" target="_blank"
+       style="display:block;background:#333;color:#fff;text-align:center;padding:10px;border-radius:6px;font-weight:700;text-decoration:none;font-size:13px">
+      Divider Tabs
+    </a>
+  </div>
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:2">
     <div style="font-size:20px;font-weight:800;color:#ff6b35">{set_name}</div>
     <div style="font-size:12px;color:#888;margin-top:2px">[{selected_set_code}] - {selected_set_code}</div>
@@ -644,6 +650,154 @@ def stock_print(request):
 </html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@staff_member_required
+def stock_dividers(request):
+    """Printable storage-box divider tabs for a single set: number-range
+    bins built from that set's actual highest card number, plus a Trainer
+    tab and only the energy types that actually appear in this set.
+    Works automatically for any set, including new ones added later."""
+    set_code = request.GET.get('set', '')
+    if not set_code:
+        return HttpResponse('<h2>No set selected. Go back and choose a set first.</h2>')
+
+    try:
+        card_set = CardSet.objects.select_related('era').get(code=set_code)
+    except CardSet.DoesNotExist:
+        return HttpResponse(f'<h2>Set "{set_code}" not found.</h2>')
+
+    from django.db.models import Max
+
+    active_cards = PokemonProduct.objects.filter(card_set__code=set_code, is_active=True)
+
+    max_num = active_cards.exclude(card_number__isnull=True).aggregate(Max('card_number'))['card_number__max']
+
+    # Number range tabs: one tab covering the whole set if it's small
+    # (under 20 cards), otherwise 10-wide bins (1-9, 10-19, ...) ending
+    # exactly at the set's real highest card number.
+    number_tabs = []
+    if max_num:
+        if max_num < 20:
+            number_tabs.append((1, max_num))
+        else:
+            number_tabs.append((1, 9))
+            start = 10
+            while start <= max_num:
+                end = min(start + 9, max_num)
+                number_tabs.append((start, end))
+                start += 10
+
+    # Only the energy types that actually show up in this set.
+    TYPE_ORDER = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic',
+                  'Fighting', 'Darkness', 'Metal', 'Fairy', 'Dragon', 'Colorless']
+    # Real energy symbol images, uploaded to R2 at energy-types/ with these
+    # exact filenames (kept as-is, including the source typos, so the code
+    # matches whatever actually lands in the bucket).
+    ENERGY_IMG_BASE = 'https://images.pokebulk.co.za/energy-types/'
+    TYPE_IMG_FILE = {
+        'Grass': 'Leaf_Energy_Symbol.png',
+        'Fire': 'Fire_Energy_Symbol.png',
+        'Water': 'Water_Energy_Symbol.png',
+        'Lightning': 'Electric_Energy_Symbol.png',
+        'Psychic': 'Physic_Energy_Symbol.png',
+        'Fighting': 'Fighting_Energy_Symbol.png',
+        'Darkness': 'Darkeness_energy_Symbol.png',
+        'Metal': 'Metal_energy_Symbol.png',
+        'Fairy': 'Fairy_Energy_Symbol.png',
+        'Dragon': 'Dragon_Energy_Symbol.png',
+        'Colorless': 'Colorless_Energy_Symbol.png',
+    }
+    raw_names = (
+        active_cards.filter(pokemon_types__isnull=False)
+        .values_list('pokemon_types__name', flat=True)
+        .distinct()
+    )
+    found = set()
+    for n in raw_names:
+        if not n:
+            continue
+        for canon in TYPE_ORDER:
+            if canon.lower() == n.strip().lower():
+                found.add(canon)
+                break
+        else:
+            found.add(n.strip().title())
+
+    ordered_types = [t for t in TYPE_ORDER if t in found]
+    ordered_types += sorted(t for t in found if t not in TYPE_ORDER)
+
+    symbol_url = card_set.symbol_url or ''
+    symbol_html = f'<img class="symbol" src="{symbol_url}" alt="">' if symbol_url else ''
+
+    def render_number_tab(start, end):
+        label = f'{start}-{end}' if start != end else f'{start}'
+        return f'<div class="tab"><div class="range">{label}</div>{symbol_html}</div>'
+
+    tabs_html = ''.join(render_number_tab(s, e) for s, e in number_tabs)
+    tabs_html += '<div class="tab trainer"><div class="label">Trainer</div></div>'
+    for t in ordered_types:
+        img_file = TYPE_IMG_FILE.get(t)
+        icon_html = f'<img class="energy-icon" src="{ENERGY_IMG_BASE}{img_file}" alt="">' if img_file else ''
+        tabs_html += (
+            f'<div class="tab">'
+            f'{icon_html}'
+            f'<div class="label">{t}</div></div>'
+        )
+
+    set_name = card_set.name
+
+    divider_html = f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Divider Tabs - {set_name}</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: Arial, sans-serif; }}
+  .no-print {{ background:#333; color:#fff; padding:8px 14px; margin-bottom:10px;
+               display:flex; gap:12px; align-items:center; }}
+  .no-print button {{ background:#fff; color:#333; border:none; padding:5px 14px;
+                       border-radius:4px; font-weight:700; cursor:pointer; }}
+  .no-print a {{ color:#fff; font-size:12px; }}
+  h1 {{ font-size:16px; color:#ff6b35; font-weight:800; margin-bottom:2px; }}
+  h2 {{ font-size:11px; color:#666; margin-bottom:10px; font-weight:400; }}
+  .grid {{ display:flex; flex-wrap:wrap; gap:4mm; }}
+  .tab {{ width:35mm; height:80mm; border:1px dashed #999; border-radius:5mm 5mm 0 0;
+          display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+          padding-top:4mm; text-align:center; line-height:1.05; }}
+  .tab .range {{ font-weight:800; font-size:6mm; color:#000; white-space:nowrap; }}
+  .tab .symbol {{ width:10mm; height:10mm; object-fit:contain; margin-top:4mm; }}
+  .tab .energy-icon {{ width:14mm; height:14mm; object-fit:contain; }}
+  .tab .label {{ font-weight:800; font-size:5mm; color:#000; text-transform:uppercase;
+                 letter-spacing:0.03em; margin-top:2mm; }}
+  .tab.trainer .label {{ font-size:7mm; color:#c0392b; margin-top:4mm; }}
+  @media print {{
+    .no-print {{ display:none !important; }}
+    body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    @page {{ size: A4 portrait; margin: 10mm; }}
+  }}
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <strong>Divider Tabs - {set_name}</strong>
+  <button onclick="window.print()">Print</button>
+  <a href="/api/stock/entry/?set={set_code}">Back</a>
+</div>
+
+<h1>{set_name}</h1>
+<h2>PokeBulk SA Divider Tabs - {set_code} - {len(number_tabs)} number tab(s), Trainer, {len(ordered_types)} energy type(s)</h2>
+
+<div class="grid">
+  {tabs_html}
+</div>
+
+</body>
+</html>'''
+
+    return HttpResponse(divider_html, content_type='text/html; charset=utf-8')
 
 
 @csrf_exempt
