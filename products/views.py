@@ -765,7 +765,8 @@ def stock_dividers(request):
   .grid {{ display:flex; flex-wrap:wrap; gap:4mm; }}
   .tab {{ width:35mm; height:80mm; border:1px dashed #999; border-radius:5mm 5mm 0 0;
           display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-          padding-top:4mm; text-align:center; line-height:1.05; }}
+          padding-top:4mm; text-align:center; line-height:1.05;
+          break-inside: avoid; page-break-inside: avoid; }}
   .tab .range {{ font-weight:800; font-size:6mm; color:#000; white-space:nowrap; }}
   .tab .symbol {{ width:10mm; height:10mm; object-fit:contain; margin-top:4mm; }}
   .tab .energy-icon {{ width:14mm; height:14mm; object-fit:contain; }}
