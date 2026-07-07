@@ -577,36 +577,36 @@ def stock_print(request):
   @page {{ size: A4 landscape; margin: 13mm; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   html, body {{ width: 100%; height: 100%; }}
-  body {{ font-family: Arial, sans-serif; font-size: 8px; color: #111; }}
+  body {{ font-family: Arial, sans-serif; font-size: 9.6px; color: #111; }}
   .header {{ display: flex; justify-content: space-between; align-items: center;
              border-bottom: 2px solid #ff6b35; padding-bottom: 5px; margin-bottom: 6px; }}
-  .header h1 {{ font-size: 13px; color: #ff6b35; font-weight: 800; }}
-  .header h2 {{ font-size: 10px; color: #333; }}
-  .header-right {{ display: flex; gap: 16px; align-items: center; font-size: 8px; color: #666; }}
+  .header h1 {{ font-size: 15.6px; color: #ff6b35; font-weight: 800; }}
+  .header h2 {{ font-size: 12px; color: #333; }}
+  .header-right {{ display: flex; gap: 16px; align-items: center; font-size: 9.6px; color: #666; }}
   .field {{ display: flex; flex-direction: column; gap: 2px; }}
-  .field label {{ font-size: 7px; color: #999; text-transform: uppercase; }}
+  .field label {{ font-size: 8.4px; color: #999; text-transform: uppercase; }}
   .field .line {{ border-bottom: 1px solid #999; width: 100px; height: 14px; }}
   table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
   thead th {{ background: #ff6b35; color: #fff; padding: 3px 4px;
-              text-align: left; font-size: 7px; font-weight: 700; text-transform: uppercase; }}
+              text-align: left; font-size: 8.4px; font-weight: 700; text-transform: uppercase; }}
   td {{ padding: 2px 3px; border-bottom: 1px solid #eee; vertical-align: middle; overflow: hidden; white-space: nowrap; }}
-  td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 7px; }}
-  td.name {{ font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; }}
-  td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
+  td.num  {{ width: 26px; font-family: monospace; color: #888; font-size: 8.4px; }}
+  td.name {{ font-weight: 600; font-size: 9.6px; overflow: hidden; text-overflow: ellipsis; }}
+  td.var  {{ width: 18px; font-size: 8.4px; font-weight: 700; color: #ff6b35; text-align:center; }}
   td.box  {{ width: 36px; }}
   td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:18px; width:32px; margin:0 auto; }}
   td.held-box::after {{ content: none; }}
   .held-num {{ border:1px solid #ff6b35; border-radius:2px; height:18px; width:32px; margin:0 auto;
                display:flex; align-items:center; justify-content:center;
-               font-size:7px; font-weight:700; color:#ff6b35; background:#fff5f0; }}
+               font-size:8.4px; font-weight:700; color:#ff6b35; background:#fff5f0; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
-             display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
+             display: flex; justify-content: space-between; font-size: 8.4px; color: #aaa; }}
   .page-header {{ display: none; }}
   @media print {{
     .no-print {{ display: none !important; }}
     body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    .page-header {{ display: block; position: running(header); font-size: 9px; color: #ff6b35; font-weight: 700; text-align: right; }}
+    .page-header {{ display: block; position: running(header); font-size: 10.8px; color: #ff6b35; font-weight: 700; text-align: right; }}
     @page {{ @top-right {{ content: element(header); }} }}
   }}
 </style>
