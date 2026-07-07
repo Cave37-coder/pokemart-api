@@ -1,4 +1,4 @@
-﻿import django, os
+import django, os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 from products.models import CardSet
@@ -13,3 +13,4 @@ for s in sets:
         updated += 1
         print(f'{s.code}: {s.total_cards}')
 print(f'Done. Updated {updated} sets.')
+

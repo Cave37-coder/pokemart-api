@@ -119,7 +119,13 @@ def main():
     print(f"Total rows: {len(df)}")
 
     # Filter
-    df = df[df['is_card'] == True]
+    # is_card can appear as "True"/"1"/"False" across different bible
+    # versions (older rows were written as integers, not booleans) -- a
+    # strict `df['is_card'] == True` silently matches ZERO rows once the
+    # column has mixed string types, since pandas can't infer bool dtype.
+    # Normalize instead of guessing which representation is "correct".
+    is_card_normalized = df['is_card'].astype(str).str.strip().str.lower().isin(['true', '1'])
+    df = df[is_card_normalized]
     df = df[df['variant_code'].notna() & (df['variant_code'] != '')]
     print(f"Card rows with variant_code: {len(df)}")
 
@@ -211,7 +217,14 @@ def main():
                     created += 1
                     continue
 
-                pb_id = f"TCGCSV-{product_id}"
+                # IMPORTANT: pb_id must include variant_code, not just product_id.
+                # Without this, N/H/RH variants of the same card all resolve to
+                # the same pb_id -- the first one creates a row, every sibling
+                # variant after it silently collides with get_or_create and
+                # just does a (usually no-op) update instead of creating its
+                # own row. This is how an entire set's RH variants can vanish
+                # without any error being raised.
+                pb_id = f"TCGCSV-{product_id}-{variant_code}"
                 obj, was_created = PokemonProduct.objects.get_or_create(
                     pb_id=pb_id,
                     defaults=dict(

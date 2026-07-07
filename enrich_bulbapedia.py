@@ -83,7 +83,7 @@ BULBA_SET_NAMES = {
     'BLK':'Black_Bolt','WHT':'White_Flare',
     'SVP':'Scarlet_%26_Violet_Black_Star_Promos',
     'MEG':'Mega_Evolution','PFL':'Phantasmal_Flames','ASC':'Ascended_Heroes',
-    'POR':'Perfect_Order','CRI':'Chaos_Rising','ME05':'Pitch_Black',
+    'POR':'Perfect_Order','CRI':'Chaos_Rising','PBL':'Pitch_Black','ME05':'Pitch_Black',
     'MEP':'Mega_Evolution_Promo','MEE':'Mega_Evolution_Energies',
     'PRIZEPACK':'Prize_Pack_Series',
     'TK1':'Trick_or_Trade','TK2':'Trick_or_Trade_2023','TK24':'Trick_or_Trade_2024',

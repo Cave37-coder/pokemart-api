@@ -531,8 +531,10 @@ def stock_print(request):
             name = card['name'] if vi == 0 else ''
             num_cell = f'<td class="num">{num_str}</td>' if vi == 0 else '<td class="num"></td>'
             name_cell = f'<td class="name">{name}</td>' if vi == 0 else f'<td class="name" style="color:#888;font-size:7px;padding-left:8px">{var_label}</td>'
+            held = card.get('stock')
+            held_str = str(held) if held is not None else '0'
             border = 'border-bottom:1px solid #eee;' if vi < len(variants)-1 else 'border-bottom:2px solid #ccc;'
-            rows += f'<tr style="{border}">{num_cell}{name_cell}<td class="var">{var}</td><td class="box"></td><td class="box"></td><td class="box"></td></tr>'
+            rows += f'<tr style="{border}">{num_cell}{name_cell}<td class="var">{var}</td><td class="box held-box"><div class="held-num">{held_str}</div></td><td class="box"></td><td class="box"></td></tr>'
         return rows
 
     max_rows = col_size
@@ -593,6 +595,10 @@ def stock_print(request):
   td.var  {{ width: 18px; font-size: 7px; font-weight: 700; color: #ff6b35; text-align:center; }}
   td.box  {{ width: 36px; }}
   td.box::after {{ content:""; display:block; border:1px solid #aaa; border-radius:2px; height:18px; width:32px; margin:0 auto; }}
+  td.held-box::after {{ content: none; }}
+  .held-num {{ border:1px solid #ff6b35; border-radius:2px; height:18px; width:32px; margin:0 auto;
+               display:flex; align-items:center; justify-content:center;
+               font-size:7px; font-weight:700; color:#ff6b35; background:#fff5f0; }}
   td.div  {{ width: 6px; background: #f0f0f0; }}
   .footer {{ margin-top: 6px; border-top: 1px solid #ddd; padding-top: 4px;
              display: flex; justify-content: space-between; font-size: 7px; color: #aaa; }}
@@ -629,13 +635,13 @@ def stock_print(request):
   <thead>
     <tr>
       <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
-      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+      <th style="width:34px">Held</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
-      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+      <th style="width:34px">Held</th><th style="width:34px">2</th><th style="width:34px">3</th>
       <th style="width:5px"></th>
       <th style="width:24px">#</th><th style="width:130px">Card Name</th><th style="width:16px">V</th>
-      <th style="width:34px">1</th><th style="width:34px">2</th><th style="width:34px">3</th>
+      <th style="width:34px">Held</th><th style="width:34px">2</th><th style="width:34px">3</th>
     </tr>
   </thead>
   <tbody>{rows_html}</tbody>
