@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.views.autocomplete import AutocompleteJsonView
 from .models import PokemonProduct, Category, PokemonType, Era, CardSet
 
 
@@ -26,6 +27,29 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ["name", "slug"]
     search_fields = ["name"]
     prepopulated_fields = {"slug": ("name",)}
+
+
+class ProductAutocompleteJsonView(AutocompleteJsonView):
+    """
+    Confirmed via the actual browser Network tab request URL:
+    /admin/autocomplete/ is ONE global endpoint owned by AdminSite, shared
+    by every autocomplete field across the whole admin -- not something any
+    per-model ModelAdmin.get_urls() override can reach (an earlier attempt
+    at this fix). This view gets wired in at the project urls.py level
+    instead, ahead of admin.site.urls, so Django's resolver matches it
+    first. Falls back to default behaviour for any model other than
+    PokemonProduct, since this same global URL serves every autocomplete
+    field in the admin, not just this one.
+    """
+    def serialize_result(self, obj, to_field_name):
+        if obj.__class__.__name__ == 'PokemonProduct':
+            set_label = obj.card_set.name if obj.card_set else 'No Set'
+            set_code = f" [{obj.card_set.code}]" if obj.card_set else ''
+            number = f" #{obj.card_number}" if obj.card_number else ''
+            variant = f" ({obj.variant_override})" if obj.variant_override else ''
+            text = f"{obj.name} — {set_label}{set_code}{number}{variant}"
+            return {"id": str(getattr(obj, to_field_name)), "text": text}
+        return super().serialize_result(obj, to_field_name)
 
 
 @admin.register(PokemonProduct)
@@ -60,17 +84,3 @@ class PokemonProductAdmin(admin.ModelAdmin):
             "classes": ["collapse"]
         }),
     ]
-
-    def serialize_result(self, obj, to_field_name):
-        """
-        Controls only the text shown in autocomplete dropdowns that point at
-        PokemonProduct (e.g. the Manual Invoice item picker) — does NOT
-        touch PokemonProduct.__str__, so nothing else in the admin, logs,
-        or anywhere else that calls str(product) is affected.
-        """
-        set_label = obj.card_set.name if obj.card_set else 'No Set'
-        set_code = f" [{obj.card_set.code}]" if obj.card_set else ''
-        number = f" #{obj.card_number}" if obj.card_number else ''
-        variant = f" ({obj.variant_override})" if obj.variant_override else ''
-        text = f"{obj.name} — {set_label}{set_code}{number}{variant}"
-        return {"id": str(getattr(obj, to_field_name)), "text": text}
