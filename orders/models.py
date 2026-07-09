@@ -231,9 +231,22 @@ class ManualInvoice(models.Model):
         help_text="Percentage discount applied to the item subtotal (before shipping), e.g. 10 for 10%. Leave 0 for no discount."
     )
 
-    eft_confirmed = models.BooleanField(
+    PAYMENT_METHOD_CHOICES = [
+        ('eft', 'EFT'),
+        ('cash', 'Cash'),
+        ('card', 'Card'),
+    ]
+
+    # Single yes/no plus a single method -- not independent tick boxes.
+    # Nothing automated reads either of these; purely Michael's own record
+    # of whether and how this invoice was paid.
+    payment_received = models.BooleanField(
         default=False,
-        help_text="Tick once you've personally verified the EFT payment landed. Nothing automated reads this."
+        help_text="Tick once you've personally verified payment came in."
+    )
+    payment_method = models.CharField(
+        max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True,
+        help_text="Which method was used, if payment has been received."
     )
 
     class Meta:

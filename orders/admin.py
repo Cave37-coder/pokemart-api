@@ -166,8 +166,8 @@ class ManualInvoiceItemInline(admin.TabularInline):
 
 @admin.register(ManualInvoice)
 class ManualInvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_number', 'customer_name', 'item_count_display', 'total_display', 'eft_confirmed', 'created_at', 'invoice_button']
-    list_filter = ['eft_confirmed', 'created_at']
+    list_display = ['invoice_number', 'customer_name', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
+    list_filter = ['payment_received', 'payment_method', 'created_at']
     search_fields = ['invoice_number', 'customer_name', 'customer_email']
     readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button']
     ordering = ['-created_at']
@@ -183,8 +183,8 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         ('Delivery', {
             'fields': ('delivery_note',)
         }),
-        ('Payment (EFT only)', {
-            'fields': ('shipping_cost', 'discount_percent', 'eft_confirmed', 'totals_display')
+        ('Payment', {
+            'fields': ('shipping_cost', 'discount_percent', 'payment_received', 'payment_method', 'totals_display')
         }),
         ('Notes', {
             'fields': ('internal_note',)
@@ -368,6 +368,10 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         except (InvalidOperation, ValueError):
             discount_percent = Decimal('0')
 
+        payment_method = payload.get('payment_method') or ''
+        if payment_method not in ('eft', 'cash', 'card'):
+            payment_method = ''
+
         invoice = ManualInvoice.objects.create(
             customer_name=customer_name,
             customer_email=(payload.get('customer_email') or '').strip(),
@@ -375,7 +379,8 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             delivery_note=(payload.get('delivery_note') or '').strip(),
             shipping_cost=shipping_cost,
             discount_percent=discount_percent,
-            eft_confirmed=bool(payload.get('eft_confirmed')),
+            payment_received=bool(payload.get('payment_received')),
+            payment_method=payment_method,
             created_by=request.user,
         )
 

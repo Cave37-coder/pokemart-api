@@ -51,8 +51,14 @@ def build_manual_invoice_html(invoice, show_controls=True):
     invoice_date = invoice.created_at.strftime('%d-%m-%Y')
 
     delivery_block = invoice.delivery_note.replace('\n', '<br>') if invoice.delivery_note else '-'
-    payment_status = 'EFT Confirmed' if invoice.eft_confirmed else 'Awaiting EFT'
-    payment_color = '#2e7d32' if invoice.eft_confirmed else '#e65100'
+    METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card'}
+    if invoice.payment_received:
+        method_label = METHOD_LABELS.get(invoice.payment_method, '')
+        payment_status = f'{method_label} Received' if method_label else 'Payment Received'
+        payment_color = '#2e7d32'
+    else:
+        payment_status = 'Awaiting Payment'
+        payment_color = '#e65100'
 
     discount_row = ''
     if discount_percent:
