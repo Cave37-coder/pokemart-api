@@ -1,4 +1,4 @@
-﻿from django.contrib import admin
+from django.contrib import admin
 from .models import PokemonProduct, Category, PokemonType, Era, CardSet
 
 
@@ -32,7 +32,7 @@ class CategoryAdmin(admin.ModelAdmin):
 class PokemonProductAdmin(admin.ModelAdmin):
     list_display = ["name", "card_set", "variant_override", "price", "stock", "is_active"]
     list_filter = ["card_set__era", "card_set", "variant_override", "is_active"]
-    search_fields = ["name", "sku"]
+    search_fields = ["name", "sku", "card_set__name", "card_set__code"]
     list_editable = ["price", "stock"]
     ordering = ["-card_set__release_date", "card_number"]
 
@@ -60,3 +60,17 @@ class PokemonProductAdmin(admin.ModelAdmin):
             "classes": ["collapse"]
         }),
     ]
+
+    def serialize_result(self, obj, to_field_name):
+        """
+        Controls only the text shown in autocomplete dropdowns that point at
+        PokemonProduct (e.g. the Manual Invoice item picker) — does NOT
+        touch PokemonProduct.__str__, so nothing else in the admin, logs,
+        or anywhere else that calls str(product) is affected.
+        """
+        set_label = obj.card_set.name if obj.card_set else 'No Set'
+        set_code = f" [{obj.card_set.code}]" if obj.card_set else ''
+        number = f" #{obj.card_number}" if obj.card_number else ''
+        variant = f" ({obj.variant_override})" if obj.variant_override else ''
+        text = f"{obj.name} — {set_label}{set_code}{number}{variant}"
+        return {"id": str(getattr(obj, to_field_name)), "text": text}
