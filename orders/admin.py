@@ -1,11 +1,22 @@
+import json
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import admin
+from django.contrib import messages
 from django.utils.html import format_html
 from django.urls import reverse, path
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.core.mail import EmailMultiAlternatives
+from django.utils.html import strip_tags
+from django.core.exceptions import PermissionDenied
+from django.middleware.csrf import get_token
+from django.db.models import Q
 
+from products.models import PokemonProduct
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem
 from .manual_invoice import build_manual_invoice_html, html_to_pdf
+from .manual_invoice_pos import build_pos_html
 
 
 class OrderItemInline(admin.TabularInline):
@@ -133,6 +144,10 @@ class CartAdmin(admin.ModelAdmin):
 # MANUAL INVOICE — standalone admin-only invoicing tool. Search the real
 # catalog for pricing, or type in off-site stock by hand. EFT-only. Never
 # touches PokemonProduct.stock, Cart, or Order in any way.
+#
+# "Add manual invoice" opens a custom POS-style screen (manual_invoice_pos.py)
+# instead of the standard Django admin form -- editing an EXISTING invoice
+# still uses the normal admin form below, only creation is POS-style.
 # =============================================================================
 
 class ManualInvoiceItemInline(admin.TabularInline):
@@ -169,7 +184,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'fields': ('delivery_note',)
         }),
         ('Payment (EFT only)', {
-            'fields': ('shipping_cost', 'eft_confirmed', 'totals_display')
+            'fields': ('shipping_cost', 'discount_percent', 'eft_confirmed', 'totals_display')
         }),
         ('Notes', {
             'fields': ('internal_note',)
@@ -192,29 +207,54 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
     def totals_display(self, obj):
         if not obj.pk:
             return 'Save the invoice first, then add line items below.'
+        discount_line = ''
+        if obj.discount_percent:
+            discount_line = format_html(
+                '&nbsp;|&nbsp; Discount ({}%): <strong style="color:#2e7d32">-R {:.2f}</strong> ',
+                obj.discount_percent, obj.discount_amount
+            )
         return format_html(
-            'Subtotal: <strong>R {:.2f}</strong> &nbsp;|&nbsp; Shipping: <strong>R {:.2f}</strong> '
+            'Subtotal: <strong>R {:.2f}</strong> {}'
+            '&nbsp;|&nbsp; Shipping: <strong>R {:.2f}</strong> '
             '&nbsp;|&nbsp; <span style="color:#ff6b35;font-weight:bold">TOTAL: R {:.2f}</span>',
-            obj.subtotal, obj.shipping_cost or 0, obj.total
+            obj.subtotal, discount_line, obj.shipping_cost or 0, obj.total
         )
     totals_display.short_description = 'Totals (live)'
 
     def invoice_button(self, obj):
         if not obj.pk:
-            return 'Save the invoice first to unlock Print / PDF.'
+            return 'Save the invoice first to unlock Print / PDF / Email.'
         print_url = reverse('admin:manual-invoice-print', args=[obj.pk])
         pdf_url = reverse('admin:manual-invoice-pdf', args=[obj.pk])
+        email_url = reverse('admin:manual-invoice-email', args=[obj.pk])
+        email_confirm_target = obj.customer_email or 'this customer (no email on file)'
         return format_html(
-            '''<a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;margin-right:6px">📄 Print / View Invoice</a>
-            <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px">⬇ Download PDF</a>''',
-            print_url, pdf_url
+            '''<div style="display:flex;gap:6px;flex-wrap:wrap;white-space:nowrap">
+                <a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;display:inline-block">📄 Print / View</a>
+                <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">⬇ PDF</a>
+                <a href="{}" onclick="return confirm('Email this invoice to {}? This will send a real email.')" style="background:#2e7d32;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">✉️ Email</a>
+            </div>''',
+            print_url, pdf_url, email_url, email_confirm_target
         )
     invoice_button.short_description = 'Invoice'
+
+    # ------------------------------------------------------------------
+    # POS screen wiring
+    # ------------------------------------------------------------------
+
+    def add_view(self, request, form_url='', extra_context=None):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        return redirect(reverse('admin:manual-invoice-pos'))
 
     def get_urls(self):
         custom = [
             path('<int:pk>/manual-invoice-print/', self.admin_site.admin_view(self.print_invoice_view), name='manual-invoice-print'),
             path('<int:pk>/manual-invoice-pdf/', self.admin_site.admin_view(self.pdf_invoice_view), name='manual-invoice-pdf'),
+            path('<int:pk>/manual-invoice-email/', self.admin_site.admin_view(self.email_invoice_view), name='manual-invoice-email'),
+            path('pos/', self.admin_site.admin_view(self.pos_view), name='manual-invoice-pos'),
+            path('pos/search/', self.admin_site.admin_view(self.pos_search_view), name='manual-invoice-pos-search'),
+            path('pos/save/', self.admin_site.admin_view(self.pos_save_view), name='manual-invoice-pos-save'),
         ]
         return custom + super().get_urls()
 
@@ -230,3 +270,145 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{invoice.invoice_number}.pdf"'
         return response
+
+    def email_invoice_view(self, request, pk):
+        invoice = get_object_or_404(ManualInvoice, pk=pk)
+
+        if not invoice.customer_email:
+            messages.error(request, f"{invoice.invoice_number}: no customer email on file — nothing sent.")
+            return redirect(reverse('admin:orders_manualinvoice_change', args=[invoice.pk]))
+
+        html = build_manual_invoice_html(invoice, show_controls=False)
+        subject = f'Your PokeBulk SA Invoice — {invoice.invoice_number}'
+        text_body = strip_tags(html)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            to=[invoice.customer_email],
+            bcc=['enquiries@pokebulk.co.za'],
+        )
+        email.attach_alternative(html, 'text/html')
+
+        pdf_bytes = html_to_pdf(html)
+        email.attach(f'{invoice.invoice_number}.pdf', pdf_bytes, 'application/pdf')
+
+        try:
+            email.send(fail_silently=False)
+            messages.success(request, f"{invoice.invoice_number} emailed to {invoice.customer_email}.")
+        except Exception as e:
+            messages.error(request, f"Failed to email {invoice.invoice_number}: {e}")
+
+        return redirect(reverse('admin:orders_manualinvoice_change', args=[invoice.pk]))
+
+    def pos_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        csrf_token = get_token(request)
+        search_url = reverse('admin:manual-invoice-pos-search')
+        save_url = reverse('admin:manual-invoice-pos-save')
+        cancel_url = reverse('admin:orders_manualinvoice_changelist')
+        html = build_pos_html(csrf_token, search_url, save_url, cancel_url)
+        return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+    def pos_search_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        term = request.GET.get('term', '').strip()
+        if len(term) < 2:
+            return JsonResponse({'results': []})
+
+        products = PokemonProduct.objects.filter(
+            Q(name__icontains=term) | Q(sku__icontains=term) |
+            Q(card_set__name__icontains=term) | Q(card_set__code__icontains=term)
+        ).select_related('card_set').order_by('-card_set__release_date', 'name')[:30]
+
+        results = [{
+            'id': p.id,
+            'name': p.name,
+            'set_name': p.card_set.name if p.card_set else '',
+            'set_code': p.card_set.code if p.card_set else '',
+            'card_number': p.card_number or '',
+            'variant': p.variant_override or '',
+            'price': float(p.price or 0),
+        } for p in products]
+
+        return JsonResponse({'results': results})
+
+    def pos_save_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+        try:
+            payload = json.loads(request.body)
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse({'success': False, 'error': 'Invalid request body'}, status=400)
+
+        customer_name = (payload.get('customer_name') or '').strip()
+        items = payload.get('items') or []
+
+        if not customer_name:
+            return JsonResponse({'success': False, 'error': 'Customer name is required.'}, status=400)
+        if not items:
+            return JsonResponse({'success': False, 'error': 'At least one item is required.'}, status=400)
+
+        try:
+            shipping_cost = Decimal(str(payload.get('shipping_cost') or 0))
+        except (InvalidOperation, ValueError):
+            shipping_cost = Decimal('0')
+
+        try:
+            discount_percent = Decimal(str(payload.get('discount_percent') or 0))
+            if discount_percent < 0:
+                discount_percent = Decimal('0')
+            if discount_percent > 100:
+                discount_percent = Decimal('100')
+        except (InvalidOperation, ValueError):
+            discount_percent = Decimal('0')
+
+        invoice = ManualInvoice.objects.create(
+            customer_name=customer_name,
+            customer_email=(payload.get('customer_email') or '').strip(),
+            customer_phone=(payload.get('customer_phone') or '').strip(),
+            delivery_note=(payload.get('delivery_note') or '').strip(),
+            shipping_cost=shipping_cost,
+            discount_percent=discount_percent,
+            eft_confirmed=bool(payload.get('eft_confirmed')),
+            created_by=request.user,
+        )
+
+        for item in items:
+            product = None
+            product_id = item.get('product_id')
+            if product_id:
+                product = PokemonProduct.objects.filter(pk=product_id).first()
+
+            try:
+                unit_price = Decimal(str(item.get('unit_price'))) if item.get('unit_price') is not None else None
+            except (InvalidOperation, ValueError):
+                unit_price = None
+
+            try:
+                quantity = max(1, int(item.get('quantity') or 1))
+            except (ValueError, TypeError):
+                quantity = 1
+
+            ManualInvoiceItem.objects.create(
+                invoice=invoice,
+                product=product,
+                description=(item.get('description') or '').strip(),
+                set_name=(item.get('set_name') or '').strip(),
+                card_number=str(item.get('card_number') or '').strip(),
+                variant=(item.get('variant') or '').strip(),
+                quantity=quantity,
+                unit_price=unit_price,
+            )
+
+        return JsonResponse({
+            'success': True,
+            'invoice_id': invoice.id,
+            'invoice_number': invoice.invoice_number,
+            'redirect_url': reverse('admin:orders_manualinvoice_change', args=[invoice.pk]),
+        })

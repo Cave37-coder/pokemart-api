@@ -200,13 +200,9 @@ class OrderItem(models.Model):
 
 
 # =============================================================================
-# MANUAL INVOICE — standalone, admin-only invoicing tool.
-#
-# Deliberately has ZERO connection to Cart/Order/OrderItem. Nothing in this
-# section ever reads or writes PokemonProduct.stock. Built so Michael can
-# invoice stock that isn't listed on the site at all, or bundle site stock
-# with off-site stock on one invoice, without it appearing anywhere in the
-# real order pipeline. EFT-only by design — no PayFast integration here.
+# MANUAL INVOICE — standalone admin-only invoicing tool. Deliberately has
+# ZERO connection to Cart/Order/stock. EFT-only. Supports an optional
+# percentage discount applied to the item subtotal (before shipping).
 # =============================================================================
 
 class ManualInvoice(models.Model):
@@ -229,6 +225,11 @@ class ManualInvoice(models.Model):
     internal_note = models.TextField(blank=True, help_text="Not shown on the invoice — your own notes only.")
 
     shipping_cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+
+    discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text="Percentage discount applied to the item subtotal (before shipping), e.g. 10 for 10%. Leave 0 for no discount."
+    )
 
     eft_confirmed = models.BooleanField(
         default=False,
@@ -253,8 +254,15 @@ class ManualInvoice(models.Model):
         return sum((item.line_total for item in self.items.all()), Decimal('0.00'))
 
     @property
+    def discount_amount(self):
+        pct = self.discount_percent or Decimal('0')
+        if not pct:
+            return Decimal('0.00')
+        return (self.subtotal * pct / Decimal('100')).quantize(Decimal('0.01'))
+
+    @property
     def total(self):
-        return self.subtotal + (self.shipping_cost or Decimal('0.00'))
+        return self.subtotal - self.discount_amount + (self.shipping_cost or Decimal('0.00'))
 
     @property
     def item_count(self):

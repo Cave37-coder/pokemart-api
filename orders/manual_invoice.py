@@ -43,6 +43,8 @@ def build_manual_invoice_html(invoice, show_controls=True):
         </tr>'''
 
     subtotal = float(invoice.subtotal)
+    discount_percent = float(invoice.discount_percent or 0)
+    discount_amount = float(invoice.discount_amount)
     shipping = float(invoice.shipping_cost or 0)
     total = float(invoice.total)
     item_count = invoice.item_count
@@ -51,6 +53,10 @@ def build_manual_invoice_html(invoice, show_controls=True):
     delivery_block = invoice.delivery_note.replace('\n', '<br>') if invoice.delivery_note else '-'
     payment_status = 'EFT Confirmed' if invoice.eft_confirmed else 'Awaiting EFT'
     payment_color = '#2e7d32' if invoice.eft_confirmed else '#e65100'
+
+    discount_row = ''
+    if discount_percent:
+        discount_row = f'''<tr><td style="padding:3px 8px;color:#2e7d32">Discount ({discount_percent:g}%)</td><td style="padding:3px 8px;text-align:right;color:#2e7d32">-R {discount_amount:.2f}</td></tr>'''
 
     controls_html = '''<table width="100%" style="margin-bottom:16px"><tr><td>
       <span class="no-print" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:bold">
@@ -128,6 +134,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
   <tr><td style="width:60%"></td><td style="width:40%">
     <table>
       <tr><td style="padding:3px 8px;color:#555">Subtotal ({item_count} items)</td><td style="padding:3px 8px;text-align:right">R {subtotal:.2f}</td></tr>
+      {discount_row}
       <tr><td style="padding:3px 8px;color:#555">Shipping</td><td style="padding:3px 8px;text-align:right">{"FREE" if shipping == 0 else f"R {shipping:.2f}"}</td></tr>
       <tr><td style="padding:6px 8px;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35">TOTAL</td><td style="padding:6px 8px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35;color:#ff6b35">R {total:.2f}</td></tr>
     </table>
