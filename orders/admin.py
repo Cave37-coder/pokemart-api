@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse, path
-from .models import Order, OrderItem, OrderTracking, Cart, CartItem
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem
+from .manual_invoice import build_manual_invoice_html, html_to_pdf
 
 
 class OrderItemInline(admin.TabularInline):
@@ -123,3 +127,106 @@ class OrderTrackingAdmin(admin.ModelAdmin):
 class CartAdmin(admin.ModelAdmin):
     list_display = ['user', 'created_at', 'updated_at']
     readonly_fields = ['created_at', 'updated_at']
+
+
+# =============================================================================
+# MANUAL INVOICE — standalone admin-only invoicing tool. Search the real
+# catalog for pricing, or type in off-site stock by hand. EFT-only. Never
+# touches PokemonProduct.stock, Cart, or Order in any way.
+# =============================================================================
+
+class ManualInvoiceItemInline(admin.TabularInline):
+    model = ManualInvoiceItem
+    extra = 3
+    autocomplete_fields = ['product']
+    fields = ['product', 'description', 'set_name', 'card_number', 'variant', 'quantity', 'unit_price', 'line_total_display']
+    readonly_fields = ['line_total_display']
+
+    def line_total_display(self, obj):
+        if obj and obj.pk:
+            return f"R {obj.line_total:.2f}"
+        return "-"
+    line_total_display.short_description = 'Line Total'
+
+
+@admin.register(ManualInvoice)
+class ManualInvoiceAdmin(admin.ModelAdmin):
+    list_display = ['invoice_number', 'customer_name', 'item_count_display', 'total_display', 'eft_confirmed', 'created_at', 'invoice_button']
+    list_filter = ['eft_confirmed', 'created_at']
+    search_fields = ['invoice_number', 'customer_name', 'customer_email']
+    readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button']
+    ordering = ['-created_at']
+    inlines = [ManualInvoiceItemInline]
+
+    fieldsets = (
+        ('Invoice', {
+            'fields': ('invoice_number', 'created_at', 'updated_at', 'invoice_button')
+        }),
+        ('Customer', {
+            'fields': ('customer_name', 'customer_email', 'customer_phone')
+        }),
+        ('Delivery', {
+            'fields': ('delivery_note',)
+        }),
+        ('Payment (EFT only)', {
+            'fields': ('shipping_cost', 'eft_confirmed', 'totals_display')
+        }),
+        ('Notes', {
+            'fields': ('internal_note',)
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def item_count_display(self, obj):
+        return obj.item_count if obj.pk else 0
+    item_count_display.short_description = 'Items'
+
+    def total_display(self, obj):
+        return f"R {obj.total:.2f}" if obj.pk else '-'
+    total_display.short_description = 'Total'
+
+    def totals_display(self, obj):
+        if not obj.pk:
+            return 'Save the invoice first, then add line items below.'
+        return format_html(
+            'Subtotal: <strong>R {:.2f}</strong> &nbsp;|&nbsp; Shipping: <strong>R {:.2f}</strong> '
+            '&nbsp;|&nbsp; <span style="color:#ff6b35;font-weight:bold">TOTAL: R {:.2f}</span>',
+            obj.subtotal, obj.shipping_cost or 0, obj.total
+        )
+    totals_display.short_description = 'Totals (live)'
+
+    def invoice_button(self, obj):
+        if not obj.pk:
+            return 'Save the invoice first to unlock Print / PDF.'
+        print_url = reverse('admin:manual-invoice-print', args=[obj.pk])
+        pdf_url = reverse('admin:manual-invoice-pdf', args=[obj.pk])
+        return format_html(
+            '''<a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;margin-right:6px">📄 Print / View Invoice</a>
+            <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px">⬇ Download PDF</a>''',
+            print_url, pdf_url
+        )
+    invoice_button.short_description = 'Invoice'
+
+    def get_urls(self):
+        custom = [
+            path('<int:pk>/manual-invoice-print/', self.admin_site.admin_view(self.print_invoice_view), name='manual-invoice-print'),
+            path('<int:pk>/manual-invoice-pdf/', self.admin_site.admin_view(self.pdf_invoice_view), name='manual-invoice-pdf'),
+        ]
+        return custom + super().get_urls()
+
+    def print_invoice_view(self, request, pk):
+        invoice = get_object_or_404(ManualInvoice, pk=pk)
+        html = build_manual_invoice_html(invoice, show_controls=True)
+        return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+    def pdf_invoice_view(self, request, pk):
+        invoice = get_object_or_404(ManualInvoice, pk=pk)
+        html = build_manual_invoice_html(invoice, show_controls=False)
+        pdf_bytes = html_to_pdf(html)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{invoice.invoice_number}.pdf"'
+        return response

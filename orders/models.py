@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.conf import settings
 from products.models import PokemonProduct
@@ -195,3 +197,116 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return (self.price_at_purchase or 0) * self.quantity
+
+
+# =============================================================================
+# MANUAL INVOICE — standalone, admin-only invoicing tool.
+#
+# Deliberately has ZERO connection to Cart/Order/OrderItem. Nothing in this
+# section ever reads or writes PokemonProduct.stock. Built so Michael can
+# invoice stock that isn't listed on the site at all, or bundle site stock
+# with off-site stock on one invoice, without it appearing anywhere in the
+# real order pipeline. EFT-only by design — no PayFast integration here.
+# =============================================================================
+
+class ManualInvoice(models.Model):
+    invoice_number = models.CharField(max_length=20, unique=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="manual_invoices"
+    )
+
+    customer_name = models.CharField(max_length=255)
+    customer_email = models.EmailField(blank=True)
+    customer_phone = models.CharField(max_length=50, blank=True)
+
+    delivery_note = models.TextField(
+        blank=True,
+        help_text="Free-text delivery/collection info — address, Pudo locker, 'collection', etc."
+    )
+    internal_note = models.TextField(blank=True, help_text="Not shown on the invoice — your own notes only.")
+
+    shipping_cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+
+    eft_confirmed = models.BooleanField(
+        default=False,
+        help_text="Tick once you've personally verified the EFT payment landed. Nothing automated reads this."
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.invoice_number or 'DRAFT'} - {self.customer_name}"
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            last = ManualInvoice.objects.order_by('-id').first()
+            next_num = (last.id + 1) if last else 1
+            self.invoice_number = f"MINV-{next_num:05d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def subtotal(self):
+        return sum((item.line_total for item in self.items.all()), Decimal('0.00'))
+
+    @property
+    def total(self):
+        return self.subtotal + (self.shipping_cost or Decimal('0.00'))
+
+    @property
+    def item_count(self):
+        return sum(item.quantity for item in self.items.all())
+
+
+class ManualInvoiceItem(models.Model):
+    invoice = models.ForeignKey(ManualInvoice, on_delete=models.CASCADE, related_name="items")
+
+    # Link to a real catalog product to auto-pull its current price/details.
+    # SET_NULL (never CASCADE) so deleting a product never deletes invoice
+    # history — and this field is READ-ONLY as far as stock goes: nothing
+    # here ever touches product.stock, on save, delete, or otherwise.
+    product = models.ForeignKey(
+        PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Link a real catalog product to auto-pull its current price. Leave blank for off-site stock."
+    )
+
+    # Snapshot fields. Auto-filled from `product` on save if left blank —
+    # or type them in by hand for stock that isn't on the site at all.
+    description = models.CharField(max_length=500, blank=True, help_text="Card/item name.")
+    set_name = models.CharField(max_length=255, blank=True)
+    card_number = models.CharField(max_length=20, blank=True)
+    variant = models.CharField(max_length=10, blank=True)
+
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Auto-filled from the linked product's current price on save. Editable at any time."
+    )
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        name = self.description or (self.product.name if self.product else "Item")
+        return f"{self.quantity}x {name}"
+
+    @property
+    def line_total(self):
+        return (self.unit_price or Decimal('0.00')) * self.quantity
+
+    def save(self, *args, **kwargs):
+        if self.product:
+            if not self.description:
+                self.description = self.product.name
+            if not self.set_name and self.product.card_set:
+                self.set_name = self.product.card_set.name
+            if not self.card_number:
+                self.card_number = self.product.card_number or ''
+            if not self.variant:
+                self.variant = self.product.variant_override or 'N'
+            if self.unit_price is None:
+                self.unit_price = self.product.price or Decimal('0.00')
+        super().save(*args, **kwargs)
