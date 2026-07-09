@@ -16,23 +16,41 @@ POS_HTML = """<!DOCTYPE html>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #12121A; color: #eee; height: 100vh; overflow: hidden; }
   .pos-wrap { display: flex; height: 100vh; }
-  .pos-left { flex: 1.4; display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
-  .pos-right { flex: 1; min-width: 340px; max-width: 420px; background: #1a1a24; padding: 16px; display: flex; flex-direction: column; border-left: 2px solid #ff6b35; overflow: hidden; }
+  .pos-left { flex: 1.1; display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
+  .pos-right { flex: 1; min-width: 380px; max-width: 460px; background: #1a1a24; padding: 16px; display: flex; flex-direction: column; border-left: 2px solid #ff6b35; overflow: hidden; }
   .pos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .pos-header h1 { font-size: 18px; color: #ff6b35; }
   .pos-header a { color: #999; text-decoration: none; font-size: 13px; }
   .pos-header a:hover { color: #ff6b35; }
+  .pos-brand { display: flex; align-items: center; gap: 10px; }
+  .pos-logo-img { height: 40px; width: auto; }
+  .pos-brand-name { font-size: 17px; font-weight: bold; color: #fff; letter-spacing: 0.02em; }
+  .pos-brand-accent { color: #ff6b35; }
+  .pos-brand-sub { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+  @media (max-width: 900px) {
+    body { height: auto; min-height: 100vh; overflow-y: auto; }
+    .pos-wrap { flex-direction: column; height: auto; }
+    .pos-left { flex: none; }
+    #search-results { max-height: 60vh; grid-template-columns: repeat(2, 1fr); }
+    .pos-right { max-width: 100%; min-width: 0; border-left: none; border-top: 2px solid #ff6b35; height: auto; }
+  }
+  @media (max-width: 480px) {
+    .pos-brand-name { font-size: 14px; }
+    .pos-logo-img { height: 30px; }
+    #search-results { grid-template-columns: 1fr; }
+  }
   #search-input { width: 100%; padding: 14px; font-size: 16px; border-radius: 8px; border: 2px solid #333; background: #1a1a24; color: #fff; margin-bottom: 12px; }
   #search-input:focus { outline: none; border-color: #ff6b35; }
-  #search-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; align-content: start; }
+  .pricing-note { font-size: 10px; color: #888; margin-bottom: 8px; }
+  #search-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start; }
   .result-card { background: #1a1a24; border: 1px solid #333; border-radius: 8px; padding: 10px; }
   .result-name { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
   .result-meta { font-size: 11px; color: #999; margin-bottom: 8px; }
   .result-price-row { display: flex; align-items: center; gap: 6px; }
   .result-price-label { color: #888; font-size: 12px; }
-  .result-price-input { width: 70px; padding: 6px; border-radius: 5px; border: 1px solid #444; background: #12121A; color: #ff6b35; font-weight: bold; font-size: 13px; }
+  .result-price-input { width: 88px; padding: 6px; border-radius: 5px; border: 1px solid #444; background: #12121A; color: #ff6b35; font-weight: bold; font-size: 13px; }
   .result-price-input:focus { outline: none; border-color: #ff6b35; }
-  .result-add-btn { flex: 1; background: #ff6b35; color: #fff; border: none; border-radius: 5px; padding: 7px 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
+  .result-add-btn { flex: 1; background: #ff6b35; color: #fff; border: none; border-radius: 5px; padding: 6px 6px; font-size: 10px; font-weight: bold; cursor: pointer; }
   .result-add-btn:hover { background: #e85a28; }
   .no-results, .searching, .search-error { color: #888; padding: 20px; text-align: center; grid-column: 1 / -1; font-size: 13px; }
   .custom-item-box { margin-top: 10px; border-top: 1px solid #2a2a35; padding-top: 10px; }
@@ -72,10 +90,17 @@ POS_HTML = """<!DOCTYPE html>
 <div class="pos-wrap">
   <div class="pos-left">
     <div class="pos-header">
-      <h1>New Manual Invoice</h1>
+      <div class="pos-brand">
+        <img src="https://pokebulk.co.za/pokebulk-logo.png" alt="PokeBulk SA" class="pos-logo-img" onerror="this.style.display='none'">
+        <div class="pos-brand-text">
+          <div class="pos-brand-name">Poke<span class="pos-brand-accent">Bulk</span> SA</div>
+          <div class="pos-brand-sub">New Manual Invoice</div>
+        </div>
+      </div>
       <a href="__CANCEL_URL__">Cancel &amp; back to list</a>
     </div>
     <input type="text" id="search-input" placeholder="Search cards by name or set... (2+ characters)" autofocus>
+    <div class="pricing-note">Prices reflect TCGPlayer market price x 1.1, same as the live site.</div>
     <div id="search-results"><div class="no-results">Start typing to search the catalog.</div></div>
     <div class="custom-item-box">
       <div class="custom-item-box-label">Off-site stock (not in catalog)</div>

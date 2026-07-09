@@ -82,7 +82,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
       <div style="font-size:17px;font-weight:bold;color:#ff6b35">Poke Bulk SA <span style="color:#222">(Pty) Ltd</span></div>
       <div style="font-size:11px;color:#555;line-height:1.4;margin-top:3px">
         Reg. No: 2024/615040/07<br>
-        4 Heloise Street, Birchleigh North, Kempton Park, 1618<br>
+        Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park, 1618<br>
         Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za
       </div>
     </td>
@@ -141,9 +141,15 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
   </td></tr>
 </table>
 
-<table style="border-top:1px solid #eee">
-  <tr><td style="padding-top:8px;font-size:10px;color:#888;text-align:center">
+<table style="border-top:1px solid #eee;margin-top:6px">
+  <tr><td style="padding-top:10px;text-align:center">
+    <img src="https://pokebulk.co.za/pokebulk-logo.png" alt="PokeBulk SA" style="height:28px" />
+  </td></tr>
+  <tr><td style="padding-top:6px;font-size:10px;color:#888;text-align:center">
     Thank you! &nbsp;|&nbsp; Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Reg. No: 2024/615040/07 &nbsp;|&nbsp; enquiries@pokebulk.co.za
+  </td></tr>
+  <tr><td style="padding-top:4px;font-size:9px;color:#aaa;text-align:center">
+    Card pricing reflects TCGPlayer market price x 1.1, consistent with our website pricing model.
   </td></tr>
 </table>
 </body></html>'''

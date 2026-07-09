@@ -334,7 +334,7 @@ def print_order(request, order_id):
           </table></div>'''
 
     if order.delivery_method == 'collection':
-        delivery_info = 'LOCAL COLLECTION - Birchleigh North, Kempton Park'
+        delivery_info = 'LOCAL COLLECTION - Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park'
     else:
         parts = [order.delivery_address_line1, order.delivery_address_line2,
                  order.delivery_city, order.delivery_province, order.delivery_postal_code]
@@ -378,7 +378,7 @@ def print_order(request, order_id):
   <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {order.total_price:.2f}</td><td></td></tr>
 </table>
 <div style="margin-top:10px;border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#666">
-  Printed: {printed_at} | PokeBulk SA - Birchleigh North, Kempton Park | enquiries@pokebulk.co.za
+  Printed: {printed_at} | PokeBulk SA - Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park | enquiries@pokebulk.co.za
 </div>
 </body></html>'''
 
@@ -446,7 +446,7 @@ def _build_invoice_html(order, show_controls=True):
 
     if order.delivery_method == 'collection':
         delivery_label = 'Local Collection'
-        delivery_detail = 'Birchleigh North, Kempton Park'
+        delivery_detail = 'Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park'
     elif order.pudo_locker_name:
         delivery_label = order.get_shipping_method_display()
         delivery_detail = f'{order.pudo_locker_name}<br>{order.pudo_locker_address or ""}'
@@ -470,7 +470,7 @@ def _build_invoice_html(order, show_controls=True):
 {controls_html}
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:3px solid #ff6b35;margin-bottom:12px">
   <div><div style="font-size:17px;font-weight:bold;color:#ff6b35">Poke Bulk SA <span style="color:#222">(Pty) Ltd</span></div>
-  <div style="font-size:11px;color:#555;line-height:1.3;margin-top:2px">Reg. No: 2024/615040/07<br>4 Heloise Street, Birchleigh North, Kempton Park, 1618<br>Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za</div></div>
+  <div style="font-size:11px;color:#555;line-height:1.3;margin-top:2px">Reg. No: 2024/615040/07<br>Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park, 1618<br>Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za</div></div>
   <div style="text-align:right"><div style="font-size:20px;font-weight:bold;color:#333">INVOICE</div>
   <div style="font-size:13px;margin-top:2px"><strong>{invoice_num}</strong></div>
   <div style="font-size:11px;color:#555;margin-top:1px">{invoice_date}</div>

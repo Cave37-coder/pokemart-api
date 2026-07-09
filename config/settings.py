@@ -115,7 +115,7 @@ CORS_URLS_REGEX = r'^.*$'
 
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000,https://pokemart-api-production.up.railway.app,https://pokebulk.co.za,https://www.pokebulk.co.za'
+    default='http://localhost:3000,https://pokemart-api-production.up.railway.app,https://pokebulk.co.za,https://www.pokebulk.co.za,https://pos.pokebulk.co.za'
 ).split(',')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -143,6 +143,16 @@ SIMPLE_JWT = {
 }
 
 
+# --- Standalone POS (pos.pokebulk.co.za) cross-subdomain cookie settings ---
+# The POS app lives on a different subdomain than this API. Session and
+# CSRF cookies still get sent between pokebulk.co.za subdomains
+# automatically (browsers treat same-registrable-domain requests as
+# "same-site"), but by default the csrftoken cookie can only be *read* by
+# JavaScript on the exact host that set it. Widening its Domain lets the
+# POS app's JS read the token value it needs to send back on every save.
+CSRF_COOKIE_DOMAIN = ".pokebulk.co.za"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 SITE_URL = config('SITE_URL', default='https://pokebulk.co.za')
 API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.app')
