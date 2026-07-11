@@ -331,3 +331,112 @@ class ManualInvoiceItem(models.Model):
             if self.unit_price is None:
                 self.unit_price = self.product.price or Decimal('0.00')
         super().save(*args, **kwargs)
+
+
+# =============================================================================
+# BUY ORDER — the reverse of ManualInvoice: recording cards *bought from* a
+# customer/seller rather than sold to one. Deliberately a separate model,
+# not a repurposed ManualInvoice, since the two flows track opposite money
+# movement and different fields (a seller, not a customer; a price paid,
+# not charged). Like ManualInvoice, this has ZERO connection to
+# PokemonProduct.stock, Cart, or Order -- buying a card here does not
+# currently add it to website stock (a deliberate scope decision; can be
+# revisited later).
+# =============================================================================
+
+class BuyOrder(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('eft', 'EFT'),
+        ('cash', 'Cash'),
+        ('card', 'Card'),
+    ]
+
+    buy_number = models.CharField(max_length=20, unique=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="buy_orders"
+    )
+
+    seller_name = models.CharField(max_length=255)
+    seller_email = models.EmailField(blank=True)
+    seller_phone = models.CharField(max_length=50, blank=True)
+
+    internal_note = models.TextField(blank=True, help_text="Your own notes only -- not shown to the seller.")
+
+    payment_made = models.BooleanField(
+        default=False,
+        help_text="Tick once you've personally paid the seller."
+    )
+    payment_method = models.CharField(
+        max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True,
+        help_text="Which method was used, if payment has been made."
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.buy_number or 'DRAFT'} - {self.seller_name}"
+
+    def save(self, *args, **kwargs):
+        if not self.buy_number:
+            last = BuyOrder.objects.order_by('-id').first()
+            next_num = (last.id + 1) if last else 1
+            self.buy_number = f"BUY-{next_num:05d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def total(self):
+        return sum((item.line_total for item in self.items.all()), Decimal('0.00'))
+
+    @property
+    def item_count(self):
+        return sum(item.quantity for item in self.items.all())
+
+
+class BuyOrderItem(models.Model):
+    buy_order = models.ForeignKey(BuyOrder, on_delete=models.CASCADE, related_name="items")
+
+    # SET_NULL, same reasoning as ManualInvoiceItem -- deleting a catalog
+    # product should never delete purchase history. Never touches
+    # product.stock, on save, delete, or otherwise.
+    product = models.ForeignKey(
+        PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Link a real catalog product if it matches one. Leave blank for anything off-catalog."
+    )
+
+    description = models.CharField(max_length=500, blank=True)
+    set_name = models.CharField(max_length=255, blank=True)
+    card_number = models.CharField(max_length=20, blank=True)
+    variant = models.CharField(max_length=10, blank=True)
+
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0.00'),
+        help_text="What you actually paid per card/item."
+    )
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        name = self.description or (self.product.name if self.product else "Item")
+        return f"{self.quantity}x {name}"
+
+    @property
+    def line_total(self):
+        return (self.unit_price or Decimal('0.00')) * self.quantity
+
+    def save(self, *args, **kwargs):
+        if self.product:
+            if not self.description:
+                self.description = self.product.name
+            if not self.set_name and self.product.card_set:
+                self.set_name = self.product.card_set.name
+            if not self.card_number:
+                self.card_number = self.product.card_number or ''
+            if not self.variant:
+                self.variant = self.product.variant_override or 'N'
+        super().save(*args, **kwargs)

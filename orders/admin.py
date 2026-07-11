@@ -14,7 +14,7 @@ from django.middleware.csrf import get_token
 from django.db.models import Q
 
 from products.models import PokemonProduct
-from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem
+from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
 from .manual_invoice import build_manual_invoice_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
 
@@ -416,4 +416,137 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'invoice_id': invoice.id,
             'invoice_number': invoice.invoice_number,
             'redirect_url': reverse('admin:orders_manualinvoice_change', args=[invoice.pk]),
+        })
+
+
+# =============================================================================
+# BUY ORDER — recording cards bought FROM a customer. Deliberately has no
+# custom in-admin POS creation screen (unlike ManualInvoice's pos_view) --
+# the standalone POS app (pos.pokebulk.co.za) is the intended entry point
+# for creating these day to day. This admin registration exists so past buy
+# orders can be reviewed, searched, and hand-edited if needed, and so the
+# POS app has a save endpoint (pos_buy_save_view below) to call.
+# =============================================================================
+
+class BuyOrderItemInline(admin.TabularInline):
+    model = BuyOrderItem
+    extra = 3
+    autocomplete_fields = ['product']
+    fields = ['product', 'description', 'set_name', 'card_number', 'variant', 'quantity', 'unit_price', 'line_total_display']
+    readonly_fields = ['line_total_display']
+
+    def line_total_display(self, obj):
+        if obj and obj.pk:
+            return f"R {obj.line_total:.2f}"
+        return "-"
+    line_total_display.short_description = 'Line Total'
+
+
+@admin.register(BuyOrder)
+class BuyOrderAdmin(admin.ModelAdmin):
+    list_display = ['buy_number', 'seller_name', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at']
+    list_filter = ['payment_made', 'payment_method', 'created_at']
+    search_fields = ['buy_number', 'seller_name', 'seller_email']
+    readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display']
+    ordering = ['-created_at']
+    inlines = [BuyOrderItemInline]
+
+    fieldsets = (
+        ('Buy Order', {
+            'fields': ('buy_number', 'created_at', 'updated_at')
+        }),
+        ('Seller', {
+            'fields': ('seller_name', 'seller_email', 'seller_phone')
+        }),
+        ('Payment', {
+            'fields': ('payment_made', 'payment_method', 'total_display')
+        }),
+        ('Notes', {
+            'fields': ('internal_note',)
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def item_count_display(self, obj):
+        return obj.item_count if obj.pk else 0
+    item_count_display.short_description = 'Items'
+
+    def total_display(self, obj):
+        return f"R {obj.total:.2f}" if obj.pk else '-'
+    total_display.short_description = 'Total Paid'
+
+    def get_urls(self):
+        custom = [
+            path('pos-buy/save/', self.admin_site.admin_view(self.pos_buy_save_view), name='buy-order-pos-save'),
+        ]
+        return custom + super().get_urls()
+
+    def pos_buy_save_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+        try:
+            payload = json.loads(request.body)
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse({'success': False, 'error': 'Invalid request body'}, status=400)
+
+        seller_name = (payload.get('seller_name') or '').strip()
+        items = payload.get('items') or []
+
+        if not seller_name:
+            return JsonResponse({'success': False, 'error': 'Seller name is required.'}, status=400)
+        if not items:
+            return JsonResponse({'success': False, 'error': 'At least one item is required.'}, status=400)
+
+        payment_method = payload.get('payment_method') or ''
+        if payment_method not in ('eft', 'cash', 'card'):
+            payment_method = ''
+
+        buy_order = BuyOrder.objects.create(
+            seller_name=seller_name,
+            seller_email=(payload.get('seller_email') or '').strip(),
+            seller_phone=(payload.get('seller_phone') or '').strip(),
+            internal_note=(payload.get('internal_note') or '').strip(),
+            payment_made=bool(payload.get('payment_made')),
+            payment_method=payment_method,
+            created_by=request.user,
+        )
+
+        for item in items:
+            product = None
+            product_id = item.get('product_id')
+            if product_id:
+                product = PokemonProduct.objects.filter(pk=product_id).first()
+
+            try:
+                unit_price = Decimal(str(item.get('unit_price'))) if item.get('unit_price') is not None else Decimal('0.00')
+            except (InvalidOperation, ValueError):
+                unit_price = Decimal('0.00')
+
+            try:
+                quantity = max(1, int(item.get('quantity') or 1))
+            except (ValueError, TypeError):
+                quantity = 1
+
+            BuyOrderItem.objects.create(
+                buy_order=buy_order,
+                product=product,
+                description=(item.get('description') or '').strip(),
+                set_name=(item.get('set_name') or '').strip(),
+                card_number=str(item.get('card_number') or '').strip(),
+                variant=(item.get('variant') or '').strip(),
+                quantity=quantity,
+                unit_price=unit_price,
+            )
+
+        return JsonResponse({
+            'success': True,
+            'buy_id': buy_order.id,
+            'buy_number': buy_order.buy_number,
         })
