@@ -1,7 +1,11 @@
+# pokemart-api: products/urls.py — full replacement, v1.1.0
+# v1.1.0: added the card-search route alongside card-lookup.
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet
 from . import views
+from .views_lookup import card_lookup, card_search
 
 router = DefaultRouter()
 router.register(r"products", PokemonProductViewSet, basename="product")
@@ -21,4 +25,6 @@ urlpatterns = [
     path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
     path("checklists/stock-check/", views.checklist_stock, name="checklist-stock"),
     path("manage/", views.manage_set, name="manage-set"),
+    path("cards/lookup/", card_lookup, name="card-lookup"),
+    path("cards/search/", card_search, name="card-search"),
 ]
