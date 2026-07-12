@@ -331,6 +331,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'card_number': p.card_number or '',
             'variant': p.variant_override or '',
             'price': float(p.price or 0),
+            'stock': p.stock,
         } for p in products]
 
         return JsonResponse({'results': results})

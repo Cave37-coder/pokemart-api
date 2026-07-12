@@ -2,6 +2,10 @@ from decimal import Decimal
 
 from django.db import models
 from django.conf import settings
+from django.db.models import F
+from django.db.models.functions import Greatest
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from products.models import PokemonProduct
 
 
@@ -200,9 +204,12 @@ class OrderItem(models.Model):
 
 
 # =============================================================================
-# MANUAL INVOICE — standalone admin-only invoicing tool. Deliberately has
-# ZERO connection to Cart/Order/stock. EFT-only. Supports an optional
-# percentage discount applied to the item subtotal (before shipping).
+# MANUAL INVOICE — standalone admin-only invoicing tool. No connection to
+# Cart/Order. No longer EFT-only (see payment_received/payment_method).
+# Supports an optional percentage discount applied to the item subtotal
+# (before shipping). UNLIKE BuyOrder, items here DO decrement real website
+# stock on creation and restore it on deletion -- see ManualInvoiceItem
+# below for the actual logic.
 # =============================================================================
 
 class ManualInvoice(models.Model):
@@ -287,8 +294,13 @@ class ManualInvoiceItem(models.Model):
 
     # Link to a real catalog product to auto-pull its current price/details.
     # SET_NULL (never CASCADE) so deleting a product never deletes invoice
-    # history — and this field is READ-ONLY as far as stock goes: nothing
-    # here ever touches product.stock, on save, delete, or otherwise.
+    # history. UNLIKE BuyOrderItem, this DOES adjust product.stock -- selling
+    # via Manual Invoice pulls from real website stock, decremented here on
+    # creation and restored via the post_delete signal below (which fires
+    # even when the parent ManualInvoice is deleted and this item is
+    # removed as part of that cascade -- Django sends post_delete signals
+    # for every cascaded row, even though it skips calling each instance's
+    # own .delete() method during a cascade).
     product = models.ForeignKey(
         PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True,
         help_text="Link a real catalog product to auto-pull its current price. Leave blank for off-site stock."
@@ -330,7 +342,50 @@ class ManualInvoiceItem(models.Model):
                 self.variant = self.product.variant_override or 'N'
             if self.unit_price is None:
                 self.unit_price = self.product.price or Decimal('0.00')
+
+        is_new = self.pk is None
+        old_quantity = 0
+        old_product_id = None
+        if not is_new:
+            old = ManualInvoiceItem.objects.filter(pk=self.pk).values('quantity', 'product_id').first()
+            if old:
+                old_quantity = old['quantity']
+                old_product_id = old['product_id']
+
         super().save(*args, **kwargs)
+
+        # Keep real website stock in sync with what's actually been sold.
+        # Clamped at 0 (Greatest) so a typo'd quantity can never push stock
+        # negative -- an oversell shows up as 0, not a negative number.
+        if is_new:
+            if self.product_id:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    stock=Greatest(F('stock') - self.quantity, 0)
+                )
+        elif old_product_id == self.product_id:
+            delta = self.quantity - old_quantity
+            if self.product_id and delta != 0:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    stock=Greatest(F('stock') - delta, 0)
+                )
+        else:
+            # The linked product itself was changed on an existing item --
+            # give the old product its stock back, then decrement the new one.
+            if old_product_id:
+                PokemonProduct.objects.filter(pk=old_product_id).update(stock=F('stock') + old_quantity)
+            if self.product_id:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    stock=Greatest(F('stock') - self.quantity, 0)
+                )
+
+
+@receiver(post_delete, sender=ManualInvoiceItem)
+def restore_stock_on_manual_invoice_item_delete(sender, instance, **kwargs):
+    """Deleting a sold item (or the whole invoice it belongs to) puts the
+    stock back. Fires on direct deletes AND on cascade deletes triggered by
+    deleting the parent ManualInvoice."""
+    if instance.product_id:
+        PokemonProduct.objects.filter(pk=instance.product_id).update(stock=F('stock') + instance.quantity)
 
 
 # =============================================================================
@@ -400,8 +455,12 @@ class BuyOrderItem(models.Model):
     buy_order = models.ForeignKey(BuyOrder, on_delete=models.CASCADE, related_name="items")
 
     # SET_NULL, same reasoning as ManualInvoiceItem -- deleting a catalog
-    # product should never delete purchase history. Never touches
-    # product.stock, on save, delete, or otherwise.
+    # product should never delete purchase history. Increments
+    # product.pos_stock (a separate counter from the real, live website
+    # `stock` field) on creation, and restores it via the post_delete
+    # signal below -- deliberately never touches the real `stock` field
+    # that drives what's purchasable on the website. See PokemonProduct's
+    # pos_stock field docstring for the full reasoning.
     product = models.ForeignKey(
         PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True,
         help_text="Link a real catalog product if it matches one. Leave blank for anything off-catalog."
@@ -439,4 +498,48 @@ class BuyOrderItem(models.Model):
                 self.card_number = self.product.card_number or ''
             if not self.variant:
                 self.variant = self.product.variant_override or 'N'
+
+        is_new = self.pk is None
+        old_quantity = 0
+        old_product_id = None
+        if not is_new:
+            old = BuyOrderItem.objects.filter(pk=self.pk).values('quantity', 'product_id').first()
+            if old:
+                old_quantity = old['quantity']
+                old_product_id = old['product_id']
+
         super().save(*args, **kwargs)
+
+        # Track physical stock bought at the counter separately from real
+        # website stock -- see pos_stock field docstring on PokemonProduct.
+        if is_new:
+            if self.product_id:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    pos_stock=F('pos_stock') + self.quantity
+                )
+        elif old_product_id == self.product_id:
+            delta = self.quantity - old_quantity
+            if self.product_id and delta != 0:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    pos_stock=Greatest(F('pos_stock') + delta, 0)
+                )
+        else:
+            if old_product_id:
+                PokemonProduct.objects.filter(pk=old_product_id).update(
+                    pos_stock=Greatest(F('pos_stock') - old_quantity, 0)
+                )
+            if self.product_id:
+                PokemonProduct.objects.filter(pk=self.product_id).update(
+                    pos_stock=F('pos_stock') + self.quantity
+                )
+
+
+@receiver(post_delete, sender=BuyOrderItem)
+def restore_pos_stock_on_buy_order_item_delete(sender, instance, **kwargs):
+    """Deleting a bought item (or the whole buy order) takes it back out of
+    pos_stock. Fires on direct deletes AND on cascade deletes triggered by
+    deleting the parent BuyOrder. Clamped at 0 so this can never go negative."""
+    if instance.product_id:
+        PokemonProduct.objects.filter(pk=instance.product_id).update(
+            pos_stock=Greatest(F('pos_stock') - instance.quantity, 0)
+        )

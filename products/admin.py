@@ -54,7 +54,7 @@ class ProductAutocompleteJsonView(AutocompleteJsonView):
 
 @admin.register(PokemonProduct)
 class PokemonProductAdmin(admin.ModelAdmin):
-    list_display = ["name", "card_set", "variant_override", "price", "stock", "is_active"]
+    list_display = ["name", "card_set", "variant_override", "price", "stock", "pos_stock", "is_active"]
     list_filter = ["card_set__era", "card_set", "variant_override", "is_active"]
     search_fields = ["name", "sku", "card_set__name", "card_set__code"]
     list_editable = ["price", "stock"]
@@ -63,7 +63,7 @@ class PokemonProductAdmin(admin.ModelAdmin):
     fieldsets = [
         ("Card Info", {
             "fields": ["sku", "name", "name_japanese", "card_set", "card_number",
-                      "variant_override", "supertype", "rarity", "hp", "stock", "is_active"]
+                      "variant_override", "supertype", "rarity", "hp", "stock", "pos_stock", "is_active"]
         }),
         ("Standard Prices (ZAR)", {
             "fields": ["price", "price_normal", "price_holo", "price_reverse_holo", "price_first_edition"],

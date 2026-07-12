@@ -173,6 +173,17 @@ class PokemonProduct(models.Model):
     price_quickball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_duskball = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     stock = models.PositiveIntegerField(default=0)
+    # Separate from `stock` above on purpose: `stock` drives what's live and
+    # purchasable on the website (via Cart/Order/ManualInvoice). pos_stock is
+    # a completely independent counter, incremented only by Buy Orders in
+    # the standalone POS (pokebulk-pos) -- physical cards bought at the
+    # counter that haven't been sorted/verified/listed yet. Nothing here
+    # ever flows into the real `stock` field automatically; moving pos_stock
+    # into live `stock` is a deliberate, separate manual step.
+    pos_stock = models.PositiveIntegerField(
+        default=0,
+        help_text="Physical stock acquired via the POS Buy screen. Separate from live website stock -- does not affect what's purchasable on the site."
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

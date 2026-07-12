@@ -44,6 +44,10 @@ POS_HTML = """<!DOCTYPE html>
   .pricing-note { font-size: 10px; color: #888; margin-bottom: 8px; }
   #search-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start; }
   .result-card { background: #1a1a24; border: 1px solid #333; border-radius: 8px; padding: 10px; }
+  .result-card.in-stock { border-color: #2fbf71; box-shadow: 0 0 0 1px rgba(47,191,113,0.3); }
+  .stock-pill { display: inline-block; font-size: 10px; font-weight: bold; padding: 2px 7px; border-radius: 5px; margin-bottom: 6px; }
+  .stock-pill.in-stock { background: #17332444; color: #4ade80; border: 1px solid #2fbf71; }
+  .stock-pill.out-of-stock { background: #2a2a35; color: #888; border: 1px solid #444; }
   .result-name { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
   .result-meta { font-size: 11px; color: #999; margin-bottom: 8px; }
   .result-price-row { display: flex; align-items: center; gap: 6px; }
@@ -198,9 +202,15 @@ function renderResults(results) {
       r.card_number ? '#' + r.card_number : '',
       r.variant ? '(' + r.variant + ')' : ''
     ].filter(Boolean).join(' ');
-    return '<div class="result-card">' +
+    const stock = Number(r.stock) || 0;
+    const inStock = stock > 0;
+    const stockBadge = '<div class="stock-pill ' + (inStock ? 'in-stock' : 'out-of-stock') + '">' +
+      (inStock ? '\u2713 In stock: ' + stock : 'Not in stock') +
+      '</div>';
+    return '<div class="result-card' + (inStock ? ' in-stock' : '') + '">' +
       '<div class="result-name">' + escapeHtml(r.name) + '</div>' +
       '<div class="result-meta">' + escapeHtml(meta) + '</div>' +
+      stockBadge +
       '<div class="result-price-row">' +
         '<span class="result-price-label">R</span>' +
         '<input type="number" class="result-price-input" step="0.01" value="' + Number(r.price).toFixed(2) + '" data-id="' + r.id + '">' +
