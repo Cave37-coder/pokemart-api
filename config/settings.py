@@ -29,9 +29,21 @@ INSTALLED_APPS = [
     'inventory',
 ]
 
+# --- STATIC FILES (production) ---
+# Django deliberately does NOT serve static files itself when DEBUG=False --
+# that's correct, secure-by-default behavior, not a bug. Something else has
+# to take over that job in production. WhiteNoise is the standard, simplest
+# fix for a Railway-style deploy: it serves static files directly from the
+# WSGI app itself, no separate web server or CDN config needed. This was
+# never configured before -- STATIC_URL alone (which already existed) tells
+# Django what URL PATH static files live under, but says nothing about how
+# to actually serve them once DEBUG is off. That gap is why every admin
+# CSS/JS file was 404ing in production, invisible until Cloudflare's cache
+# of old files eventually got purged.
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # must sit right here -- after SecurityMiddleware, before everything else, per WhiteNoise's own setup docs
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -98,7 +110,25 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Johannesburg'
 USE_I18N = True
 USE_TZ = True
+
 STATIC_URL = 'static/'
+# New: WhiteNoise (and collectstatic) need an actual folder to collect
+# files INTO. Without this, collectstatic has nowhere to put anything,
+# even once WhiteNoise is installed.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# New: tells WhiteNoise to serve pre-compressed, cache-busted static files
+# (hashed filenames like theme.a1b2c3.js) -- the modern Django 4.2+ way of
+# declaring this, replaces the older STATICFILES_STORAGE setting.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 AUTH_USER_MODEL = 'users.User'
