@@ -71,7 +71,7 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('waybill_number', 'courier_name', 'courier_tracking_url')
         }),
         ('Notes', {
-            'fields': ('customer_note', 'internal_note')
+            'fields': ('customer_note', 'invoice_note', 'internal_note')
         }),
     )
 

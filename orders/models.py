@@ -119,7 +119,15 @@ class Order(models.Model):
     courier_tracking_url = models.URLField(blank=True)
 
     # Notes
-    customer_note = models.TextField(blank=True)
+    customer_note = models.TextField(blank=True)  # submitted BY the customer at checkout -- staff shouldn't overwrite this
+    # Staff-writable, shown to the customer on the printed/emailed invoice --
+    # same split as ManualInvoice.delivery_note and BuyOrder.seller_note.
+    # Deliberately separate from customer_note above (which the customer
+    # wrote, not staff) and internal_note below (which is private).
+    invoice_note = models.TextField(
+        blank=True,
+        help_text="Shown to the customer on the printed/emailed invoice. For your own notes, use Internal Note instead."
+    )
     internal_note = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

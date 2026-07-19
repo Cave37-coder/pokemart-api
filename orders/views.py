@@ -459,6 +459,14 @@ def _build_invoice_html(order, show_controls=True):
     waybill_row = f'<tr><td style="color:#555;padding:1px 0;font-size:11px">Waybill</td><td style="padding:1px 0;font-size:11px;font-weight:bold">{order.waybill_number}</td></tr>' if order.waybill_number else ''
     eft_notice = '<div style="background:#f5f5f5;border-radius:6px;padding:6px 14px;margin-bottom:10px;font-size:11px;color:#333"><strong>Banking details:</strong> Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current &nbsp;|&nbsp; Branch: 198765 &nbsp;|&nbsp; Acc: 1301474037</div>' if order.payment_method in ['eft', 'coc'] else ''
 
+    invoice_note_block = ''
+    if order.invoice_note:
+        note_text = order.invoice_note.replace('\n', '<br>')
+        invoice_note_block = f'''<div style="background:#fff7f2;border-left:3px solid #ff6b35;border-radius:6px;padding:6px 10px;margin-bottom:12px">
+      <div style="font-size:9px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px">Note</div>
+      <div style="font-size:11px;color:#333;line-height:1.3">{note_text}</div>
+    </div>'''
+
     controls_html = '''<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
   <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:bold">Print Invoice</button>
   <button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:9px 16px;border-radius:6px;font-size:13px;cursor:pointer">Close</button>
@@ -496,6 +504,7 @@ def _build_invoice_html(order, show_controls=True):
     </table>
   </div>
 </div>
+{invoice_note_block}
 <table style="width:100%;margin-bottom:10px">
   <thead><tr><th width="30">#</th><th>Set</th><th width="60">Card #</th><th>Card name</th><th width="100">Rarity</th><th width="55">Variant</th><th width="40" style="text-align:center">Qty</th><th width="75" style="text-align:right">Unit</th><th width="80" style="text-align:right">Total</th></tr></thead>
   <tbody>{rows}</tbody>
