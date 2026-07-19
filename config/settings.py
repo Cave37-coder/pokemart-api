@@ -176,7 +176,7 @@ API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.
 # address, causing "[Errno 101] Network is unreachable". The custom
 # backend forces the connection over IPv4. Every other EMAIL_* setting
 # below is completely unchanged.
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # TEMP diagnostic - custom IPv4 backend removed to isolate the cause
+EMAIL_BACKEND = 'config.ipv4_email_backend.IPv4EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', cast=int, default=587)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='pokebulk77@gmail.com')
