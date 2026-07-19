@@ -418,6 +418,17 @@ class BuyOrder(models.Model):
     seller_email = models.EmailField(blank=True)
     seller_phone = models.CharField(max_length=50, blank=True)
 
+    # Visible to the seller -- shown on the printed/emailed receipt.
+    # Deliberately separate from internal_note below, same split
+    # ManualInvoice already uses (delivery_note visible / internal_note
+    # hidden). Use this for anything the seller should actually see --
+    # e.g. "thanks for bringing these in, let us know if you have more"
+    # -- not for your own bookkeeping remarks.
+    seller_note = models.TextField(
+        blank=True,
+        help_text="Shown to the seller on the printed/emailed receipt. For your own notes, use Internal Note instead."
+    )
+
     internal_note = models.TextField(blank=True, help_text="Your own notes only -- not shown to the seller.")
 
     payment_made = models.BooleanField(

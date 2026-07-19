@@ -458,7 +458,7 @@ class BuyOrderAdmin(admin.ModelAdmin):
             'fields': ('buy_number', 'created_at', 'updated_at')
         }),
         ('Seller', {
-            'fields': ('seller_name', 'seller_email', 'seller_phone')
+            'fields': ('seller_name', 'seller_email', 'seller_phone', 'seller_note')
         }),
         ('Payment', {
             'fields': ('payment_made', 'payment_method', 'total_display')

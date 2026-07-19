@@ -52,6 +52,20 @@ def build_buy_order_html(buy_order, show_controls=True):
         payment_status = 'Payment Pending'
         payment_color = '#e65100'
 
+    seller_note_block = ''
+    if buy_order.seller_note:
+        note_text = buy_order.seller_note.replace('\n', '<br>')
+        seller_note_block = f'''<table style="margin-bottom:14px">
+  <tr><td>
+    <table style="background:#f9f9f9;border-radius:6px">
+      <tr><td style="padding:8px 10px">
+        <div style="font-size:9px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Notes</div>
+        <div style="font-size:11px;color:#555;line-height:1.3">{note_text}</div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>'''
+
     controls_html = '''<table width="100%" style="margin-bottom:16px"><tr><td>
       <span class="no-print" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:bold">
       <a href="javascript:window.print()" style="color:#fff;text-decoration:none">Print Receipt</a></span>
@@ -103,6 +117,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
   </tr>
 </table>
 
+{seller_note_block}
 <table style="margin-bottom:10px">
   <thead><tr>
     <th width="30">#</th><th>Set</th><th width="60">Card #</th><th>Item</th>
