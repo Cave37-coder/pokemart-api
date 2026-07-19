@@ -28,3 +28,6 @@ media/
 Thumbs.db
 desktop.ini
 .vercel
+*.csv
+tcgcsv_*.py
+show_ambiguous_sealed.py
