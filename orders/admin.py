@@ -449,13 +449,13 @@ class BuyOrderAdmin(admin.ModelAdmin):
     list_display = ['buy_number', 'seller_name', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at', 'buy_order_button']
     list_filter = ['payment_made', 'payment_method', 'created_at']
     search_fields = ['buy_number', 'seller_name', 'seller_email']
-    readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display']
+    readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display', 'buy_order_button']
     ordering = ['-created_at']
     inlines = [BuyOrderItemInline]
 
     fieldsets = (
         ('Buy Order', {
-            'fields': ('buy_number', 'created_at', 'updated_at')
+            'fields': ('buy_number', 'created_at', 'updated_at', 'buy_order_button')
         }),
         ('Seller', {
             'fields': ('seller_name', 'seller_email', 'seller_phone', 'seller_note')
@@ -467,6 +467,7 @@ class BuyOrderAdmin(admin.ModelAdmin):
             'fields': ('internal_note',)
         }),
     )
+
 
     def save_model(self, request, obj, form, change):
         if not obj.pk and not obj.created_by_id:
