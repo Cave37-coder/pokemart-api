@@ -17,6 +17,7 @@ from products.models import PokemonProduct
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
 from .manual_invoice import build_manual_invoice_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
+from .buy_order_document import build_buy_order_html, html_to_pdf as buy_order_html_to_pdf
 
 
 class OrderItemInline(admin.TabularInline):
@@ -445,7 +446,7 @@ class BuyOrderItemInline(admin.TabularInline):
 
 @admin.register(BuyOrder)
 class BuyOrderAdmin(admin.ModelAdmin):
-    list_display = ['buy_number', 'seller_name', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at']
+    list_display = ['buy_number', 'seller_name', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at', 'buy_order_button']
     list_filter = ['payment_made', 'payment_method', 'created_at']
     search_fields = ['buy_number', 'seller_name', 'seller_email']
     readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display']
@@ -480,11 +481,70 @@ class BuyOrderAdmin(admin.ModelAdmin):
         return f"R {obj.total:.2f}" if obj.pk else '-'
     total_display.short_description = 'Total Paid'
 
+    def buy_order_button(self, obj):
+        if not obj.pk:
+            return '-'
+        print_url = reverse('admin:buy-order-print', args=[obj.pk])
+        pdf_url = reverse('admin:buy-order-pdf', args=[obj.pk])
+        email_url = reverse('admin:buy-order-email', args=[obj.pk])
+        return format_html(
+            '<a href="{}" target="_blank">Print</a> &nbsp;|&nbsp; '
+            '<a href="{}">PDF</a> &nbsp;|&nbsp; '
+            '<a href="{}" onclick="return confirm(\'Email this receipt to the seller?\')">Email</a>',
+            print_url, pdf_url, email_url,
+        )
+    buy_order_button.short_description = 'Actions'
+
     def get_urls(self):
         custom = [
             path('pos-buy/save/', self.admin_site.admin_view(self.pos_buy_save_view), name='buy-order-pos-save'),
+            path('<int:pk>/buy-order-print/', self.admin_site.admin_view(self.buy_order_print_view), name='buy-order-print'),
+            path('<int:pk>/buy-order-pdf/', self.admin_site.admin_view(self.buy_order_pdf_view), name='buy-order-pdf'),
+            path('<int:pk>/buy-order-email/', self.admin_site.admin_view(self.buy_order_email_view), name='buy-order-email'),
         ]
         return custom + super().get_urls()
+
+    def buy_order_print_view(self, request, pk):
+        buy_order = get_object_or_404(BuyOrder, pk=pk)
+        html = build_buy_order_html(buy_order, show_controls=True)
+        return HttpResponse(html)
+
+    def buy_order_pdf_view(self, request, pk):
+        buy_order = get_object_or_404(BuyOrder, pk=pk)
+        html = build_buy_order_html(buy_order, show_controls=False)
+        pdf_bytes = buy_order_html_to_pdf(html)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{buy_order.buy_number}.pdf"'
+        return response
+
+    def buy_order_email_view(self, request, pk):
+        buy_order = get_object_or_404(BuyOrder, pk=pk)
+        change_url = reverse('admin:orders_buyorder_change', args=[pk])
+
+        if not buy_order.seller_email:
+            self.message_user(request, "No seller email on file for this buy order.", level=messages.ERROR)
+            return redirect(change_url)
+
+        html = build_buy_order_html(buy_order, show_controls=False)
+        pdf_bytes = buy_order_html_to_pdf(html)
+
+        email = EmailMultiAlternatives(
+            subject=f"Your buy-in receipt {buy_order.buy_number} - PokeBulk SA",
+            body=strip_tags(html),
+            to=[buy_order.seller_email],
+            bcc=['enquiries@pokebulk.co.za'],
+        )
+        email.attach_alternative(html, "text/html")
+        email.attach(f"{buy_order.buy_number}.pdf", pdf_bytes, 'application/pdf')
+
+        try:
+            email.send(fail_silently=False)
+        except Exception as e:
+            self.message_user(request, f"Could not send email: {e}", level=messages.ERROR)
+            return redirect(change_url)
+
+        self.message_user(request, f"Receipt emailed to {buy_order.seller_email}.")
+        return redirect(change_url)
 
     def pos_buy_save_view(self, request):
         if not self.has_add_permission(request):
