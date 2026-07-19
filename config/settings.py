@@ -31,19 +31,13 @@ INSTALLED_APPS = [
 
 # --- STATIC FILES (production) ---
 # Django deliberately does NOT serve static files itself when DEBUG=False --
-# that's correct, secure-by-default behavior, not a bug. Something else has
-# to take over that job in production. WhiteNoise is the standard, simplest
-# fix for a Railway-style deploy: it serves static files directly from the
-# WSGI app itself, no separate web server or CDN config needed. This was
-# never configured before -- STATIC_URL alone (which already existed) tells
-# Django what URL PATH static files live under, but says nothing about how
-# to actually serve them once DEBUG is off. That gap is why every admin
-# CSS/JS file was 404ing in production, invisible until Cloudflare's cache
-# of old files eventually got purged.
+# that's correct, secure-by-default behavior, not a bug. WhiteNoise takes
+# over that job in production: it serves static files directly from the
+# WSGI app itself, no separate web server or CDN config needed.
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # must sit right here -- after SecurityMiddleware, before everything else, per WhiteNoise's own setup docs
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # must sit right here -- after SecurityMiddleware, before everything else
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -112,14 +106,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-# New: WhiteNoise (and collectstatic) need an actual folder to collect
-# files INTO. Without this, collectstatic has nowhere to put anything,
-# even once WhiteNoise is installed.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# New: tells WhiteNoise to serve pre-compressed, cache-busted static files
-# (hashed filenames like theme.a1b2c3.js) -- the modern Django 4.2+ way of
-# declaring this, replaces the older STATICFILES_STORAGE setting.
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -174,12 +162,6 @@ SIMPLE_JWT = {
 
 
 # --- Standalone POS (pos.pokebulk.co.za) cross-subdomain cookie settings ---
-# The POS app lives on a different subdomain than this API. Session and
-# CSRF cookies still get sent between pokebulk.co.za subdomains
-# automatically (browsers treat same-registrable-domain requests as
-# "same-site"), but by default the csrftoken cookie can only be *read* by
-# JavaScript on the exact host that set it. Widening its Domain lets the
-# POS app's JS read the token value it needs to send back on every save.
 CSRF_COOKIE_DOMAIN = ".pokebulk.co.za"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
@@ -188,7 +170,13 @@ SITE_URL = config('SITE_URL', default='https://pokebulk.co.za')
 API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.app')
 
 # Email (cPanel SMTP - orders@pokebulk.co.za)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_BACKEND points at a custom backend (config/ipv4_email_backend.py)
+# instead of Django's default -- Railway's containers can't route
+# outbound IPv6, and mail.pokebulk.co.za's DNS can return an IPv6
+# address, causing "[Errno 101] Network is unreachable". The custom
+# backend forces the connection over IPv4. Every other EMAIL_* setting
+# below is completely unchanged.
+EMAIL_BACKEND = 'config.ipv4_email_backend.IPv4EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='mail.pokebulk.co.za')
 EMAIL_PORT = config('EMAIL_PORT', cast=int, default=465)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
