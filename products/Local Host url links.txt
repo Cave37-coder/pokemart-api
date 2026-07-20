@@ -1,0 +1,11 @@
+http://localhost:8000/admin/
+http://localhost:8000/admin/orders/manualinvoice/
+http://localhost:8000/admin/orders/buyorder/
+http://localhost:8000/admin/orders/order/
+http://localhost:8000/admin/orders/cart/
+http://localhost:8000/admin/orders/ordertracking/
+http://localhost:8000/admin/products/pokemonproduct/
+http://localhost:8000/admin/products/cardset/
+http://localhost:8000/admin/products/category/
+http://localhost:8000/admin/products/era/
+http://localhost:8000/admin/products/pokemontype/

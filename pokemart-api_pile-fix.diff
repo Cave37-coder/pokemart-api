@@ -1,0 +1,32 @@
+diff --git a/orders/models.py b/orders/models.py
+index 6f9be2b..4ab86a8 100644
+--- a/orders/models.py
++++ b/orders/models.py
+@@ -28,10 +28,13 @@ class CartItem(models.Model):
+     quantity = models.PositiveIntegerField(default=1)
+ 
+     def __str__(self):
+-        return f"{self.quantity}x {self.product.name}"
++        name = self.product.name if self.product else "[deleted product]"
++        return f"{self.quantity}x {name}"
+ 
+     @property
+     def subtotal(self):
++        if self.product is None:
++            return Decimal("0")
+         return (self.product.price or 0) * self.quantity
+ 
+ 
+diff --git a/orders/serializers.py b/orders/serializers.py
+index 56a8b77..65a2c91 100644
+--- a/orders/serializers.py
++++ b/orders/serializers.py
+@@ -39,7 +39,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
+ 
+     class Meta:
+         model = OrderItem
+-        fields = ['id', 'product', 'quantity', 'price_at_purchase', 'subtotal']
++        fields = ['id', 'product', 'product_name', 'product_sku', 'quantity', 'price_at_purchase', 'subtotal']
+ 
+ 
+ class OrderSerializer(serializers.ModelSerializer):

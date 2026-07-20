@@ -28,10 +28,13 @@ class CartItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
-        return f"{self.quantity}x {self.product.name}"
+        name = self.product.name if self.product else "[deleted product]"
+        return f"{self.quantity}x {name}"
 
     @property
     def subtotal(self):
+        if self.product is None:
+            return Decimal("0")
         return (self.product.price or 0) * self.quantity
 
 
