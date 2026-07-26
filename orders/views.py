@@ -517,19 +517,23 @@ def _build_invoice_html(order, show_controls=True):
             set_code = p.card_set.code if p.card_set else ''
             rarity = (p.rarity or '').replace('_', ' ').title()
             name, pattern = _split_name_pattern(p.name)
-            var = f'{var_base} ({pattern})' if pattern else var_base
+            if pattern:
+                pattern_short = _PATTERN_BADGE_SHORT.get(pattern, pattern)
+                var = f'{var_base} ({pattern_short})'
+            else:
+                var = var_base
         else:
             num = '--'; var = '?'; set_name = '-'; set_code = ''; rarity = ''; name = item.product_name or item.product_sku or 'Unknown card'
         rows += f'''<tr style="border-bottom:1px solid #eee">
-            <td style="padding:2px 8px;font-size:11px">{i}</td>
-            <td style="padding:2px 8px;font-size:11px">{set_name} [{set_code}]</td>
-            <td style="padding:2px 8px;font-size:11px">#{num}</td>
-            <td style="padding:2px 8px;font-size:11px">{name}</td>
-            <td style="padding:2px 8px;font-size:11px">{rarity}</td>
-            <td style="padding:2px 8px;font-size:11px">{var}</td>
-            <td style="padding:2px 8px;font-size:11px;text-align:center">{item.quantity}</td>
-            <td style="padding:2px 8px;font-size:11px;text-align:right">R {item.price_at_purchase:.2f}</td>
-            <td style="padding:2px 8px;font-size:11px;text-align:right">R {float(item.price_at_purchase) * item.quantity:.2f}</td>
+            <td style="padding:1px 5px;font-size:9px">{i}</td>
+            <td style="padding:1px 5px;font-size:9px;white-space:nowrap" title="{set_name}"><strong>{set_code}</strong></td>
+            <td style="padding:1px 5px;font-size:9px;white-space:nowrap">#{num}</td>
+            <td style="padding:1px 5px;font-size:9px">{name}</td>
+            <td style="padding:1px 5px;font-size:9px;white-space:nowrap">{rarity}</td>
+            <td style="padding:1px 5px;font-size:9px;white-space:nowrap">{var}</td>
+            <td style="padding:1px 5px;font-size:9px;text-align:center">{item.quantity}</td>
+            <td style="padding:1px 5px;font-size:9px;text-align:right;white-space:nowrap">R {item.price_at_purchase:.2f}</td>
+            <td style="padding:1px 5px;font-size:9px;text-align:right;white-space:nowrap">R {float(item.price_at_purchase) * item.quantity:.2f}</td>
         </tr>'''
 
     subtotal = sum(float(item.price_at_purchase) * item.quantity for item in items)
@@ -571,40 +575,40 @@ def _build_invoice_html(order, show_controls=True):
 </div>''' if show_controls else ''
 
     html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>{invoice_num} - PokeBulk SA</title>
-<style>* {{ box-sizing:border-box;margin:0;padding:0 }} body {{ font-family:Arial,sans-serif;padding:16px;color:#222;font-size:12px;line-height:1.2 }} @media print {{ .no-print {{ display:none !important }} @page {{ margin:10mm;size:A4 }} }} table {{ border-collapse:collapse }} th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:4px 8px;text-align:left;border-bottom:2px solid #ddd }}</style>
+<style>* {{ box-sizing:border-box;margin:0;padding:0 }} body {{ font-family:Arial,sans-serif;padding:10px;color:#222;font-size:10px;line-height:1.15 }} @media print {{ .no-print {{ display:none !important }} @page {{ margin:7mm;size:A4 }} }} table {{ border-collapse:collapse }} th {{ background:#f0f0f0;font-size:9px;font-weight:bold;padding:2px 5px;text-align:left;border-bottom:2px solid #ddd }}</style>
 </head><body>
 {controls_html}
-<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:3px solid #ff6b35;margin-bottom:12px">
-  <div><div style="font-size:17px;font-weight:bold;color:#ff6b35">Poke Bulk SA <span style="color:#222">(Pty) Ltd</span></div>
-  <div style="font-size:11px;color:#555;line-height:1.3;margin-top:2px">Reg. No: 2024/615040/07<br>Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park, 1618<br>Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za</div></div>
-  <div style="text-align:right"><div style="font-size:20px;font-weight:bold;color:#333">INVOICE</div>
-  <div style="font-size:13px;margin-top:2px"><strong>{invoice_num}</strong></div>
-  <div style="font-size:11px;color:#555;margin-top:1px">{invoice_date}</div>
-  <div style="margin-top:4px;font-size:11px;color:#555">Status: <strong>{order.get_status_display()}</strong></div></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:6px;border-bottom:3px solid #ff6b35;margin-bottom:8px">
+  <div><div style="font-size:15px;font-weight:bold;color:#ff6b35">Poke Bulk SA <span style="color:#222">(Pty) Ltd</span></div>
+  <div style="font-size:9px;color:#555;line-height:1.25;margin-top:2px">Reg. No: 2024/615040/07<br>Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park, 1618<br>Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za</div></div>
+  <div style="text-align:right"><div style="font-size:16px;font-weight:bold;color:#333">INVOICE</div>
+  <div style="font-size:11px;margin-top:2px"><strong>{invoice_num}</strong></div>
+  <div style="font-size:9px;color:#555;margin-top:1px">{invoice_date}</div>
+  <div style="margin-top:3px;font-size:9px;color:#555">Status: <strong>{order.get_status_display()}</strong></div></div>
 </div>
 {eft_notice}
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-  <div style="background:#f9f9f9;border-radius:6px;padding:6px 10px">
-    <div style="font-size:9px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px">Buyer</div>
-    <div style="font-weight:bold;font-size:12px">{customer_name}</div>
-    <div style="font-size:11px;color:#555;margin-top:1px;line-height:1.25">{customer_email}<br>{phone}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+  <div style="background:#f9f9f9;border-radius:5px;padding:4px 8px">
+    <div style="font-size:8px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Buyer</div>
+    <div style="font-weight:bold;font-size:10px">{customer_name}</div>
+    <div style="font-size:9px;color:#555;margin-top:1px;line-height:1.2">{customer_email}<br>{phone}</div>
   </div>
-  <div style="background:#f9f9f9;border-radius:6px;padding:6px 10px">
-    <div style="font-size:9px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px">Delivery</div>
-    <div style="font-weight:bold;font-size:12px">{delivery_label}</div>
-    <div style="font-size:11px;color:#555;margin-top:1px;line-height:1.25">{delivery_detail}</div>
+  <div style="background:#f9f9f9;border-radius:5px;padding:4px 8px">
+    <div style="font-size:8px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Delivery</div>
+    <div style="font-weight:bold;font-size:10px">{delivery_label}</div>
+    <div style="font-size:9px;color:#555;margin-top:1px;line-height:1.2">{delivery_detail}</div>
   </div>
-  <div style="background:#f9f9f9;border-radius:6px;padding:6px 10px">
-    <div style="font-size:9px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px">Payment</div>
-    <table style="width:100%;font-size:11px">
+  <div style="background:#f9f9f9;border-radius:5px;padding:4px 8px">
+    <div style="font-size:8px;color:#888;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Payment</div>
+    <table style="width:100%;font-size:9px">
       <tr><td style="color:#555;padding:1px 0">Method</td><td style="font-weight:bold;padding:1px 0;text-align:right">{order.get_payment_method_display()}</td></tr>
       {waybill_row}
     </table>
   </div>
 </div>
 {invoice_note_block}
-<table style="width:100%;margin-bottom:10px">
-  <thead><tr><th width="30">#</th><th>Set</th><th width="60">Card #</th><th>Card name</th><th width="100">Rarity</th><th width="55">Variant</th><th width="40" style="text-align:center">Qty</th><th width="75" style="text-align:right">Unit</th><th width="80" style="text-align:right">Total</th></tr></thead>
+<table style="width:100%;margin-bottom:8px">
+  <thead><tr><th width="22">#</th><th width="38">Set</th><th width="55">Card #</th><th>Card name</th><th width="65">Rarity</th><th width="115">Variant</th><th width="30" style="text-align:center">Qty</th><th width="55" style="text-align:right">Unit</th><th width="60" style="text-align:right">Total</th></tr></thead>
   <tbody>{rows}</tbody>
 </table>
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
