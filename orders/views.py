@@ -76,6 +76,25 @@ _PATTERN_BADGE_COLORS = {
     'Cosmo Holofoil': '#e0f7fa;color:#006064',
 }
 
+# Short labels so the pattern badge doesn't blow up the row -- full name
+# is still in the CSS title="" tooltip on hover/inspection.
+_PATTERN_BADGE_SHORT = {
+    'Energy Symbol Pattern': 'Energy Symbol',
+    'Team Rocket': 'Team Rocket',
+    'Poke Ball': 'Poke Ball',
+    'Master Ball': 'Master Ball',
+    'Love Ball': 'Love Ball',
+    'Friend Ball': 'Friend Ball',
+    'Quick Ball': 'Quick Ball',
+    'Dusk Ball': 'Dusk Ball',
+    'Poke Ball Pattern': 'Poke Ball',
+    'Master Ball Pattern': 'Master Ball',
+    'Cosmos Holo': 'Cosmos',
+    'Cosmo Holo': 'Cosmos',
+    'Cosmos Holofoil': 'Cosmos',
+    'Cosmo Holofoil': 'Cosmos',
+}
+
 
 def _split_name_pattern(name):
     match = _PATTERN_SUFFIX_RE.search(name or '')
@@ -378,10 +397,12 @@ def print_order(request, order_id):
                 'CC': '#f5f5f5;color:#616161', 'TT': '#fce4ec;color:#880e4f',
             }
             var_style = var_colors.get(var_code, '#e8e8e8;color:#333')
-            variant_cell = f'<span style="background:{var_style};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span>'
+            variant_cell = f'<div style="display:flex;gap:3px;align-items:center;white-space:nowrap"><span style="background:{var_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span>'
             if pattern:
                 pattern_style = _pattern_badge_color(pattern)
-                variant_cell += f'<br><span style="background:{pattern_style};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:bold;display:inline-block;margin-top:2px">{pattern}</span>'
+                pattern_short = _PATTERN_BADGE_SHORT.get(pattern, pattern)
+                variant_cell += f'<span title="{pattern}" style="background:{pattern_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{pattern_short}</span>'
+            variant_cell += '</div>'
             rows += f'''<tr>
               <td>{i}</td><td>{num}</td><td>{name}</td>
               <td>{variant_cell}</td>
@@ -401,9 +422,9 @@ def print_order(request, order_id):
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">#</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="60">Card #</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc">Card Name</th>
-              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="70">Variant</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="130">Variant</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">Qty</th>
-              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="110">Price</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Price</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="30">Done</th>
             </tr></thead>
             <tbody>{rows}</tbody>
