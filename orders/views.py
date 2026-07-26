@@ -31,6 +31,34 @@ from .serializers import (
 # without the suffix.
 _PATTERN_SUFFIX_RE = re.compile(r'\s*\(([^)]+)\)\s*$')
 
+# WHITELIST ONLY. Confirmed via scan_name_pattern_suffixes.py (2026-07-26)
+# against the live catalog. A trailing "(...)" is extremely common in card
+# names for reasons that are NOT a stamp/pattern -- rarity (Secret, Full
+# Art), card mechanics (Delta Species, Alpha/Omega, Attack Forme), event
+# context (Prerelease, World Championships 2019), disambiguating numbers
+# ((28), (H30)), letters (Unown (Y)), etc. Stripping those would corrupt
+# the displayed card name and mislabel the variant. Only strip a suffix
+# if it exactly matches (case-insensitive) one of these known physical
+# stamp/pattern names -- confirmed sets: ASC (Energy Symbol/ball/Team
+# Rocket patterns on RH cards), WHT/BLK/PRE (Poke/Master Ball Pattern on
+# H cards), and various Cosmos/Cosmo Holo(foil) sets.
+_KNOWN_NAME_PATTERNS = {
+    'energy symbol pattern': 'Energy Symbol Pattern',
+    'team rocket': 'Team Rocket',
+    'poke ball': 'Poke Ball',
+    'master ball': 'Master Ball',
+    'love ball': 'Love Ball',
+    'friend ball': 'Friend Ball',
+    'quick ball': 'Quick Ball',
+    'dusk ball': 'Dusk Ball',
+    'poke ball pattern': 'Poke Ball Pattern',
+    'master ball pattern': 'Master Ball Pattern',
+    'cosmos holo': 'Cosmos Holo',
+    'cosmo holo': 'Cosmo Holo',
+    'cosmos holofoil': 'Cosmos Holofoil',
+    'cosmo holofoil': 'Cosmo Holofoil',
+}
+
 _PATTERN_BADGE_COLORS = {
     'Energy Symbol Pattern': '#e1f5fe;color:#01579b',
     'Team Rocket': '#37474f;color:#ffffff',
@@ -40,28 +68,30 @@ _PATTERN_BADGE_COLORS = {
     'Friend Ball': '#e8f5e9;color:#2e7d32',
     'Quick Ball': '#fff3e0;color:#e65100',
     'Dusk Ball': '#efebe9;color:#4e342e',
-    'Ultra Ball': '#e3f2fd;color:#1565c0',
+    'Poke Ball Pattern': '#ffebee;color:#c62828',
+    'Master Ball Pattern': '#ede7f6;color:#4527a0',
+    'Cosmos Holo': '#e0f7fa;color:#006064',
+    'Cosmo Holo': '#e0f7fa;color:#006064',
+    'Cosmos Holofoil': '#e0f7fa;color:#006064',
+    'Cosmo Holofoil': '#e0f7fa;color:#006064',
 }
-_PATTERN_FALLBACK_PALETTE = [
-    '#f3e5f5;color:#6a1b9a', '#e0f2f1;color:#00695c', '#fff8e1;color:#f57f17',
-    '#f1f8e9;color:#33691e', '#fbe9e7;color:#bf360c', '#e8eaf6;color:#283593',
-]
 
 
 def _split_name_pattern(name):
     match = _PATTERN_SUFFIX_RE.search(name or '')
     if not match:
         return name, None
-    pattern = match.group(1).strip()
+    raw = match.group(1).strip()
+    canonical = _KNOWN_NAME_PATTERNS.get(raw.lower())
+    if not canonical:
+        # Not a known stamp/pattern -- leave the name untouched.
+        return name, None
     display_name = name[:match.start()].strip()
-    return display_name, pattern
+    return display_name, canonical
 
 
 def _pattern_badge_color(pattern):
-    if pattern in _PATTERN_BADGE_COLORS:
-        return _PATTERN_BADGE_COLORS[pattern]
-    idx = abs(hash(pattern)) % len(_PATTERN_FALLBACK_PALETTE)
-    return _PATTERN_FALLBACK_PALETTE[idx]
+    return _PATTERN_BADGE_COLORS.get(pattern, '#e8e8e8;color:#333')
 
 
 class CartView(generics.RetrieveAPIView):
