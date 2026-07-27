@@ -160,6 +160,16 @@ class PasswordResetRequestView(APIView):
         ip = get_client_ip(request)
         allowed, _ = check_rate_limit(f"pwreset:{ip}", limit=3, window_seconds=900)
         if not allowed:
+            # This used to return silently here with no log line at all --
+            # meaning a rate-limited attempt looked identical to a genuine
+            # successful send from the outside (same 200, same message),
+            # but nothing was ever actually attempted or recorded. Logging
+            # it now means "no email arrived" can be diagnosed in seconds
+            # instead of requiring a full investigation each time.
+            logger.warning(
+                "Password reset request rate-limited for ip=%s -- no email attempted",
+                ip,
+            )
             return Response(
                 {'detail': 'If an account exists with that email, a reset link has been sent.'}
             )
@@ -202,6 +212,10 @@ class PasswordResetRequestView(APIView):
                 )
                 email_msg.attach_alternative(html_body, 'text/html')
                 email_msg.send(fail_silently=False)
+                logger.info(
+                    "Password reset email sent successfully for user_id=%s email=%s",
+                    user.pk, user.email,
+                )
             except Exception:
                 # Still return the generic success message either way, per the
                 # anti-enumeration design above -- but log the real failure so
@@ -210,6 +224,11 @@ class PasswordResetRequestView(APIView):
                     "Password reset email failed to send for user_id=%s email=%s",
                     user.pk, user.email,
                 )
+        else:
+            logger.info(
+                "Password reset requested for email=%s -- no matching active user found",
+                email,
+            )
 
         return Response({
             'detail': 'If an account exists with that email, a reset link has been sent.'

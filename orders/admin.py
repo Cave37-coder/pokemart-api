@@ -14,6 +14,24 @@ from django.middleware.csrf import get_token
 from django.db.models import Q
 
 from products.models import PokemonProduct
+
+# Variant codes staff can assign to a card (matches variant_override values
+# used across the catalog). Defined here rather than imported from a
+# products-app module, since no such module exists in the live project --
+# products/urls.py wires its own "manage/" screen straight to a function
+# inside products/views.py, not a separate manage_set_view.py file.
+VARIANT_CHOICES = [
+    ('N', 'Normal'),
+    ('H', 'Holo'),
+    ('RH', 'Reverse Holo'),
+    ('FE', '1st Edition'),
+    ('PB', 'Poke Ball'),
+    ('MB', 'Master Ball'),
+    ('FB', 'Friend Ball'),
+    ('LB', 'Love Ball'),
+    ('QB', 'Quick Ball'),
+    ('DB', 'Dusk Ball'),
+]
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
 from .manual_invoice import build_manual_invoice_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
@@ -307,22 +325,59 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             raise PermissionDenied
         csrf_token = get_token(request)
         search_url = reverse('admin:manual-invoice-pos-search')
+        # Reuses products app's existing /api/sets/ endpoint (name="sets-list")
+        # rather than maintaining a second, duplicate sets listing -- it's
+        # already filtered to sets that actually have products and carries
+        # logo/symbol URLs for later use.
+        sets_url = reverse('sets-list')
         save_url = reverse('admin:manual-invoice-pos-save')
         cancel_url = reverse('admin:orders_manualinvoice_changelist')
-        html = build_pos_html(csrf_token, search_url, save_url, cancel_url)
+        html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES)
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
     def pos_search_view(self, request):
+        """Two modes, both hit the same endpoint:
+        - Free-text search (term only): the original name/sku/set lookup,
+          capped at 30 results, newest set first.
+        - Set browse (set_code present): lists the whole set (optionally
+          narrowed by a name term and/or variant), ordered like the Manage
+          Set screen (card_number, variant_sort, name) so staff can browse
+          and bulk-add every card in a set for a bundle sale without typing
+          each name individually. Capped higher since a full set can run
+          into the hundreds of cards.
+
+        Both modes filter to condition='NM' -- PokemonProduct can hold
+        multiple rows per physical card (NM/LP/MP/HP/DMG, see
+        stock_add_played), so without this filter a set browse would show
+        duplicate cards and "Add all" would double them up. Mirrors the
+        same condition='NM' filter card_search already applies for PoBuSA."""
         if not self.has_add_permission(request):
             raise PermissionDenied
+
         term = request.GET.get('term', '').strip()
-        if len(term) < 2:
+        set_code = request.GET.get('set_code', '').strip()
+        variant = request.GET.get('variant', '').strip()
+
+        if not set_code and len(term) < 2:
             return JsonResponse({'results': []})
 
-        products = PokemonProduct.objects.filter(
-            Q(name__icontains=term) | Q(sku__icontains=term) |
-            Q(card_set__name__icontains=term) | Q(card_set__code__icontains=term)
-        ).select_related('card_set').order_by('-card_set__release_date', 'name')[:30]
+        products = PokemonProduct.objects.select_related('card_set').filter(condition='NM')
+
+        if set_code:
+            products = products.filter(card_set__code=set_code)
+            if term:
+                products = products.filter(name__icontains=term)
+            if variant:
+                products = products.filter(variant_override=variant)
+            products = products.order_by('card_number', 'variant_sort', 'name')[:500]
+        else:
+            products = products.filter(
+                Q(name__icontains=term) | Q(sku__icontains=term) |
+                Q(card_set__name__icontains=term) | Q(card_set__code__icontains=term)
+            )
+            if variant:
+                products = products.filter(variant_override=variant)
+            products = products.order_by('-card_set__release_date', 'name')[:30]
 
         results = [{
             'id': p.id,

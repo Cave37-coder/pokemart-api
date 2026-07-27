@@ -39,8 +39,16 @@ POS_HTML = """<!DOCTYPE html>
     .pos-logo-img { height: 30px; }
     #search-results { grid-template-columns: 1fr; }
   }
-  #search-input { width: 100%; padding: 14px; font-size: 16px; border-radius: 8px; border: 2px solid #333; background: #1a1a24; color: #fff; margin-bottom: 12px; }
+  #search-input { width: 100%; padding: 14px; font-size: 16px; border-radius: 8px; border: 2px solid #333; background: #1a1a24; color: #fff; margin-bottom: 10px; }
   #search-input:focus { outline: none; border-color: #ff6b35; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .filter-row select { flex: 1; padding: 10px; font-size: 13px; border-radius: 8px; border: 2px solid #333; background: #1a1a24; color: #fff; }
+  .filter-row select:focus { outline: none; border-color: #ff6b35; }
+  #set-select { flex: 1.6; }
+  .results-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 20px; }
+  .results-count { font-size: 11px; color: #888; }
+  #add-all-btn { display: none; background: #2fbf71; color: #0d0d12; border: none; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
+  #add-all-btn:hover { background: #27a862; }
   .pricing-note { font-size: 10px; color: #888; margin-bottom: 8px; }
   #search-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start; }
   .result-card { background: #1a1a24; border: 1px solid #333; border-radius: 8px; padding: 10px; }
@@ -103,9 +111,20 @@ POS_HTML = """<!DOCTYPE html>
       </div>
       <a href="__CANCEL_URL__">Cancel &amp; back to list</a>
     </div>
-    <input type="text" id="search-input" placeholder="Search cards by name or set... (2+ characters)" autofocus>
+    <div class="filter-row">
+      <select id="set-select"><option value="">All sets (free search)</option></select>
+      <select id="variant-select">
+        <option value="">All variants</option>
+        __VARIANT_OPTIONS__
+      </select>
+    </div>
+    <input type="text" id="search-input" placeholder="Search cards by name or set... (2+ characters), or pick a set above to browse it">
     <div class="pricing-note">Prices reflect TCGPlayer market price x 1.1, same as the live site.</div>
-    <div id="search-results"><div class="no-results">Start typing to search the catalog.</div></div>
+    <div class="results-toolbar">
+      <div class="results-count" id="results-count"></div>
+      <button id="add-all-btn" type="button">+ Add all shown to cart</button>
+    </div>
+    <div id="search-results"><div class="no-results">Start typing to search, or choose a set to browse it.</div></div>
     <div class="custom-item-box">
       <div class="custom-item-box-label">Off-site stock (not in catalog)</div>
       <div class="custom-item-row">
@@ -144,6 +163,7 @@ POS_HTML = """<!DOCTYPE html>
 </div>
 <script>
 const SEARCH_URL = "__SEARCH_URL__";
+const SETS_URL = "__SETS_URL__";
 const SAVE_URL = "__SAVE_URL__";
 const CSRF_TOKEN = "__CSRF_TOKEN__";
 
@@ -152,6 +172,10 @@ let searchTimeout = null;
 let lastResults = [];
 
 const searchInput = document.getElementById('search-input');
+const setSelect = document.getElementById('set-select');
+const variantSelect = document.getElementById('variant-select');
+const resultsCountEl = document.getElementById('results-count');
+const addAllBtn = document.getElementById('add-all-btn');
 const resultsEl = document.getElementById('search-results');
 const cartEl = document.getElementById('cart-items');
 const subtotalEl = document.getElementById('subtotal-value');
@@ -168,33 +192,127 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Same era ordering as products/views.py's stock_entry screen, so the
+// Manual Invoice set picker and Stock Entry agree: Mega Evolution down to
+// WotC Base in release order, then Special/Other, then Promos last.
+const ERA_ORDER = ['MEG', 'SV', 'SWSH', 'SM', 'XY', 'BW', 'HGSS', 'DP', 'EX', 'WotCO', 'WotCL', 'WotCN', 'WotC', 'OTHER', 'PROMO'];
+const ERA_LABELS = {
+  MEG: 'Mega Evolution', SV: 'Scarlet & Violet', SWSH: 'Sword & Shield', SM: 'Sun & Moon',
+  XY: 'XY Era', BW: 'Black & White', HGSS: 'HG&SS', DP: 'D&P / Platinum', EX: 'EX Era',
+  WotCO: 'e-Card', WotCL: 'Legendary', WotCN: 'Neo', WotC: 'WotC Base',
+  OTHER: 'Special / Other', PROMO: 'Promos',
+};
+
+async function loadSets() {
+  try {
+    const res = await fetch(SETS_URL);
+    const data = await res.json();
+    const sets = (data.results || []).slice();
+
+    // Newest-to-oldest overall; grouping below preserves this within each
+    // era bucket. No release_date sorts last within its bucket.
+    sets.sort((a, b) => {
+      if (!a.release_date && !b.release_date) return 0;
+      if (!a.release_date) return 1;
+      if (!b.release_date) return -1;
+      return b.release_date.localeCompare(a.release_date);
+    });
+
+    const byEra = {};
+    sets.forEach(s => {
+      const code = s.era_code || 'OTHER';
+      (byEra[code] = byEra[code] || []).push(s);
+    });
+
+    function appendGroup(eraCode) {
+      const eraSets = byEra[eraCode];
+      if (!eraSets || !eraSets.length) return;
+      const group = document.createElement('optgroup');
+      group.label = ERA_LABELS[eraCode] || eraCode;
+      eraSets.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.code;
+        const dateLabel = formatReleaseDate(s.release_date);
+        opt.textContent = s.name + ' [' + s.code + ']' + (dateLabel ? ' — ' + dateLabel : '');
+        group.appendChild(opt);
+      });
+      setSelect.appendChild(group);
+      delete byEra[eraCode];
+    }
+
+    ERA_ORDER.forEach(appendGroup);
+    // Any era code not in ERA_ORDER (shouldn't normally happen, but don't
+    // silently drop sets if a new Era gets added before this list does)
+    Object.keys(byEra).sort().forEach(appendGroup);
+  } catch (e) {
+    // Set browsing just won't populate -- free-text search still works.
+  }
+}
+
+function formatReleaseDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  return (months[monthIdx] || '') + ' ' + parts[0];
+}
+loadSets();
+
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
   const term = searchInput.value.trim();
-  if (term.length < 2) {
-    resultsEl.innerHTML = '<div class="no-results">Start typing to search the catalog.</div>';
+  const browsingSet = !!setSelect.value;
+  if (!browsingSet && term.length < 2) {
+    resultsEl.innerHTML = '<div class="no-results">Start typing to search, or choose a set to browse it.</div>';
+    resultsCountEl.textContent = '';
+    addAllBtn.style.display = 'none';
     return;
   }
-  searchTimeout = setTimeout(() => doSearch(term), 300);
+  searchTimeout = setTimeout(() => doSearch(), 300);
 });
 
-async function doSearch(term) {
+setSelect.addEventListener('change', () => doSearch());
+variantSelect.addEventListener('change', () => doSearch());
+
+async function doSearch() {
+  const term = searchInput.value.trim();
+  const setCode = setSelect.value;
+  const variant = variantSelect.value;
+
+  if (!setCode && term.length < 2) {
+    resultsEl.innerHTML = '<div class="no-results">Start typing to search, or choose a set to browse it.</div>';
+    resultsCountEl.textContent = '';
+    addAllBtn.style.display = 'none';
+    return;
+  }
+
   resultsEl.innerHTML = '<div class="searching">Searching...</div>';
   try {
-    const res = await fetch(SEARCH_URL + '?term=' + encodeURIComponent(term));
+    const params = new URLSearchParams();
+    if (term) params.set('term', term);
+    if (setCode) params.set('set_code', setCode);
+    if (variant) params.set('variant', variant);
+    const res = await fetch(SEARCH_URL + '?' + params.toString());
     const data = await res.json();
     lastResults = data.results || [];
     renderResults(lastResults);
   } catch (e) {
     resultsEl.innerHTML = '<div class="search-error">Search failed — check your connection.</div>';
+    resultsCountEl.textContent = '';
+    addAllBtn.style.display = 'none';
   }
 }
 
 function renderResults(results) {
   if (!results.length) {
     resultsEl.innerHTML = '<div class="no-results">No matches.</div>';
+    resultsCountEl.textContent = '0 results';
+    addAllBtn.style.display = 'none';
     return;
   }
+  resultsCountEl.textContent = results.length + (results.length === 500 ? '+ results (showing first 500)' : ' result' + (results.length === 1 ? '' : 's'));
+  addAllBtn.style.display = 'inline-block';
   resultsEl.innerHTML = results.map(r => {
     const meta = [
       r.set_name || '',
@@ -239,6 +357,12 @@ function addFromSearch(id) {
   const price = parseFloat(priceInput.value);
   addToCart(Object.assign({}, r, { price: isNaN(price) ? r.price : price }));
 }
+
+addAllBtn.addEventListener('click', () => {
+  if (!lastResults.length) return;
+  if (!confirm('Add all ' + lastResults.length + ' shown cards to the cart, 1 each?')) return;
+  lastResults.forEach(r => addFromSearch(r.id));
+});
 
 function addToCart(r) {
   const existing = cart.find(c => c.product_id === r.id);
@@ -373,10 +497,19 @@ renderCart();
 </body></html>"""
 
 
-def build_pos_html(csrf_token, search_url, save_url, cancel_url):
+def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices):
+    """variant_choices: iterable of (code, label) tuples -- pass the same
+    VARIANT_CHOICES used by manage_set_view.py so the POS filter can never
+    drift out of sync with the codes actually stored on products."""
+    variant_options = ''.join(
+        f'<option value="{code}">{label}</option>' for code, label in variant_choices
+    )
+
     html = POS_HTML
     html = html.replace("__CSRF_TOKEN__", csrf_token)
     html = html.replace("__SEARCH_URL__", search_url)
+    html = html.replace("__SETS_URL__", sets_url)
     html = html.replace("__SAVE_URL__", save_url)
     html = html.replace("__CANCEL_URL__", cancel_url)
+    html = html.replace("__VARIANT_OPTIONS__", variant_options)
     return html
