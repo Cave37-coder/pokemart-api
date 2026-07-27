@@ -1,3 +1,4 @@
+import logging
 import re
 from decimal import Decimal
 
@@ -21,6 +22,8 @@ from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
     OrderStatusUpdateSerializer
 )
+
+logger = logging.getLogger(__name__)
 # Some products (mainly ASC-era stamped Reverse Holos) carry their physical
 # stamp/pattern as a trailing parenthetical on the product name, e.g.
 # "Team Rocket's Spidops (Energy Symbol Pattern)" vs "...(Team Rocket)" vs
@@ -230,6 +233,41 @@ class CheckoutView(APIView):
             status='pending',
             note='Order received successfully.',
         )
+
+        # Automated order-confirmation email -- fires once, right here, at
+        # the moment of placement. Uses the exact same _build_invoice_html
+        # the manual "Email Order" admin button already uses, so there's
+        # one source of truth for what an invoice looks like. Wrapped in
+        # try/except deliberately: a failed email must never break checkout
+        # itself -- the order is already committed by this point, and the
+        # customer should still get their order confirmed even if the email
+        # send has a problem. Failures are logged instead of raised.
+        try:
+            html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
+            if customer_email:
+                subject = f'Your PokeBulk SA Order Confirmation — Order #{order.id} ({invoice_num})'
+                text_body = strip_tags(html)
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_body,
+                    to=[customer_email],
+                    bcc=['enquiries@pokebulk.co.za'],
+                )
+                email.attach_alternative(html, 'text/html')
+                email.send(fail_silently=False)
+                logger.info(
+                    "Order confirmation email sent for order_id=%s to=%s",
+                    order.id, customer_email,
+                )
+            else:
+                logger.warning(
+                    "Order #%s placed but user_id=%s has no email on file -- confirmation not sent.",
+                    order.id, order.user_id,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to send order confirmation email for order_id=%s", order.id,
+            )
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
