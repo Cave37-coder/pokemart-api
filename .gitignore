@@ -31,3 +31,6 @@ desktop.ini
 *.csv
 tcgcsv_*.py
 show_ambiguous_sealed.py
+# Google Cloud service account keys - never commit
+File dump from Downloads/
+*.json
