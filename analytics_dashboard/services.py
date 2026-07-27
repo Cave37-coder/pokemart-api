@@ -4,10 +4,16 @@
 # GOOGLE_APPLICATION_CREDENTIALS_JSON (the full contents of the service account
 # JSON key, stored as a single-line env var on Railway) OR
 # GOOGLE_APPLICATION_CREDENTIALS pointing at a key file path.
+#
+# FIXED 2026-07-27: get_funnel() originally used RunFunnelReportRequest,
+# which is part of Google's newer *alpha* Data API, not the stable v1beta
+# client this project installs -- caused an ImportError on deploy. Rewritten
+# to compute the funnel from standard, stable RunReportRequest calls
+# (eventName dimension + totalUsers metric, filtered to our four funnel
+# events), which needs no alpha access and works reliably.
 
 import json
 import os
-from datetime import datetime, timedelta
 
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -15,12 +21,8 @@ from google.analytics.data_v1beta.types import (
     Dimension,
     Metric,
     RunReportRequest,
-    RunFunnelReportRequest,
-    FunnelStep,
-    Funnel,
-    FunnelFieldFilter,
-    FunnelEventFilter,
-    FunnelFilterExpression,
+    Filter,
+    FilterExpression,
 )
 from google.oauth2 import service_account
 
@@ -97,59 +99,55 @@ def get_funnel(days: int = 30) -> list[dict]:
     """
     Returns funnel drop-off across the PokeBulk purchase path:
     view_item -> add_to_cart -> begin_checkout -> purchase
-    Each step includes the raw user count and % of the previous step retained.
+    Each step includes the unique-user count and % of the previous step retained.
+
+    Uses a standard, stable RunReportRequest (eventName dimension + totalUsers
+    metric) rather than GA4's alpha-only funnel-report endpoint -- totalUsers
+    broken down by eventName gives the unique users who triggered each specific
+    event in the period, which is exactly what a funnel step needs.
     """
     client = _get_client()
 
-    steps = [
-        FunnelStep(
-            name="View Card",
-            filter_expression=FunnelFilterExpression(
-                funnel_event_filter=FunnelEventFilter(event_name="view_item")
-            ),
-        ),
-        FunnelStep(
-            name="Add to Cart",
-            filter_expression=FunnelFilterExpression(
-                funnel_event_filter=FunnelEventFilter(event_name="add_to_cart")
-            ),
-        ),
-        FunnelStep(
-            name="Begin Checkout",
-            filter_expression=FunnelFilterExpression(
-                funnel_event_filter=FunnelEventFilter(event_name="begin_checkout")
-            ),
-        ),
-        FunnelStep(
-            name="Purchase",
-            filter_expression=FunnelFilterExpression(
-                funnel_event_filter=FunnelEventFilter(event_name="purchase")
-            ),
-        ),
-    ]
+    event_names = ["view_item", "add_to_cart", "begin_checkout", "purchase"]
+    step_labels = {
+        "view_item": "View Card",
+        "add_to_cart": "Add to Cart",
+        "begin_checkout": "Begin Checkout",
+        "purchase": "Purchase",
+    }
 
-    request = RunFunnelReportRequest(
+    request = RunReportRequest(
         property=f"properties/{PROPERTY_ID}",
+        dimensions=[Dimension(name="eventName")],
+        metrics=[Metric(name="totalUsers")],
         date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
-        funnel=Funnel(steps=steps),
+        dimension_filter=FilterExpression(
+            filter=Filter(
+                field_name="eventName",
+                in_list_filter=Filter.InListFilter(values=event_names),
+            )
+        ),
     )
-    response = client.run_funnel_report(request)
+    response = client.run_report(request)
 
-    step_names = ["View Card", "Add to Cart", "Begin Checkout", "Purchase"]
-    counts = [0] * len(step_names)
-    for row in response.funnel_table.rows:
-        step_index = int(row.dimension_values[0].value)
-        if 0 <= step_index < len(counts):
-            counts[step_index] = int(float(row.metric_values[0].value))
+    counts = {name: 0 for name in event_names}
+    for row in response.rows:
+        evt_name = row.dimension_values[0].value
+        if evt_name in counts:
+            counts[evt_name] = int(row.metric_values[0].value)
 
     results = []
-    for i, (name, count) in enumerate(zip(step_names, counts)):
+    prev_count = None
+    for name in event_names:
+        count = counts[name]
         pct_of_previous = 100.0
-        if i > 0 and counts[i - 1] > 0:
-            pct_of_previous = round((count / counts[i - 1]) * 100, 1)
+        if prev_count is not None and prev_count > 0:
+            pct_of_previous = round((count / prev_count) * 100, 1)
         results.append({
-            "step": name,
+            "step": step_labels[name],
             "users": count,
             "pct_of_previous": pct_of_previous,
         })
+        prev_count = count
+
     return results
