@@ -185,3 +185,35 @@ EMAIL_USE_SSL = config('EMAIL_USE_SSL', cast=bool, default=False)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='PokeBulk SA <orders@pokebulk.co.za>')
 EMAIL_TIMEOUT = 30
+
+# --- LOGGING ---
+# CRITICAL FIX (2026-07-27): Django's default logging config only wires up
+# a console handler for Django's OWN internal loggers, and only when
+# DEBUG=True. Custom loggers created via logging.getLogger(__name__) in
+# app code (e.g. users/views.py's logger.warning/info/exception calls)
+# were NEVER connected to any handler in production (DEBUG=False) -- they
+# executed but had nowhere to go, so nothing ever reached Railway's log
+# stream. This explicit config attaches a StreamHandler (stdout) to the
+# root logger, which Railway captures automatically. Without this, ANY
+# logger.warning/info/error/exception call anywhere in the project is
+# silently swallowed in production, not just the password reset ones.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
