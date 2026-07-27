@@ -169,20 +169,21 @@ CSRF_COOKIE_SECURE = True
 SITE_URL = config('SITE_URL', default='https://pokebulk.co.za')
 API_URL = config('API_URL', default='https://pokemart-api-production.up.railway.app')
 
-# Email (cPanel SMTP - orders@pokebulk.co.za)
-# EMAIL_BACKEND points at a custom backend (config/ipv4_email_backend.py)
-# instead of Django's default -- Railway's containers can't route
-# outbound IPv6, and mail.pokebulk.co.za's DNS can return an IPv6
-# address, causing "[Errno 101] Network is unreachable". The custom
-# backend forces the connection over IPv4. Every other EMAIL_* setting
-# below is completely unchanged.
-EMAIL_BACKEND = 'config.ipv4_email_backend.IPv4EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = config('EMAIL_PORT', cast=int, default=587)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='pokebulk77@gmail.com')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')  # set the real App Password as a Railway Variable, never hardcode it here
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', cast=bool, default=False)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
+# --- Email ---
+# CHANGED 2026-07-27: switched from raw SMTP to MailerSend's HTTPS API.
+# Root cause found and confirmed: Railway blocks outbound SMTP connections
+# at the platform/network level, regardless of destination -- both
+# smtp.gmail.com:587 and mail.pokebulk.co.za:465 timed out identically at
+# the socket.connect() step. No SMTP host will ever work from this
+# platform. HTTPS (port 443) is not blocked, so MailerSendBackend
+# (config/mailersend_backend.py) sends over their HTTPS API instead.
+#
+# The old EMAIL_HOST/EMAIL_PORT/EMAIL_USE_SSL/EMAIL_USE_TLS/EMAIL_HOST_USER/
+# EMAIL_HOST_PASSWORD variables and config/ipv4_email_backend.py are no
+# longer used by this setting, but are left in Railway/the repo rather than
+# deleted, in case of a future rollback or local-dev SMTP testing need.
+EMAIL_BACKEND = 'config.mailersend_backend.MailerSendBackend'
+MAILERSEND_API_KEY = config('MAILERSEND_API_KEY', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='PokeBulk SA <orders@pokebulk.co.za>')
 EMAIL_TIMEOUT = 30
 
