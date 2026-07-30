@@ -34,10 +34,26 @@
 # fixed-size set (the same cards get reprinted across overlapping numbered
 # series), so there's no stable 100% to hit.
 #
-# Non-standard variant codes (TT, TR, SE, PBP, MBP, CC -- Trick or Trade
-# reprint tags, Team Rocket, Secret, PB/MB "pattern" promo stamps, Code Card)
-# never gate any tier. If a product carries one of these, it's a bonus pull
-# outside the ladder, not a requirement.
+# Non-standard variant codes (TR, SE, PBP, MBP, CC -- Team Rocket, Secret,
+# PB/MB "pattern" promo stamps, Code Card) never gate any tier. If a product
+# carries one of these, it's a bonus pull outside the ladder, not a
+# requirement.
+#
+# NOTE on TT vs TK set codes (confirmed with Michael, 2026-07-30): these
+# look similar but are UNRELATED product lines --
+#   TT22 / TT23 / TT24 = Trick or Trade Halloween BOOster Bundles (era
+#     "Trick or Trade", era_code TOT). Every card in these sets uses
+#     variant_override "TT" -- that's the real, single-print variant for
+#     the whole product line, not a bonus/promo tag, so "TT" IS in
+#     FULL_VARIANTS below and DOES gate the (single, since these are
+#     simple sets) tier.
+#   TK22 / TK23 / TK24 = Trainer Kits, a completely different product line
+#     that happens to share the year-suffixed naming pattern. Do not
+#     confuse the two -- TK sets are NOT Trick or Trade and are out of
+#     scope for the "TorT" work. (Their CardSet.name in the DB currently
+#     still says "Trick or Trade 20XX", which is a mislabel left over from
+#     an earlier import script -- worth a follow-up cleanup, but harmless
+#     for this module since we key everything off card_set.code, not name.)
 
 from collections import defaultdict
 
@@ -48,7 +64,12 @@ EXCLUDED_ERA_NAMES = {"Prize Pack Series"}
 BROKE_BASE_VARIANTS = frozenset({"N", "H"})
 BASE_SET_VARIANTS = frozenset({"N", "H", "RH"})
 BALL_VARIANTS = frozenset({"PB", "MB", "LB", "FB", "QB", "UB", "DB"})
-FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS  # Special Set Base + Master Set scope
+# "TT" is the single real print variant for every card in the Trick or
+# Trade sets (TT22/TT23/TT24) -- see the note above. It's not a ball
+# variant, but it needs to count toward completion the same way N does for
+# a normal set, so it belongs in FULL_VARIANTS.
+OTHER_TRACKED_VARIANTS = frozenset({"TT"})
+FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS  # Special Set Base + Master Set scope
 
 TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set"]
 TIER_LABELS = {
@@ -67,68 +88,106 @@ def is_set_eligible(card_set: CardSet) -> bool:
     return era_name not in EXCLUDED_ERA_NAMES
 
 
-def _card_key(card_number: int, total_cards: int, variant: str) -> str:
-    """Must match the frontend exactly -- see checklists/page.tsx, where the
-    key is built as `card.num + '_' + v.vc` and card.num is
-    "{card_number zero-padded to 3 digits}/{total_cards}"."""
-    return f"{str(card_number).zfill(3)}/{total_cards}_{variant}"
+def _fallback_display_num(card_number: int, total_cards: int) -> str:
+    """Used only when PokemonProduct.number is blank (the normal case for
+    ordinary numbered sets). Must match the frontend exactly -- see
+    checklists/page.tsx, where the key is built as `card.num + '_' + v.vc`
+    and card.num is "{card_number zero-padded to 3 digits}/{total_cards}"."""
+    return f"{str(card_number).zfill(3)}/{total_cards}"
 
 
 def get_set_card_map(card_set: CardSet) -> dict:
-    """{card_number: {variant_codes...}} for every active product in this
-    set, restricted to variant codes that count toward a tier at all."""
+    """
+    {display_num: {"card_number": int, "variants": {variant_codes...}}} for
+    every active product in this set, restricted to variant codes that
+    count toward a tier at all.
+
+    display_num is PokemonProduct.number when populated (e.g. "056/172"),
+    NOT a value we reconstruct from card_number + card_set.total_cards.
+    This matters: plain card_number is not a reliable per-card identifier
+    for reprint-heavy sets like Trick or Trade. Confirmed in TT22 --
+    Mewtwo and Haunter are BOTH card_number 56 (each keeps the number from
+    the different original set it was reprinted from), and are only
+    distinguished by their own `number` field: "056/172" vs "056/198".
+
+    Even `number` itself can genuinely clash -- confirmed with Michael,
+    2026-07-30: TT22's Nickit and Ariados are BOTH physically printed
+    "103/189" (two different original sets that happened to share a card
+    count and position). That's why PokemonProduct.id/SKU exists -- it's
+    the one thing guaranteed unique per physical card -- so when a
+    display_num is shared by more than one product, we disambiguate with
+    the product's own id (e.g. "103/189-404513"). The common case (no
+    clash) keeps the plain number so ordinary sets are unaffected. Falls
+    back to the zero-padded card_number/total_cards form when `number` is
+    blank, which is the normal case for ordinary sets (ASC, SIT, etc.) and
+    matches what the frontend already generates for those.
+    """
     products = (
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
         .exclude(card_number__isnull=True)
-        .values("card_number", "variant_override")
+        .values("id", "card_number", "variant_override", "number")
     )
-    card_map = defaultdict(set)
+    total_cards = card_set.total_cards or 0
+
+    # First pass: compute the raw display_num for every product and count
+    # how many products land on each one, so we know which ones actually
+    # clash before deciding whether to disambiguate.
+    rows = []
+    counts = defaultdict(int)
     for p in products:
         variant = p["variant_override"] or "N"
         if variant not in FULL_VARIANTS:
             continue
-        card_map[p["card_number"]].add(variant)
-    return dict(card_map)
+        display_num = (p["number"] or "").strip() or _fallback_display_num(p["card_number"], total_cards)
+        rows.append((display_num, p, variant))
+        counts[display_num] += 1
+
+    card_map = {}
+    for display_num, p, variant in rows:
+        key = display_num if counts[display_num] == 1 else f"{display_num}-{p['id']}"
+        entry = card_map.setdefault(key, {"card_number": p["card_number"], "variants": set()})
+        entry["variants"].add(variant)
+    return card_map
 
 
 def is_simple_set(card_map: dict) -> bool:
     """True if no card in the set has more than one checkable variant."""
     if not card_map:
         return True
-    return all(len(variants) <= 1 for variants in card_map.values())
+    return all(len(entry["variants"]) <= 1 for entry in card_map.values())
 
 
-def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set, total_cards: int) -> dict:
+def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set) -> dict:
     """Shared scoring for one tier: only ever requires variants that
     actually exist for a card (never a phantom variant the set doesn't
     print), and 'any' vs 'all' semantics are handled per-tier by the caller
     passing the right variant_filter/scope combination."""
     required = 0
     owned = 0
-    for card_number, variants in scope.items():
-        eligible = variants & variant_filter
+    for display_num, entry in scope.items():
+        eligible = entry["variants"] & variant_filter
         if not eligible:
             continue
         required += len(eligible)
         for v in eligible:
-            if _card_key(card_number, total_cards, v) in checked_keys:
+            if f"{display_num}_{v}" in checked_keys:
                 owned += 1
     pct = round(owned / required * 100) if required else 0
     return {"owned": owned, "required": required, "pct": pct, "complete": required > 0 and owned == required}
 
 
-def _broke_base_progress(numbered: dict, checked_keys: set, total_cards: int) -> dict:
+def _broke_base_progress(numbered: dict, checked_keys: set) -> dict:
     """Different shape from the other tiers: one requirement per card
     (satisfied by ANY of its N/H prints), not one per variant."""
     required = 0
     owned = 0
-    for card_number, variants in numbered.items():
-        eligible = variants & BROKE_BASE_VARIANTS
+    for display_num, entry in numbered.items():
+        eligible = entry["variants"] & BROKE_BASE_VARIANTS
         if not eligible:
             continue
         required += 1
-        if any(_card_key(card_number, total_cards, v) in checked_keys for v in eligible):
+        if any(f"{display_num}_{v}" in checked_keys for v in eligible):
             owned += 1
     pct = round(owned / required * 100) if required else 0
     return {"owned": owned, "required": required, "pct": pct, "complete": required > 0 and owned == required}
@@ -145,19 +204,19 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     card_map = get_set_card_map(card_set)
     total_cards = card_set.total_cards or 0
     if total_cards:
-        numbered = {n: v for n, v in card_map.items() if n <= total_cards}
+        numbered = {k: v for k, v in card_map.items() if v["card_number"] <= total_cards}
     else:
         numbered = card_map  # total_cards not populated yet -- treat everything as numbered
 
     if is_simple_set(card_map):
-        tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys, total_cards)
+        tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys)
         return {"mode": "simple", "tiers": {"complete_set": tier}}
 
     tiers = {
-        "broke_base": _broke_base_progress(numbered, checked_keys, total_cards),
-        "base_set": _tier_progress(numbered, BASE_SET_VARIANTS, checked_keys, total_cards),
-        "special_set_base": _tier_progress(numbered, FULL_VARIANTS, checked_keys, total_cards),
-        "master_set": _tier_progress(card_map, FULL_VARIANTS, checked_keys, total_cards),
+        "broke_base": _broke_base_progress(numbered, checked_keys),
+        "base_set": _tier_progress(numbered, BASE_SET_VARIANTS, checked_keys),
+        "special_set_base": _tier_progress(numbered, FULL_VARIANTS, checked_keys),
+        "master_set": _tier_progress(card_map, FULL_VARIANTS, checked_keys),
     }
     return {"mode": "full", "tiers": tiers}
 
