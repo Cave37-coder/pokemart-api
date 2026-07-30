@@ -1,0 +1,26 @@
+/* orders/static/orders/order_admin_compact.css
+   Tightens Django admin's default row/field padding on the Order list and
+   change form. Only touches spacing — no color/theme overrides, so it
+   won't fight the built-in light/dark theme toggle. */
+
+/* Changelist table rows */
+#result_list td, #result_list th {
+    padding: 4px 8px !important;
+    line-height: 1.3 !important;
+}
+
+/* Change form fieldset rows */
+.form-row {
+    padding: 6px 12px !important;
+}
+
+fieldset.module h2 {
+    padding: 6px 10px !important;
+}
+
+/* Grouped fields on one line (the tuples in fieldsets, e.g.
+   ('payment_method', 'eft_confirmed', 'cash_confirmed', 'payment_status_display') )
+   render as .form-row .field-box elements — tighten their gaps too. */
+.form-row .field-box {
+    margin-right: 24px !important;
+}
