@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -219,3 +220,37 @@ class PokemonProduct(models.Model):
         if not self.pb_id:
             self.pb_id = self.generate_pb_id()
         super().save(*args, **kwargs)
+
+
+class ChecklistEntry(models.Model):
+    """
+    One row = one customer has ticked one card as owned, on the Checklists
+    page. Existence of the row is the "checked" state -- unchecking a box
+    just deletes the row, checking one creates it. This replaces the old
+    localStorage['pb_cl_'+code] behaviour, which lived only in one browser
+    and vanished the moment a customer's session/device changed. Tying it
+    to the user account instead is also what makes any future
+    sharing/community features (comparing collections between customers)
+    possible -- can't share what's trapped in one browser.
+
+    card_set/card_key intentionally mirror the frontend's existing
+    identifiers (CardSet.code, and the "001/217_N" style key already used
+    in the Checklists page) rather than a FK straight to PokemonProduct --
+    a checklist entry should survive even if the underlying product row
+    gets resynced/replaced by a catalog sync script.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="checklist_entries")
+    card_set = models.CharField(max_length=20, help_text="CardSet.code, e.g. 'ASC', 'TK22'")
+    card_key = models.CharField(max_length=64, help_text="Checklist item key, e.g. '001/217_N'")
+    checked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "card_set", "card_key"], name="unique_checklist_entry"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "card_set"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.card_set}/{self.card_key}"

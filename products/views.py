@@ -1103,6 +1103,77 @@ def checklist_stock(request):
     return JsonResponse(in_stock, safe=False)
 
 
+# --- Account-tied Checklist progress ---------------------------------------
+# Replaces the old localStorage['pb_cl_'+code] approach, which lived only in
+# one browser and vanished the moment a customer's login token went stale or
+# they switched devices. See ChecklistEntry model for details.
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import ChecklistEntry
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checklist_entries(request):
+    """Every card this customer has checked off, across every set, in one call.
+    Shape: {"ASC": ["001/217_N", "001/217_H"], "TK22": [...]}
+    """
+    entries = ChecklistEntry.objects.filter(user=request.user).values('card_set', 'card_key')
+    grouped = {}
+    for e in entries:
+        grouped.setdefault(e['card_set'], []).append(e['card_key'])
+    return Response(grouped)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def checklist_toggle(request):
+    """Flip one card's checked state. Body: {"card_set": "ASC", "card_key": "001/217_N"}."""
+    card_set = (request.data.get('card_set') or '').strip()
+    card_key = (request.data.get('card_key') or '').strip()
+    if not card_set or not card_key:
+        return Response({'error': 'card_set and card_key are required'}, status=400)
+
+    existing = ChecklistEntry.objects.filter(user=request.user, card_set=card_set, card_key=card_key).first()
+    if existing:
+        existing.delete()
+        return Response({'checked': False})
+    else:
+        ChecklistEntry.objects.create(user=request.user, card_set=card_set, card_key=card_key)
+        return Response({'checked': True})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def checklist_clear_set(request):
+    """Wipe every checked card for one set (the Checklists page's Reset button).
+    Body: {"card_set": "ASC"}."""
+    card_set = (request.data.get('card_set') or '').strip()
+    if not card_set:
+        return Response({'error': 'card_set is required'}, status=400)
+    deleted, _ = ChecklistEntry.objects.filter(user=request.user, card_set=card_set).delete()
+    return Response({'deleted': deleted})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def checklist_import(request):
+    """One-time bulk upload of a customer's pre-existing localStorage checklist
+    data into their account (see frontend migration step). Body:
+    {"entries": [{"card_set": "ASC", "card_key": "001/217_N"}, ...]}
+    Silently skips any that already exist -- safe to call more than once.
+    """
+    raw_entries = request.data.get('entries') or []
+    to_create = [
+        ChecklistEntry(user=request.user, card_set=(e.get('card_set') or '').strip(), card_key=(e.get('card_key') or '').strip())
+        for e in raw_entries
+        if e.get('card_set') and e.get('card_key')
+    ]
+    if to_create:
+        ChecklistEntry.objects.bulk_create(to_create, ignore_conflicts=True)
+    return Response({'imported': len(to_create)})
 
 
 # --- Set management page: per-row and bulk variant apply / delete ---------
