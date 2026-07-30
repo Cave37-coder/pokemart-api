@@ -254,3 +254,43 @@ class ChecklistEntry(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.card_set}/{self.card_key}"
+
+
+class SetCompletionEvent(models.Model):
+    """
+    One row = one customer hit 100% on one tier of one set, for the first
+    time. Powers the Wall of Honour (see products/completion.py for the
+    tier definitions and the actual percentage math). Created automatically
+    by checklist_toggle the moment a check pushes a tier to complete --
+    never created directly, never updated after creation, so the
+    completed_at timestamp always reflects the FIRST time they got there
+    even if they later uncheck something and re-complete it.
+
+    card_set mirrors ChecklistEntry's pattern (CardSet.code as a plain
+    string, not an FK) for the same reason: a completion record should
+    survive a catalog resync.
+    """
+    TIER_CHOICES = [
+        ("broke_base", "Broke Base"),
+        ("base_set", "Base Set"),
+        ("special_set_base", "Special Set Base"),
+        ("master_set", "Master Set"),
+        ("complete_set", "Complete Set"),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="set_completions")
+    card_set = models.CharField(max_length=20, help_text="CardSet.code, e.g. 'ASC', 'TK22'")
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "card_set", "tier"], name="unique_set_completion_event"),
+        ]
+        indexes = [
+            models.Index(fields=["card_set", "tier"]),
+            models.Index(fields=["-completed_at"]),
+        ]
+        ordering = ["-completed_at"]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.card_set} -- {self.get_tier_display()}"

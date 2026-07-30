@@ -1111,7 +1111,11 @@ def checklist_stock(request):
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import ChecklistEntry
+from django.contrib.auth import get_user_model
+from .models import ChecklistEntry, SetCompletionEvent
+from .completion import (
+    is_set_eligible, compute_user_set_completion, TIER_LABELS,
+)
 
 
 @api_view(['GET'])
@@ -1140,9 +1144,25 @@ def checklist_toggle(request):
     if existing:
         existing.delete()
         return Response({'checked': False})
-    else:
-        ChecklistEntry.objects.create(user=request.user, card_set=card_set, card_key=card_key)
-        return Response({'checked': True})
+
+    ChecklistEntry.objects.create(user=request.user, card_set=card_set, card_key=card_key)
+
+    # Checking a card (never un-checking -- that can only ever move you
+    # AWAY from 100%) might have just pushed a tier to complete. Scan for
+    # that and log it for the Wall of Honour. get_or_create means this is
+    # a no-op if the tier was already logged, so re-completing after an
+    # unrelated uncheck/recheck never overwrites the original date.
+    try:
+        cs = CardSet.objects.get(code=card_set)
+    except CardSet.DoesNotExist:
+        cs = None
+    if cs and is_set_eligible(cs):
+        result = compute_user_set_completion(request.user, cs)
+        for tier_key, data in result['tiers'].items():
+            if data['complete']:
+                SetCompletionEvent.objects.get_or_create(user=request.user, card_set=card_set, tier=tier_key)
+
+    return Response({'checked': True})
 
 
 @api_view(['POST'])
@@ -1174,6 +1194,108 @@ def checklist_import(request):
     if to_create:
         ChecklistEntry.objects.bulk_create(to_create, ignore_conflicts=True)
     return Response({'imported': len(to_create)})
+
+
+# --- Checklist Phase 1: Compare & Compete (leaderboards + Wall of Honour) --
+# See products/completion.py for the tier math. All three endpoints below
+# only ever surface users with checklist_public=True AND a non-blank
+# public_display_name -- opted-out/unconfigured customers are invisible to
+# every other customer, full stop, regardless of how much they've checked.
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checklist_progress(request):
+    """This customer's own tier completion for one set.
+    GET /api/checklists/progress/?set=ASC"""
+    set_code = (request.GET.get('set') or '').strip()
+    if not set_code:
+        return Response({'error': 'set is required'}, status=400)
+    card_set = get_object_or_404(CardSet, code=set_code)
+    if not is_set_eligible(card_set):
+        return Response({'error': 'This set is not tracked for completion'}, status=400)
+    return Response(compute_user_set_completion(request.user, card_set))
+
+
+@api_view(['GET'])
+def checklist_leaderboard(request):
+    """Top 5 opted-in customers for one set + tier, ranked by cards owned,
+    ties broken by who completed it first (blank for customers still short).
+    GET /api/checklists/leaderboard/?set=ASC&tier=broke_base"""
+    set_code = (request.GET.get('set') or '').strip()
+    tier = (request.GET.get('tier') or '').strip()
+    if not set_code or not tier:
+        return Response({'error': 'set and tier are required'}, status=400)
+    card_set = get_object_or_404(CardSet, code=set_code)
+    if not is_set_eligible(card_set):
+        return Response({'error': 'This set is not tracked for completion'}, status=400)
+
+    User = get_user_model()
+    candidate_ids = (
+        ChecklistEntry.objects
+        .filter(card_set=set_code, user__checklist_public=True)
+        .exclude(user__public_display_name='')
+        .values_list('user_id', flat=True).distinct()
+    )
+    candidates = User.objects.filter(id__in=candidate_ids)
+
+    events = {
+        e.user_id: e.completed_at
+        for e in SetCompletionEvent.objects.filter(card_set=set_code, tier=tier, user_id__in=candidate_ids)
+    }
+
+    rows = []
+    for user in candidates:
+        result = compute_user_set_completion(user, card_set)
+        tier_data = result['tiers'].get(tier)
+        if not tier_data or tier_data['required'] == 0:
+            continue
+        completed_at = events.get(user.id)
+        rows.append({
+            'display_name': user.public_display_name,
+            'avatar': user.avatar.url if user.avatar else None,
+            'owned': tier_data['owned'],
+            'required': tier_data['required'],
+            'pct': tier_data['pct'],
+            'complete': tier_data['complete'],
+            'completed_at': completed_at.isoformat() if completed_at else None,
+        })
+
+    rows.sort(key=lambda r: (-r['owned'], r['completed_at'] or '9999-99-99'))
+    return Response({'set': set_code, 'tier': tier, 'leaderboard': rows[:5]})
+
+
+@api_view(['GET'])
+def checklist_wall_of_honour(request):
+    """Chronological feed of set completions, newest first. Optionally
+    scoped to one set. GET /api/checklists/wall-of-honour/?set=ASC"""
+    set_code = (request.GET.get('set') or '').strip()
+    qs = (
+        SetCompletionEvent.objects
+        .filter(user__checklist_public=True)
+        .exclude(user__public_display_name='')
+        .select_related('user')
+    )
+    if set_code:
+        qs = qs.filter(card_set=set_code)
+    qs = qs.order_by('-completed_at')[:100]
+
+    set_codes = {e.card_set for e in qs}
+    sets_by_code = {s.code: s for s in CardSet.objects.filter(code__in=set_codes)}
+
+    events = []
+    for e in qs:
+        cs = sets_by_code.get(e.card_set)
+        events.append({
+            'display_name': e.user.public_display_name,
+            'avatar': e.user.avatar.url if e.user.avatar else None,
+            'set_code': e.card_set,
+            'set_name': cs.name if cs else e.card_set,
+            'logo_url': cs.logo_url if cs else '',
+            'tier': e.tier,
+            'tier_label': TIER_LABELS.get(e.tier, e.tier),
+            'completed_at': e.completed_at.isoformat(),
+        })
+    return Response({'events': events})
 
 
 # --- Set management page: per-row and bulk variant apply / delete ---------

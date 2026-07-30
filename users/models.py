@@ -42,5 +42,20 @@ class User(AbstractUser):
     # ── Contact ───────────────────────────────────────────────────────────
     phone_number   = models.CharField(max_length=20, blank=True)
 
+    # ── Checklist community features (Compare & Compete, 2026-07-30) ───────
+    # Both default to "off" on purpose -- a customer's checklist progress is
+    # private (name, blank display name) until they explicitly opt in and
+    # pick a display name. Leaderboard/Wall of Honour queries filter on
+    # checklist_public=True AND a non-blank public_display_name, so leaving
+    # either one unset keeps a customer completely out of both.
+    public_display_name = models.CharField(
+        max_length=40, blank=True,
+        help_text="Shown on leaderboards / Wall of Honour instead of the real username. Blank = not shown."
+    )
+    checklist_public = models.BooleanField(
+        default=False,
+        help_text="Opt-in: show this customer's checklist completion on leaderboards and the Wall of Honour."
+    )
+
     def __str__(self):
         return self.username

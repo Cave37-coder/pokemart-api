@@ -1,4 +1,5 @@
-﻿import hashlib
+import hashlib
+import logging
 import urllib.parse
 import requests
 from django.conf import settings
@@ -9,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from orders.models import Order, OrderTracking
+
+logger = logging.getLogger(__name__)
 
 
 def generate_payfast_signature(data: dict, passphrase: str = '') -> str:
@@ -94,6 +97,17 @@ class PayFastITNView(APIView):
         pf_payment_id  = itn_data.get('pf_payment_id', '')
 
         sandbox = getattr(settings, 'PAYFAST_SANDBOX', False)
+        # sandbox only selects WHICH PayFast server to validate against --
+        # it must never control WHETHER validation is enforced. The old
+        # version skipped rejecting on a failed/errored validation whenever
+        # sandbox was true, which meant if PAYFAST_SANDBOX was ever left
+        # unset or misconfigured in production (its own settings.py default
+        # is True), anyone could POST payment_status=COMPLETE for any order
+        # id here with zero real PayFast involvement and mark it paid for
+        # free -- this endpoint is AllowAny + csrf_exempt by necessity
+        # (PayFast's servers can't carry a session/CSRF token), so the
+        # validation step is the ONLY thing standing between this URL and
+        # an open "mark any order paid" backdoor. It must always run.
         validate_url = (
             'https://sandbox.payfast.co.za/eng/query/validate'
             if sandbox else
@@ -103,11 +117,17 @@ class PayFastITNView(APIView):
         try:
             validate_response = requests.post(validate_url, data=itn_data, timeout=10)
             if validate_response.text != 'VALID':
-                if not sandbox:
-                    return Response(status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            if not sandbox:
+                logger.warning(
+                    'PayFast ITN rejected: validation returned %r for m_payment_id=%s (sandbox=%s)',
+                    validate_response.text, m_payment_id, sandbox,
+                )
                 return Response(status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.warning(
+                'PayFast ITN rejected: validation request failed (%s) for m_payment_id=%s (sandbox=%s)',
+                e, m_payment_id, sandbox,
+            )
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
         try:
             order = Order.objects.get(id=m_payment_id)

@@ -230,7 +230,7 @@ class CheckoutView(APIView):
         cart.items.all().delete()
         OrderTracking.objects.create(
             order=order,
-            status='pending',
+            status=order.status,
             note='Order received successfully.',
         )
 

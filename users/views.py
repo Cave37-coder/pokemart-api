@@ -127,6 +127,8 @@ class ProfileView(APIView):
             "pudo_locker_name": u.pudo_locker_name,
             "pudo_locker_address": u.pudo_locker_address,
             "pudo_locker_code": u.pudo_locker_code,
+            "public_display_name": u.public_display_name,
+            "checklist_public": u.checklist_public,
             "profile_complete": profile_complete,
         })
 
@@ -138,6 +140,7 @@ class ProfileView(APIView):
             "address_line1", "address_line2", "address_city",
             "address_province", "address_postal_code",
             "pudo_locker_name", "pudo_locker_address", "pudo_locker_code",
+            "public_display_name", "checklist_public",
         ]
         for field in allowed:
             if field in request.data:
