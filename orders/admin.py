@@ -36,6 +36,35 @@ from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoi
 from .manual_invoice import build_manual_invoice_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
 from .buy_order_document import build_buy_order_html, html_to_pdf as buy_order_html_to_pdf
+from .widgets import StatusStepperWidget
+
+
+class PaidFilter(admin.SimpleListFilter):
+    """Filters on the same combined logic as OrderAdmin.payment_status_display:
+    PayFast counts as paid once the webhook has written a PF Payment ID into
+    stripe_payment_intent; EFT/Cash count as paid via their own manual-tick
+    booleans. (Status is NOT part of this — confirmed via Order #117's real
+    tracking log that status stays 'Order Received' whether or not PayFast
+    has actually confirmed the payment.)"""
+    title = 'Paid'
+    parameter_name = 'paid'
+
+    def lookups(self, request, model_admin):
+        return (('yes', 'Paid'), ('no', 'Unpaid'))
+
+    def _paid_q(self):
+        return (
+            (Q(payment_method='payfast') & ~Q(stripe_payment_intent=''))
+            | Q(payment_method='eft', eft_confirmed=True)
+            | Q(payment_method='coc', cash_confirmed=True)
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(self._paid_q())
+        if self.value() == 'no':
+            return queryset.exclude(self._paid_q())
+        return queryset
 
 
 class OrderItemInline(admin.TabularInline):
@@ -43,6 +72,12 @@ class OrderItemInline(admin.TabularInline):
     extra = 0
     readonly_fields = ['product', 'quantity', 'price_at_purchase']
     can_delete = False
+
+    def get_queryset(self, request):
+        # product is rendered as a readonly field for every row -- without
+        # this, each row is its own extra remote query against Railway.
+        # An order with N items paid N extra round trips just for this inline.
+        return super().get_queryset(request).select_related('product')
 
 
 class OrderTrackingInline(admin.TabularInline):
@@ -52,29 +87,52 @@ class OrderTrackingInline(admin.TabularInline):
     can_delete = False
     ordering = ['created_at']
 
+    def get_queryset(self, request):
+        # Same issue as OrderItemInline above, for created_by.
+        return super().get_queryset(request).select_related('created_by')
+
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
-    list_filter = ['status', 'payment_method', 'payment_confirmed', 'eft_confirmed', 'delivery_method']
+    save_on_top = True
+    # Django's built-in "show counts" sidebar feature (the _facets=True
+    # toggle) counts each status choice using get_queryset() as its base --
+    # but our get_queryset() below already excludes Cancelled/Complete by
+    # default, so those two counts always show (0) even when real orders
+    # exist in that status. The underlying filter still works correctly
+    # (clicking Cancelled/Complete shows the real orders) -- only the
+    # number next to them was wrong. Disabling facets here since a
+    # permanently-lying count is worse than no count.
+    show_facets = admin.ShowFacets.NEVER
+
+    class Media:
+        # Tightens changelist row height + form-row padding. See
+        # orders/static/orders/order_admin_compact.css — standard per-app
+        # static folder, picked up automatically by Django's default
+        # AppDirectoriesFinder. Run collectstatic if it's not showing up.
+        css = {'all': ('orders/order_admin_compact.css',)}
+
+    list_display = ['id', 'customer_name_display', 'status_badge', 'payment_status_display', 'subtotal_display', 'shipping_col', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
+    list_filter = ['status', PaidFilter, 'payment_method', 'delivery_method']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
-    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display']
+    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display', 'payment_status_display']
     ordering = ['-created_at']
     inlines = [OrderItemInline, OrderTrackingInline]
 
     fieldsets = (
-        ('Order Info', {
+        ('Order Summary', {
             'fields': (
                 ('user', 'customer_info'),
                 'status',
-                'payment_confirmed',
-                'payment_confirmed_method',
+                ('payment_method', 'eft_confirmed', 'cash_confirmed', 'payment_status_display'),
                 ('total_price', 'shipping_display', 'invoice_total_display'),
-                'created_at', 'updated_at', 'print_button',
+                'print_button',
+                ('created_at', 'updated_at'),
             )
         }),
-        ('Payment', {
-            'fields': ('payment_method', 'eft_confirmed', 'stripe_payment_intent')
+        ('Technical', {
+            'fields': ('stripe_payment_intent',),
+            'classes': ('collapse',),
         }),
         ('Shipping', {
             'fields': ('delivery_method', 'shipping_method', 'shipping_cost')
@@ -92,6 +150,88 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('customer_note', 'invoice_note', 'internal_note')
         }),
     )
+
+    def has_add_permission(self, request):
+        # Real orders only ever come through checkout. Anything created by
+        # hand goes through Manual Invoice's POS screen instead — this
+        # button was dead weight on the changelist.
+        return False
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'status':
+            kwargs['widget'] = StatusStepperWidget(choices=Order.STATUS_CHOICES)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('user')
+        # Default view = open orders only. Explicitly filtering the Status
+        # sidebar to Cancelled or Complete still works normally — this only
+        # applies when no status filter is set at all.
+        if 'status__exact' not in request.GET and 'status__in' not in request.GET:
+            qs = qs.exclude(status__in=['cancelled', 'invoiced'])
+        return qs
+
+    def customer_name_display(self, obj):
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name or obj.user.username
+    customer_name_display.short_description = 'Customer'
+    customer_name_display.admin_order_field = 'user__first_name'
+
+    def status_badge(self, obj):
+        color_map = {
+            'awaiting_payment': '#c62828',  # red — blocked, needs payment
+            'pending_eft':      '#e65100',  # deep orange — blocked, needs EFT
+            'pending':          '#f9a825',  # amber — just received
+            'printed':          '#1565c0',  # blue — processing
+            'packed':           '#6a1b9a',  # purple — processing
+            'booked':           '#00838f',  # teal — processing
+            'ready':            '#00acc1',  # cyan — near done
+            'collected':        '#43a047',  # green — collected
+            'invoiced':         '#1b5e20',  # dark green — complete
+            'cancelled':        '#757575',  # grey — closed
+        }
+        color = color_map.get(obj.status, '#333')
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap">{}</span>',
+            color, obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def payment_status_display(self, obj):
+        """Single 'Paid' indicator combining all three payment_method paths.
+        PayFast confirmed via a webhook writing the PF Payment ID into
+        stripe_payment_intent (confirmed against Order #117's real tracking
+        log — status stays 'Order Received' throughout, it does NOT change
+        on payment, so status can't be used as the signal). eft_confirmed
+        covers EFT; cash_confirmed covers Cash on Collection."""
+        if not obj.pk:
+            return '-'
+        method = obj.payment_method
+        if method == 'payfast':
+            confirmed = bool(obj.stripe_payment_intent)
+            label = 'PayFast'
+        elif method == 'eft':
+            confirmed = obj.eft_confirmed
+            label = 'EFT'
+        elif method == 'coc':
+            confirmed = obj.cash_confirmed
+            label = 'Cash on Collection'
+        else:
+            confirmed = False
+            label = obj.get_payment_method_display() or 'Unknown'
+        color = '#2e7d32' if confirmed else '#c62828'
+        icon = '✅' if confirmed else '❌'
+        return format_html('<strong style="color:{}">{} {} — {}</strong>', color, icon, label, 'Paid' if confirmed else 'Unpaid')
+    payment_status_display.short_description = 'Paid'
+
+    def subtotal_display(self, obj):
+        return f"{float(obj.total_price or 0) - float(obj.shipping_cost or 0):.2f}"
+    subtotal_display.short_description = 'Price'
+
+    def shipping_col(self, obj):
+        return f"{float(obj.shipping_cost or 0):.2f}"
+    shipping_col.short_description = 'Shipping'
 
     def customer_info(self, obj):
         if not obj.pk or not obj.user:

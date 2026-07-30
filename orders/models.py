@@ -48,7 +48,7 @@ class Order(models.Model):
         ("booked",          "Courier Booking"),
         ("ready",           "Ready for Collection"),
         ("collected",       "Courier Collected"),
-        ("invoiced",        "Final Invoice"),
+        ("invoiced",        "Complete"),
         ("cancelled",       "Cancelled"),
     ]
 
@@ -61,15 +61,6 @@ class Order(models.Model):
         ("payfast",    "PayFast"),
         ("eft",        "EFT / Bank Transfer"),
         ("coc",        "Cash on Collection"),
-    ]
-
-    # Manual admin-only payment verification — purely a record for Michael's own
-    # bookkeeping. Nothing in the system reads, writes, or automates against
-    # these fields; they exist so he can mark "I personally checked this got paid".
-    PAYMENT_CONFIRMED_METHOD_CHOICES = [
-        ("cash",    "Cash"),
-        ("eft",     "EFT"),
-        ("payfast", "PayFast"),
     ]
 
     SHIPPING_CHOICES = [
@@ -91,15 +82,17 @@ class Order(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="payfast", blank=True)
     eft_confirmed = models.BooleanField(default=False, help_text="Tick when EFT payment received in bank account")
 
-    # Manual admin payment verification (separate from the automated payment_method
-    # above — this is Michael's own personal check, not tied to any system logic)
-    payment_confirmed = models.BooleanField(
+    # Manual admin payment verification — one boolean per payment_method that
+    # actually needs a human check. PayFast is confirmed automatically (the
+    # ITN webhook elsewhere moves status off "awaiting_payment" on success);
+    # eft_confirmed above covers EFT; cash_confirmed covers Cash on Collection.
+    # payment_confirmed_method was dropped — payment_method already says which
+    # of the three this order used, so a second dropdown was redundant.
+    # See OrderAdmin.payment_status_display() for how these combine into one
+    # "Paid" indicator.
+    cash_confirmed = models.BooleanField(
         default=False,
-        help_text="Manual check only — tick once you've personally verified this order was paid. Nothing automated reads this."
-    )
-    payment_confirmed_method = models.CharField(
-        max_length=20, choices=PAYMENT_CONFIRMED_METHOD_CHOICES, blank=True,
-        help_text="Your own record of how payment actually came in."
+        help_text="Cash on Collection only — tick once you've personally verified payment was received in person."
     )
 
     # Shipping
