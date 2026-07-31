@@ -115,39 +115,67 @@ def get_set_card_map(card_set: CardSet) -> dict:
     "103/189" (two different original sets that happened to share a card
     count and position). That's why PokemonProduct.id/SKU exists -- it's
     the one thing guaranteed unique per physical card -- so when a
-    display_num is shared by more than one product, we disambiguate with
-    the product's own id (e.g. "103/189-404513"). The common case (no
-    clash) keeps the plain number so ordinary sets are unaffected. Falls
-    back to the zero-padded card_number/total_cards form when `number` is
-    blank, which is the normal case for ordinary sets (ASC, SIT, etc.) and
-    matches what the frontend already generates for those.
+    display_num is shared by more than one DISTINCT PHYSICAL CARD, we
+    disambiguate with (the lowest) product id among that card's own rows
+    (e.g. "103/189-404513"). Falls back to the zero-padded
+    card_number/total_cards form when `number` is blank, which is the
+    normal case for ordinary sets (ASC, SIT, etc.) and matches what the
+    frontend already generates for those.
+
+    BUG FIXED 2026-07-30 (caught via Michael reporting completed CRZ
+    Master Set / ASC Base Set not registering): the disambiguation above
+    used to count raw PRODUCT ROWS sharing a display_num, not distinct
+    cards. A single physical card with N + H + RH variants is 2-3 rows
+    that legitimately share the exact same `number` string -- that's the
+    ORDINARY case for every non-simple set, not a collision. The old code
+    treated that as a clash and split each variant row onto its own
+    "-{id}" key, which the frontend (which only ever sends plain
+    "num_variant") could never reproduce -- so effectively every
+    multi-variant card in every "full" tier set silently failed to
+    register as owned, even when fully checked. Fixed by grouping rows
+    into (display_num, name) card-groups first: a display_num only gets
+    disambiguated when it's shared by more than one DISTINCT NAME (a
+    genuine different-card collision like Nickit vs Ariados). Rows that
+    share both display_num and name -- the same card's own print variants
+    -- always merge into one entry, using the lowest product id in that
+    name-group as a stable suffix so every variant row of the same card
+    still resolves to the identical key.
     """
     products = (
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
         .exclude(card_number__isnull=True)
-        .values("id", "card_number", "variant_override", "number")
+        .values("id", "card_number", "variant_override", "number", "name")
     )
     total_cards = card_set.total_cards or 0
 
-    # First pass: compute the raw display_num for every product and count
-    # how many products land on each one, so we know which ones actually
-    # clash before deciding whether to disambiguate.
-    rows = []
-    counts = defaultdict(int)
+    # First pass: compute the raw display_num for every row and group rows
+    # by (display_num, name) -- same display_num + same name is one
+    # physical card's print variants (must merge); same display_num +
+    # different name is a genuine collision (must stay apart).
+    groups = defaultdict(list)  # (display_num, name) -> [(product, variant), ...]
+    names_by_display_num = defaultdict(set)
     for p in products:
         variant = p["variant_override"] or "N"
         if variant not in FULL_VARIANTS:
             continue
         display_num = (p["number"] or "").strip() or _fallback_display_num(p["card_number"], total_cards)
-        rows.append((display_num, p, variant))
-        counts[display_num] += 1
+        groups[(display_num, p["name"])].append((p, variant))
+        names_by_display_num[display_num].add(p["name"])
 
     card_map = {}
-    for display_num, p, variant in rows:
-        key = display_num if counts[display_num] == 1 else f"{display_num}-{p['id']}"
-        entry = card_map.setdefault(key, {"card_number": p["card_number"], "variants": set()})
-        entry["variants"].add(variant)
+    for (display_num, _name), rows in groups.items():
+        if len(names_by_display_num[display_num]) == 1:
+            key = display_num
+        else:
+            # Genuine collision -- stable suffix so every variant row of
+            # THIS card (not the other one sharing display_num) lands on
+            # the same key regardless of processing order.
+            rep_id = min(p["id"] for p, _ in rows)
+            key = f"{display_num}-{rep_id}"
+        entry = card_map.setdefault(key, {"card_number": rows[0][0]["card_number"], "variants": set()})
+        for p, variant in rows:
+            entry["variants"].add(variant)
     return card_map
 
 
