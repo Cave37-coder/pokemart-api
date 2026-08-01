@@ -31,7 +31,7 @@ from orders.models import Order, OrderItem, OrderTracking
 
 _PATTERN_SUFFIX_RE = re.compile(r'\s*\([^)]+\)\s*$')
 
-APPLY = False  # flip to True once the dry-run match report below looks right
+APPLY = True  # flip to True once the dry-run match report below looks right
 
 CUSTOMER_EMAIL = "deon.becker1992@gmail.com"
 
