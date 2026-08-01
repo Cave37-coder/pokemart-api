@@ -33,8 +33,8 @@ BIBLE_CSV_PATH = 'pokebulk_bible_v7.csv'  # adjust if it's elsewhere
 # Sort order confirmed earlier this session (fix_variant_sort_order.py) --
 # reused here so newly created rows get the correct sort value immediately.
 VARIANT_ORDER = [
-    "N", "H", "RH",
-    "PB", "MB", "LB", "FB", "QB", "UB", "DB",
+    "N", "H", "RH", "ESH",
+    "PB", "LB", "FB", "QB", "UB", "DB", "MB",
     "TR", "SE", "PBP", "MBP", "CC", "TT",
 ]
 VARIANT_SORT_MAP = {code: i for i, code in enumerate(VARIANT_ORDER)}

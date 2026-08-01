@@ -2,7 +2,8 @@
 fix_variant_sort_order.py
 
 Corrects PokemonProduct.variant_sort values so ordering always follows:
-N -> H -> RH -> PB -> MB -> LB -> FB -> QB -> UB -> DB -> TR -> SE -> PBP -> MBP -> CC -> TT
+N -> H -> RH -> ESH -> PB -> LB -> FB -> QB -> UB -> DB -> MB -> TR -> SE -> PBP -> MBP -> CC -> TT
+(Master Ball sorts last among the ball variants.)
 
 Root cause note: this only fixes EXISTING rows already in the Railway DB.
 sync_tcgcsv.py still needs its own variant_sort assignment mapping corrected
@@ -22,9 +23,10 @@ from products.models import PokemonProduct
 APPLY = os.environ.get("VARIANT_SORT_APPLY") == "1"  # False = dry run
 
 # Canonical order per the Iron Rule. Index = correct variant_sort value.
+# Master Ball sorts last among the ball variants (Michael, 2026-08-01).
 VARIANT_ORDER = [
-    "N", "H", "RH",
-    "PB", "MB", "LB", "FB", "QB", "UB", "DB",
+    "N", "H", "RH", "ESH",
+    "PB", "LB", "FB", "QB", "UB", "DB", "MB",
     "TR", "SE", "PBP", "MBP", "CC", "TT",
 ]
 VARIANT_SORT_MAP = {code: i for i, code in enumerate(VARIANT_ORDER)}

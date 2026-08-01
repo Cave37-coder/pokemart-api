@@ -29,8 +29,8 @@ APPLY = True  # flip to True once the dry-run output looks right
 TRUTH_CSV_PATH = 'live_variant_truth.csv'
 
 VARIANT_ORDER = [
-    "N", "H", "RH",
-    "PB", "MB", "LB", "FB", "QB", "UB", "DB",
+    "N", "H", "RH", "ESH",
+    "PB", "LB", "FB", "QB", "UB", "DB", "MB",
     "TR", "SE", "PBP", "MBP", "CC", "TT",
     "EX", "CH",
 ]

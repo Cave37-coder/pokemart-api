@@ -249,9 +249,9 @@ SUBTYPE_MAP = {
 
 
 VARIANT_SORT_ORDER = {
-    "N": 0, "RH": 1, "H": 2, "PB": 3, "MB": 4, "LB": 5,
-    "FB": 6, "QB": 7, "UB": 8, "DB": 9, "TR": 10, "SE": 11,
-    "PBP": 12, "MBP": 13, "CC": 14, "TT": 15,
+    "N": 0, "H": 1, "RH": 2, "ESH": 3,
+    "PB": 4, "LB": 5, "FB": 6, "QB": 7, "UB": 8, "DB": 9, "MB": 10,
+    "TR": 11, "SE": 12, "PBP": 13, "MBP": 14, "CC": 15, "TT": 16,
 }
 
 
