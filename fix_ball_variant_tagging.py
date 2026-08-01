@@ -38,7 +38,7 @@ from collections import defaultdict
 
 from products.models import PokemonProduct
 
-APPLY = False  # flip to True once the printed list below looks right
+APPLY = True  # flip to True once the printed list below looks right
 
 # Matches BALL_VARIANTS in products/completion.py exactly -- do not add
 # codes that aren't in that set, they'd never be recognised by the tier
