@@ -27,9 +27,9 @@ def _send_status_update_email(order):
     """
     Automated, simple status-update email to the customer whenever an
     order's status changes -- distinct from the full invoice email sent
-    once at order placement (CheckoutView.post()). No BCC to enquiries@ on
-    these, per instruction: only the initial order-confirmation email gets
-    a copy sent there.
+    once at order placement (CheckoutView.post()). BCC's admin@pokebulk.co.za
+    (Michael, 2026-08-02) so staff see every status-change email as it goes
+    out, same as enquiries@ gets on the initial order-confirmation email.
 
     Deliberately fires from the model-save signal, not from
     OrderStatusUpdateView or the Django admin directly -- both of those
@@ -58,6 +58,27 @@ def _send_status_update_email(order):
             f"Hi {customer_name},\n\n"
             f"Your PokeBulk SA order #{order.id} has been updated:\n\n"
             f"    Status: {status_label}\n\n"
+        )
+
+        # Michael, 2026-08-02: once a courier status is selected, include
+        # whatever waybill/tracking info is on file so the customer doesn't
+        # have to log in just to get their Pudo waybill number. Limited to
+        # the two statuses that actually mean "handed to the courier" --
+        # 'booked' (Courier Booking) and 'collected' (Courier Collected) --
+        # not every status, since waybill info usually isn't set yet before
+        # that point anyway.
+        if order.status in ('booked', 'collected'):
+            courier_lines = []
+            if order.courier_name:
+                courier_lines.append(f"    Courier: {order.courier_name}")
+            if order.waybill_number:
+                courier_lines.append(f"    Waybill / Tracking Number: {order.waybill_number}")
+            if order.courier_tracking_url:
+                courier_lines.append(f"    Track your parcel: {order.courier_tracking_url}")
+            if courier_lines:
+                text_body += "\n".join(courier_lines) + "\n\n"
+
+        text_body += (
             f"You can view your full order details anytime by signing in at "
             f"https://pokebulk.co.za/orders/{order.id}\n\n"
             f"-- PokeBulk SA"
@@ -67,6 +88,7 @@ def _send_status_update_email(order):
             subject=subject,
             body=text_body,
             to=[customer_email],
+            bcc=['admin@pokebulk.co.za'],
         )
         email.send(fail_silently=False)
         logger.info(

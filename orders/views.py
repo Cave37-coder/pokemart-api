@@ -192,6 +192,22 @@ class CheckoutView(APIView):
         is_eft = payment_method == 'eft'
         is_coc = shipping_method == 'collection'
 
+        pudo_locker_name = request.data.get('pudo_locker_name', '')
+        pudo_locker_address = request.data.get('pudo_locker_address', '')
+        # Michael, 2026-08-02: 3 orders came through with a Pudo locker/kiosk
+        # method selected but no locker name/address attached -- nothing to
+        # actually book the courier against. Reject the order at checkout
+        # instead of letting it through silently. Only the locker-to-*
+        # methods need pudo_locker_name/address -- pudo_door and postnet
+        # deliver to a street address instead (frontend's own needsLocker
+        # list), so those two are deliberately excluded here.
+        PUDO_LOCKER_METHODS = {'pudo_locker', 'pudo_kiosk', 'pudo_medium'}
+        if shipping_method in PUDO_LOCKER_METHODS and (not pudo_locker_name or not pudo_locker_address):
+            return Response(
+                {'error': 'Please select a Pudo locker/kiosk before placing this order.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             shipping_cost = Decimal(str(request.data.get('shipping_cost', 0) or 0))
         except Exception:
@@ -212,8 +228,8 @@ class CheckoutView(APIView):
             delivery_city=request.data.get('city', ''),
             delivery_province=request.data.get('province', ''),
             delivery_postal_code=request.data.get('postal_code', ''),
-            pudo_locker_name=request.data.get('pudo_locker_name', ''),
-            pudo_locker_address=request.data.get('pudo_locker_address', ''),
+            pudo_locker_name=pudo_locker_name,
+            pudo_locker_address=pudo_locker_address,
             customer_note=request.data.get('customer_note', ''),
         )
         for item in items:
