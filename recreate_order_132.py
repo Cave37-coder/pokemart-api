@@ -22,11 +22,14 @@ Usage:
     python manage.py shell -c "exec(open('recreate_order_132.py').read())"
 """
 
+import re
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from products.models import PokemonProduct
 from orders.models import Order, OrderItem, OrderTracking
+
+_PATTERN_SUFFIX_RE = re.compile(r'\s*\([^)]+\)\s*$')
 
 APPLY = False  # flip to True once the dry-run match report below looks right
 
@@ -132,13 +135,27 @@ if user is not None:
         if variant_code is None:
             problems.append(f"  [{set_code} #{card_number}] Unknown variant label {variant_label!r} -- add it to VARIANT_LABEL_TO_CODE.")
             continue
-        override = "" if variant_code == "N" else variant_code
         products = list(PokemonProduct.objects.filter(
             card_set__code=set_code,
             card_number=card_number,
-            variant_override=override,
+            variant_override=variant_code,
             is_active=True,
         ))
+        if len(products) > 1:
+            # Confirmed via diagnose_order_132_lookups.py: PRE #33 has 3 rows
+            # tagged variant_override='H' -- plain Espeon, plus "(Master Ball
+            # Pattern)" and "(Poke Ball Pattern)" prints that were mistagged
+            # with the same base code instead of their own (same bug class
+            # as ASC's, just not fixed for PRE yet). Prefer the "plain" print
+            # (no trailing "(...)" in the name); if that doesn't narrow it to
+            # one, fall back to whichever row's price matches the invoice.
+            plain = [p for p in products if not _PATTERN_SUFFIX_RE.search(p.name)]
+            if len(plain) == 1:
+                products = plain
+            else:
+                price_match = [p for p in products if str(p.price) == price_str]
+                if len(price_match) == 1:
+                    products = price_match
         if len(products) != 1:
             problems.append(
                 f"  [{set_code} #{card_number}] variant={variant_label!r} ({variant_code or 'N'}) "
