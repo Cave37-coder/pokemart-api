@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import admin
@@ -11,7 +12,10 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from django.core.exceptions import PermissionDenied
 from django.middleware.csrf import get_token
+from django.db import transaction
 from django.db.models import Q
+
+logger = logging.getLogger(__name__)
 
 from products.models import PokemonProduct
 
@@ -309,6 +313,60 @@ class CartAdmin(admin.ModelAdmin):
 # still uses the normal admin form below, only creation is POS-style.
 # =============================================================================
 
+def _send_manual_invoice_email(invoice):
+    """
+    Shared by both the manual "Email" button (email_invoice_view) and the
+    automatic send that now fires once, right when a new invoice is created
+    in pos_save_view. Same content either way -- one source of truth.
+
+    Michael, 2026-08-02: kept as a plain function returning (ok, detail)
+    instead of raising, since the automatic call site has no request/response
+    to hang a Django admin message off of. Callers decide what to do with
+    the result -- email_invoice_view still shows messages.success/error,
+    pos_save_view just logs and reports it back in the JSON response.
+
+    "bcc must still happen, without customer email address" (Michael,
+    2026-08-02): enquiries@ gets a copy of every invoice regardless of
+    whether the customer has an email on file -- walk-in/cash customers
+    included. When there's no customer_email there's nothing to put in
+    "to" (and some providers, MailerSend included, don't reliably deliver
+    a message with an empty "to" and only a bcc), so in that case
+    enquiries@ becomes the direct "to" recipient instead of a bcc -- same
+    inbox ends up with the copy either way, just not silently blind-copied
+    when it's the only recipient.
+    """
+    html = build_manual_invoice_html(invoice, show_controls=False)
+    subject = f'Your PokeBulk SA Invoice — {invoice.invoice_number}'
+    text_body = strip_tags(html)
+
+    if invoice.customer_email:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            to=[invoice.customer_email],
+            bcc=['enquiries@pokebulk.co.za'],
+        )
+    else:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            to=['enquiries@pokebulk.co.za'],
+        )
+    email.attach_alternative(html, 'text/html')
+
+    pdf_bytes = html_to_pdf(html)
+    email.attach(f'{invoice.invoice_number}.pdf', pdf_bytes, 'application/pdf')
+
+    try:
+        email.send(fail_silently=False)
+        if invoice.customer_email:
+            return True, f"emailed to {invoice.customer_email}."
+        return True, "no customer email on file — copy sent to enquiries@ only."
+    except Exception as e:
+        logger.exception("Failed to email manual invoice %s", invoice.invoice_number)
+        return False, f"failed to send: {e}"
+
+
 class ManualInvoiceItemInline(admin.TabularInline):
     model = ManualInvoiceItem
     extra = 3
@@ -432,32 +490,11 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
 
     def email_invoice_view(self, request, pk):
         invoice = get_object_or_404(ManualInvoice, pk=pk)
-
-        if not invoice.customer_email:
-            messages.error(request, f"{invoice.invoice_number}: no customer email on file — nothing sent.")
-            return redirect(reverse('admin:orders_manualinvoice_change', args=[invoice.pk]))
-
-        html = build_manual_invoice_html(invoice, show_controls=False)
-        subject = f'Your PokeBulk SA Invoice — {invoice.invoice_number}'
-        text_body = strip_tags(html)
-
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body,
-            to=[invoice.customer_email],
-            bcc=['enquiries@pokebulk.co.za'],
-        )
-        email.attach_alternative(html, 'text/html')
-
-        pdf_bytes = html_to_pdf(html)
-        email.attach(f'{invoice.invoice_number}.pdf', pdf_bytes, 'application/pdf')
-
-        try:
-            email.send(fail_silently=False)
-            messages.success(request, f"{invoice.invoice_number} emailed to {invoice.customer_email}.")
-        except Exception as e:
-            messages.error(request, f"Failed to email {invoice.invoice_number}: {e}")
-
+        ok, detail = _send_manual_invoice_email(invoice)
+        if ok:
+            messages.success(request, f"{invoice.invoice_number} {detail}")
+        else:
+            messages.error(request, f"{invoice.invoice_number}: {detail}")
         return redirect(reverse('admin:orders_manualinvoice_change', args=[invoice.pk]))
 
     def pos_view(self, request):
@@ -569,50 +606,70 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         if payment_method not in ('eft', 'cash', 'card'):
             payment_method = ''
 
-        invoice = ManualInvoice.objects.create(
-            customer_name=customer_name,
-            customer_email=(payload.get('customer_email') or '').strip(),
-            customer_phone=(payload.get('customer_phone') or '').strip(),
-            delivery_note=(payload.get('delivery_note') or '').strip(),
-            shipping_cost=shipping_cost,
-            discount_percent=discount_percent,
-            payment_received=bool(payload.get('payment_received')),
-            payment_method=payment_method,
-            created_by=request.user,
-        )
+        # Michael, 2026-08-02: "is automatic, when i save invoice? with BCC
+        # to enquiries?" -- yes now. The invoice + line items are wrapped in
+        # one atomic block, and the confirmation email (same content/BCC as
+        # the manual "Email" button) is queued with transaction.on_commit so
+        # it can only fire once everything is actually saved -- same fix as
+        # CheckoutView's order-confirmation email, so this can't repeat the
+        # "email sent but nothing in the DB" bug that hit Deon Becker's
+        # order. The manual Email button still works too, for re-sends or
+        # invoices created without an email on file at the time.
+        email_result = {}
 
-        for item in items:
-            product = None
-            product_id = item.get('product_id')
-            if product_id:
-                product = PokemonProduct.objects.filter(pk=product_id).first()
-
-            try:
-                unit_price = Decimal(str(item.get('unit_price'))) if item.get('unit_price') is not None else None
-            except (InvalidOperation, ValueError):
-                unit_price = None
-
-            try:
-                quantity = max(1, int(item.get('quantity') or 1))
-            except (ValueError, TypeError):
-                quantity = 1
-
-            ManualInvoiceItem.objects.create(
-                invoice=invoice,
-                product=product,
-                description=(item.get('description') or '').strip(),
-                set_name=(item.get('set_name') or '').strip(),
-                card_number=str(item.get('card_number') or '').strip(),
-                variant=(item.get('variant') or '').strip(),
-                quantity=quantity,
-                unit_price=unit_price,
+        with transaction.atomic():
+            invoice = ManualInvoice.objects.create(
+                customer_name=customer_name,
+                customer_email=(payload.get('customer_email') or '').strip(),
+                customer_phone=(payload.get('customer_phone') or '').strip(),
+                delivery_note=(payload.get('delivery_note') or '').strip(),
+                shipping_cost=shipping_cost,
+                discount_percent=discount_percent,
+                payment_received=bool(payload.get('payment_received')),
+                payment_method=payment_method,
+                created_by=request.user,
             )
+
+            for item in items:
+                product = None
+                product_id = item.get('product_id')
+                if product_id:
+                    product = PokemonProduct.objects.filter(pk=product_id).first()
+
+                try:
+                    unit_price = Decimal(str(item.get('unit_price'))) if item.get('unit_price') is not None else None
+                except (InvalidOperation, ValueError):
+                    unit_price = None
+
+                try:
+                    quantity = max(1, int(item.get('quantity') or 1))
+                except (ValueError, TypeError):
+                    quantity = 1
+
+                ManualInvoiceItem.objects.create(
+                    invoice=invoice,
+                    product=product,
+                    description=(item.get('description') or '').strip(),
+                    set_name=(item.get('set_name') or '').strip(),
+                    card_number=str(item.get('card_number') or '').strip(),
+                    variant=(item.get('variant') or '').strip(),
+                    quantity=quantity,
+                    unit_price=unit_price,
+                )
+
+            def _fire_confirmation_email():
+                ok, detail = _send_manual_invoice_email(invoice)
+                email_result['sent'] = ok
+                email_result['detail'] = detail
+            transaction.on_commit(_fire_confirmation_email)
 
         return JsonResponse({
             'success': True,
             'invoice_id': invoice.id,
             'invoice_number': invoice.invoice_number,
             'redirect_url': reverse('admin:orders_manualinvoice_change', args=[invoice.pk]),
+            'email_sent': email_result.get('sent', False),
+            'email_detail': email_result.get('detail', ''),
         })
 
 
