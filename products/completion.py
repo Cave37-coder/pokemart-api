@@ -55,7 +55,7 @@
 #     an earlier import script -- worth a follow-up cleanup, but harmless
 #     for this module since we key everything off card_set.code, not name.)
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 from .models import PokemonProduct, CardSet, ChecklistEntry
 
@@ -69,7 +69,15 @@ BALL_VARIANTS = frozenset({"PB", "MB", "LB", "FB", "QB", "UB", "DB"})
 # variant, but it needs to count toward completion the same way N does for
 # a normal set, so it belongs in FULL_VARIANTS.
 OTHER_TRACKED_VARIANTS = frozenset({"TT"})
-FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS  # Special Set Base + Master Set scope
+# ESH = Energy Symbol Holo, ASC's parallel-foil chase print (confirmed with
+# Michael, 2026-08-01). Bonus/chase, same tier scope as ball variants --
+# NOT a hard requirement for Base Set even on cards where it's the only
+# reverse-holo-like print that exists, since the tier math already only
+# ever requires variants that actually exist for a card (see
+# _tier_progress below); a card with no separate plain RH print correctly
+# just won't require RH.
+PATTERN_VARIANTS = frozenset({"ESH"})
+FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PATTERN_VARIANTS  # Special Set Base + Master Set scope
 
 TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set"]
 TIER_LABELS = {
@@ -127,19 +135,28 @@ def get_set_card_map(card_set: CardSet) -> dict:
     used to count raw PRODUCT ROWS sharing a display_num, not distinct
     cards. A single physical card with N + H + RH variants is 2-3 rows
     that legitimately share the exact same `number` string -- that's the
-    ORDINARY case for every non-simple set, not a collision. The old code
-    treated that as a clash and split each variant row onto its own
-    "-{id}" key, which the frontend (which only ever sends plain
-    "num_variant") could never reproduce -- so effectively every
-    multi-variant card in every "full" tier set silently failed to
-    register as owned, even when fully checked. Fixed by grouping rows
-    into (display_num, name) card-groups first: a display_num only gets
-    disambiguated when it's shared by more than one DISTINCT NAME (a
-    genuine different-card collision like Nickit vs Ariados). Rows that
-    share both display_num and name -- the same card's own print variants
-    -- always merge into one entry, using the lowest product id in that
-    name-group as a stable suffix so every variant row of the same card
-    still resolves to the identical key.
+    ORDINARY case for every non-simple set, not a collision.
+
+    BUG FIXED 2026-08-01 (v2, caught via Michael reporting ASC's Special
+    Set Base sitting permanently equal to Base Set even after ball-variant
+    products were correctly retagged from RH to PB/QB/etc): the v1 fix
+    above grouped by (display_num, NAME) and disambiguated the moment a
+    display_num was shared by more than one distinct product name -- but
+    ASC gives every ball/pattern print its own descriptive name (e.g.
+    "Camerupt (Quick Ball)", "Camerupt (Energy Symbol Pattern)") even
+    though they're the SAME physical card as plain "Camerupt", just a
+    different print. Every one of those was getting permanently
+    disambiguated into its own id-suffixed, frontend-unreachable key --
+    correct variant_override or not, because the old check never looked at
+    variant_override at all, only the name string.
+
+    Fixed: a display_num is now only treated as a genuine collision (two
+    DIFFERENT physical cards, like TT22's Nickit and Ariados both being
+    plain "N" prints sharing "103/189") when it's shared by more than one
+    row with the SAME variant_override. Rows that share a display_num but
+    have DISTINCT variant_override values are always the same card's own
+    different print variants and merge into one entry no matter how their
+    product names happen to read.
     """
     products = (
         PokemonProduct.objects
@@ -149,33 +166,42 @@ def get_set_card_map(card_set: CardSet) -> dict:
     )
     total_cards = card_set.total_cards or 0
 
-    # First pass: compute the raw display_num for every row and group rows
-    # by (display_num, name) -- same display_num + same name is one
-    # physical card's print variants (must merge); same display_num +
-    # different name is a genuine collision (must stay apart).
-    groups = defaultdict(list)  # (display_num, name) -> [(product, variant), ...]
-    names_by_display_num = defaultdict(set)
+    # First pass: compute the raw display_num for every row and group by
+    # display_num alone.
+    rows_by_display_num = defaultdict(list)  # display_num -> [(product, variant), ...]
     for p in products:
         variant = p["variant_override"] or "N"
         if variant not in FULL_VARIANTS:
             continue
         display_num = (p["number"] or "").strip() or _fallback_display_num(p["card_number"], total_cards)
-        groups[(display_num, p["name"])].append((p, variant))
-        names_by_display_num[display_num].add(p["name"])
+        rows_by_display_num[display_num].append((p, variant))
 
     card_map = {}
-    for (display_num, _name), rows in groups.items():
-        if len(names_by_display_num[display_num]) == 1:
-            key = display_num
-        else:
-            # Genuine collision -- stable suffix so every variant row of
-            # THIS card (not the other one sharing display_num) lands on
-            # the same key regardless of processing order.
-            rep_id = min(p["id"] for p, _ in rows)
-            key = f"{display_num}-{rep_id}"
-        entry = card_map.setdefault(key, {"card_number": rows[0][0]["card_number"], "variants": set()})
+    for display_num, rows in rows_by_display_num.items():
+        variant_counts = Counter(v for _, v in rows)
+        is_genuine_collision = any(c > 1 for c in variant_counts.values())
+
+        if not is_genuine_collision:
+            # Ordinary case: one physical card, N different print variants
+            # -- merge into one entry regardless of each row's own name.
+            entry = card_map.setdefault(display_num, {"card_number": rows[0][0]["card_number"], "variants": set()})
+            for p, variant in rows:
+                entry["variants"].add(variant)
+            continue
+
+        # Genuine collision: the same variant_override appears more than
+        # once under this display_num, meaning two DIFFERENT physical
+        # cards happen to share a printed number. Split by product name,
+        # same approach as the v1 fix, stable suffix so every row of THIS
+        # card lands on the same key regardless of processing order.
+        groups = defaultdict(list)
         for p, variant in rows:
-            entry["variants"].add(variant)
+            groups[p["name"]].append((p, variant))
+        for name, group_rows in groups.items():
+            key = display_num if len(groups) == 1 else f"{display_num}-{min(p['id'] for p, _ in group_rows)}"
+            entry = card_map.setdefault(key, {"card_number": group_rows[0][0]["card_number"], "variants": set()})
+            for p, variant in group_rows:
+                entry["variants"].add(variant)
     return card_map
 
 

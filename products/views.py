@@ -1345,6 +1345,7 @@ VARIANT_LABEL_FULL = {
     'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
     'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
     'CC': 'Code Card', 'TT': 'Trick or Trade',
+    'ESH': 'Energy Symbol Holo',
 }
 
 

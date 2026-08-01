@@ -34,15 +34,19 @@ only prints. Changes nothing.
 Usage:
     python manage.py shell -c "exec(open('diagnose_unreachable_card_keys.py').read())"
 """
-import re
-
 from products.models import CardSet, PokemonProduct
 from products.completion import is_set_eligible, get_set_card_map
 
-# Any key NOT of the plain "digits/digits" shape is a disambiguated,
-# frontend-unreachable key (get_set_card_map() only ever appends a "-{id}"
-# suffix in the collision case -- see module docstring).
-PLAIN_KEY_RE = re.compile(r'^\d+/\d+$')
+# FIXED v3: v2 flagged any key that wasn't plain "digits/digits" -- wrong,
+# that's a false-positive machine for old-school sets with legitimate
+# non-numeric printed numbers (Aquapolis "H32/H32", Arceus "AR9", Neo
+# Destiny "SH12" etc. are ALL real card numbers on real physical cards,
+# not synthetic collision suffixes). A key is only a genuine
+# frontend-unreachable artifact if get_set_card_map() actually SYNTHESISED
+# it -- i.e. it does not match any product's own literal `number` field,
+# and it isn't the plain zero-padded fallback either. This version checks
+# that directly against the real data instead of guessing from the key's
+# shape.
 
 all_sets = list(CardSet.objects.all().order_by('code'))
 checked_sets = [cs for cs in all_sets if is_set_eligible(cs)]
@@ -56,7 +60,26 @@ for cs in checked_sets:
     if not card_map:
         continue
 
-    bad_keys = [k for k in card_map if not PLAIN_KEY_RE.match(k)]
+    products = list(
+        PokemonProduct.objects
+        .filter(card_set=cs, is_active=True)
+        .exclude(card_number__isnull=True)
+        .values("card_number", "number")
+    )
+    total_cards = cs.total_cards or 0
+    # Every key get_set_card_map() can LEGITIMATELY produce without
+    # synthesising a suffix: a product's own populated `number` (whatever
+    # shape it is -- numeric, "H32/H32", "AR9", doesn't matter), or the
+    # zero-padded fallback for a blank-`number` row.
+    legit_keys = set()
+    for p in products:
+        raw = (p["number"] or "").strip()
+        if raw:
+            legit_keys.add(raw)
+        else:
+            legit_keys.add(f"{str(p['card_number']).zfill(3)}/{total_cards}")
+
+    bad_keys = [k for k in card_map if k not in legit_keys]
     if not bad_keys:
         continue
 
