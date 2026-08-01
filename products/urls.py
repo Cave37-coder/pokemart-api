@@ -29,6 +29,7 @@ urlpatterns = [
     path("checklists/clear-set/", views.checklist_clear_set, name="checklist-clear-set"),
     path("checklists/import/", views.checklist_import, name="checklist-import"),
     path("checklists/progress/", views.checklist_progress, name="checklist-progress"),
+    path("checklists/my-completions/", views.checklist_my_completions, name="checklist-my-completions"),
     path("checklists/leaderboard/", views.checklist_leaderboard, name="checklist-leaderboard"),
     path("checklists/wall-of-honour/", views.checklist_wall_of_honour, name="checklist-wall-of-honour"),
     path("manage/", views.manage_set, name="manage-set"),

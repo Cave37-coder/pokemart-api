@@ -1114,7 +1114,7 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .models import ChecklistEntry, SetCompletionEvent
 from .completion import (
-    is_set_eligible, compute_user_set_completion, TIER_LABELS,
+    is_set_eligible, compute_user_set_completion, TIER_LABELS, TIER_ORDER,
 )
 
 
@@ -1216,6 +1216,33 @@ def checklist_progress(request):
     return Response(compute_user_set_completion(request.user, card_set))
 
 
+# Highest tier first -- "master_set"/"complete_set" both mean "done", so
+# either can win the top spot; a set is only ever in one mode (simple vs
+# full) at a time so the two never actually compete against each other.
+_TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
+_TIER_RANK['complete_set'] = len(TIER_ORDER)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checklist_my_completions(request):
+    """This customer's single highest completed tier per set, across every
+    set, in one call -- powers the "you've completed this" highlight on the
+    Checklists landing page grid without recomputing all ~146 sets client
+    side. Shape: {"CRZ": "master_set", "TK22": "complete_set", ...}.
+    Reuses SetCompletionEvent (already the source of truth for the Wall of
+    Honour) rather than re-deriving tier completion from scratch, so this
+    can never drift out of sync with what actually counts as "complete."
+    """
+    events = SetCompletionEvent.objects.filter(user=request.user).values_list('card_set', 'tier')
+    best: dict[str, str] = {}
+    for card_set, tier in events:
+        current = best.get(card_set)
+        if current is None or _TIER_RANK.get(tier, -1) > _TIER_RANK.get(current, -1):
+            best[card_set] = tier
+    return Response(best)
+
+
 @api_view(['GET'])
 def checklist_leaderboard(request):
     """Top 5 opted-in customers for one set + tier, ranked by cards owned,
@@ -1242,6 +1269,16 @@ def checklist_leaderboard(request):
         e.user_id: e.completed_at
         for e in SetCompletionEvent.objects.filter(card_set=set_code, tier=tier, user_id__in=candidate_ids)
     }
+    # Michael, 2026-08-01 ("make it more competition worthy... cross-tier
+    # progress ladder"): every tier this candidate has ALREADY completed for
+    # this set, not just the one currently selected -- lets the frontend
+    # show a small ladder of dots (Broke Base/Base Set/Special Set
+    # Base/Master Set, or Complete Set) per row instead of a single number.
+    # Reuses SetCompletionEvent, same source of truth as Wall of Honour and
+    # /my-completions/ above -- no separate completion math to keep in sync.
+    tiers_complete_by_user: dict[int, list[str]] = {}
+    for e in SetCompletionEvent.objects.filter(card_set=set_code, user_id__in=candidate_ids):
+        tiers_complete_by_user.setdefault(e.user_id, []).append(e.tier)
 
     rows = []
     for user in candidates:
@@ -1258,6 +1295,7 @@ def checklist_leaderboard(request):
             'pct': tier_data['pct'],
             'complete': tier_data['complete'],
             'completed_at': completed_at.isoformat() if completed_at else None,
+            'tiers_complete': tiers_complete_by_user.get(user.id, []),
         })
 
     rows.sort(key=lambda r: (-r['owned'], r['completed_at'] or '9999-99-99'))
