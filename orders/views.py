@@ -234,40 +234,55 @@ class CheckoutView(APIView):
             note='Order received successfully.',
         )
 
-        # Automated order-confirmation email -- fires once, right here, at
-        # the moment of placement. Uses the exact same _build_invoice_html
-        # the manual "Email Order" admin button already uses, so there's
-        # one source of truth for what an invoice looks like. Wrapped in
-        # try/except deliberately: a failed email must never break checkout
-        # itself -- the order is already committed by this point, and the
-        # customer should still get their order confirmed even if the email
-        # send has a problem. Failures are logged instead of raised.
-        try:
-            html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
-            if customer_email:
-                subject = f'Your PokeBulk SA Order Confirmation — Order #{order.id} ({invoice_num})'
-                text_body = strip_tags(html)
-                email = EmailMultiAlternatives(
-                    subject=subject,
-                    body=text_body,
-                    to=[customer_email],
-                    bcc=['enquiries@pokebulk.co.za'],
+        # Automated order-confirmation email -- fires only after the DB
+        # transaction actually commits (transaction.on_commit below), NOT
+        # inline here. Uses the exact same _build_invoice_html the manual
+        # "Email Order" admin button already uses, so there's one source of
+        # truth for what an invoice looks like.
+        #
+        # Michael, 2026-08-02: this used to run inline, right here, before
+        # the view returned -- still inside the @transaction.atomic block.
+        # If literally anything after the send raised (e.g. a hiccup while
+        # serializing the response two lines below), Django rolled back the
+        # whole transaction -- order, order items, stock decrement, cart
+        # clear, all of it -- but the email had already gone out
+        # irreversibly, since sending mail isn't part of the DB transaction
+        # and can't be undone. Customer got a confirmation email for an
+        # order that no longer existed in the DB, with their cart/Pile still
+        # full and nothing to show for it. transaction.on_commit() defers
+        # the send until Django confirms the transaction actually committed
+        # -- if it rolls back for any reason, on_commit's callback is simply
+        # discarded and no email goes out. Failures inside the send itself
+        # are still caught and logged, never raised.
+        def _send_confirmation_email():
+            try:
+                html, invoice_num, customer_email = _build_invoice_html(order, show_controls=False)
+                if customer_email:
+                    subject = f'Your PokeBulk SA Order Confirmation — Order #{order.id} ({invoice_num})'
+                    text_body = strip_tags(html)
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_body,
+                        to=[customer_email],
+                        bcc=['enquiries@pokebulk.co.za'],
+                    )
+                    email.attach_alternative(html, 'text/html')
+                    email.send(fail_silently=False)
+                    logger.info(
+                        "Order confirmation email sent for order_id=%s to=%s",
+                        order.id, customer_email,
+                    )
+                else:
+                    logger.warning(
+                        "Order #%s placed but user_id=%s has no email on file -- confirmation not sent.",
+                        order.id, order.user_id,
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to send order confirmation email for order_id=%s", order.id,
                 )
-                email.attach_alternative(html, 'text/html')
-                email.send(fail_silently=False)
-                logger.info(
-                    "Order confirmation email sent for order_id=%s to=%s",
-                    order.id, customer_email,
-                )
-            else:
-                logger.warning(
-                    "Order #%s placed but user_id=%s has no email on file -- confirmation not sent.",
-                    order.id, order.user_id,
-                )
-        except Exception:
-            logger.exception(
-                "Failed to send order confirmation email for order_id=%s", order.id,
-            )
+
+        transaction.on_commit(_send_confirmation_email)
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
