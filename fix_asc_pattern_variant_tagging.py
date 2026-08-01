@@ -41,7 +41,7 @@ from collections import defaultdict
 
 from products.models import PokemonProduct
 
-APPLY = False  # flip to True once the printed list below looks right
+APPLY = True  # flip to True once the printed list below looks right
 
 PATTERN_NAME_TO_CODE = {
     "Energy Symbol Pattern": "ESH",
