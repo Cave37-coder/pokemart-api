@@ -1112,7 +1112,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-from .models import ChecklistEntry, SetCompletionEvent
+from .models import ChecklistEntry, SetCompletionEvent, PokedexCollectionEntry
 from .completion import (
     is_set_eligible, compute_user_set_completion, TIER_LABELS, TIER_ORDER,
 )
@@ -1194,6 +1194,62 @@ def checklist_import(request):
     if to_create:
         ChecklistEntry.objects.bulk_create(to_create, ignore_conflicts=True)
     return Response({'imported': len(to_create)})
+
+
+# --- Pokedex collection (separate from Checklists) -------------------------
+# Michael, 2026-08-02: "I want to be able to select the card or Variant of
+# Card, add to a separate PokeDex collection, not tie in into Checklist,
+# that was the one issue I had with pkmn.gg version. I want to track my Poke
+# Dex separate to rest of my collection." So this is its own model
+# (PokedexCollectionEntry), its own endpoints, zero shared data with
+# ChecklistEntry/SetCompletionEvent above. A Pokemon counts as "caught" the
+# moment the user owns ANY one of its cards.
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def pokedex_toggle(request):
+    """Flip one exact card/variant's owned state in the Pokedex collection.
+    Body: {"product_id": 12345}. Returns {"owned": true/false}."""
+    product_id = request.data.get('product_id')
+    if not product_id:
+        return Response({'error': 'product_id is required'}, status=400)
+    try:
+        product = PokemonProduct.objects.get(pk=product_id)
+    except PokemonProduct.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=404)
+
+    existing = PokedexCollectionEntry.objects.filter(user=request.user, product=product).first()
+    if existing:
+        existing.delete()
+        return Response({'owned': False})
+
+    PokedexCollectionEntry.objects.create(user=request.user, product=product)
+    return Response({'owned': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pokedex_my_collection(request):
+    """Everything this customer has marked owned in their Pokedex collection,
+    in one call -- product_ids (so the frontend can mark checkboxes on any
+    card list), caught_pokedex_numbers (every distinct pokedex_number owned,
+    so the /pokedex grid can mark individual tiles as caught without fetching
+    per-card data for all 1025 Pokemon), and species_collected (its count,
+    for the "X/1025 Collected" progress bar). Frontend already knows the
+    National Dex total (1025) as a constant, so it isn't returned here.
+    """
+    entries = PokedexCollectionEntry.objects.filter(user=request.user).select_related('product')
+    product_ids = []
+    species = set()
+    for e in entries:
+        product_ids.append(e.product_id)
+        if e.product.pokedex_number:
+            species.add(e.product.pokedex_number)
+    return Response({
+        'product_ids': product_ids,
+        'caught_pokedex_numbers': sorted(species),
+        'species_collected': len(species),
+    })
 
 
 # --- Checklist Phase 1: Compare & Compete (leaderboards + Wall of Honour) --

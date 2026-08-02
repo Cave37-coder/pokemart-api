@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
-from .models import PokemonProduct, Category, PokemonType, Era, CardSet
+from .models import PokemonProduct, Category, PokemonType, Era, CardSet, PokedexCollectionEntry
 
 
 @admin.register(Era)
@@ -84,3 +84,14 @@ class PokemonProductAdmin(admin.ModelAdmin):
             "classes": ["collapse"]
         }),
     ]
+
+
+@admin.register(PokedexCollectionEntry)
+class PokedexCollectionEntryAdmin(admin.ModelAdmin):
+    # Separate from Checklists (see products/models.py) -- this is Michael's
+    # visibility into customers' personal Pokedex "owned" marks.
+    list_display = ["user", "product", "added_at"]
+    list_filter = ["added_at"]
+    search_fields = ["user__username", "product__name"]
+    autocomplete_fields = ["product"]
+    raw_id_fields = ["user"]
