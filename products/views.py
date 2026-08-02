@@ -1112,6 +1112,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from decimal import Decimal
 from .models import ChecklistEntry, SetCompletionEvent, PokedexCollectionEntry
 from .completion import (
     is_set_eligible, compute_user_set_completion, TIER_LABELS, TIER_ORDER,
@@ -1234,21 +1235,38 @@ def pokedex_my_collection(request):
     in one call -- product_ids (so the frontend can mark checkboxes on any
     card list), caught_pokedex_numbers (every distinct pokedex_number owned,
     so the /pokedex grid can mark individual tiles as caught without fetching
-    per-card data for all 1025 Pokemon), and species_collected (its count,
-    for the "X/1025 Collected" progress bar). Frontend already knows the
-    National Dex total (1025) as a constant, so it isn't returned here.
+    per-card data for all 1025 Pokemon), species_collected (its count, for
+    the "X/1025 Collected" progress bar), collection_value (ZAR sum of every
+    owned card's current catalog price), and top_valued/recently_added (each
+    up to 3 full card objects -- same shape PokemonProductSerializer always
+    returns, so the frontend can drop them straight into the existing
+    CardTile component) for the Pokedex overview widgets Michael asked for
+    2026-08-02.
     """
-    entries = PokedexCollectionEntry.objects.filter(user=request.user).select_related('product')
+    entries = list(
+        PokedexCollectionEntry.objects.filter(user=request.user)
+        .select_related('product', 'product__card_set', 'product__card_set__era')
+        .order_by('-added_at')
+    )
     product_ids = []
     species = set()
+    collection_value = Decimal('0')
     for e in entries:
         product_ids.append(e.product_id)
         if e.product.pokedex_number:
             species.add(e.product.pokedex_number)
+        collection_value += e.product.price or Decimal('0')
+
+    recently_added = entries[:3]  # already newest-first via order_by('-added_at')
+    top_valued = sorted(entries, key=lambda e: e.product.price or Decimal('0'), reverse=True)[:3]
+
     return Response({
         'product_ids': product_ids,
         'caught_pokedex_numbers': sorted(species),
         'species_collected': len(species),
+        'collection_value': str(collection_value),
+        'top_valued': PokemonProductSerializer([e.product for e in top_valued], many=True, context={'request': request}).data,
+        'recently_added': PokemonProductSerializer([e.product for e in recently_added], many=True, context={'request': request}).data,
     })
 
 
