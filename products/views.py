@@ -1251,11 +1251,21 @@ def pokedex_my_collection(request):
     product_ids = []
     species = set()
     collection_value = Decimal('0')
+    # Michael, 2026-08-02: "add the actual image in colour of card owned...
+    # as the Pokemon on landing page" -- so the /pokedex grid can swap a
+    # caught species' generic sprite for the real print the customer owns.
+    # Keeps whichever owned print is worth the most, since that's the one
+    # worth showing off.
+    best_image_by_species = {}  # pokedex_number -> (price, image_url)
     for e in entries:
         product_ids.append(e.product_id)
-        if e.product.pokedex_number:
-            species.add(e.product.pokedex_number)
-        collection_value += e.product.price or Decimal('0')
+        price = e.product.price or Decimal('0')
+        collection_value += price
+        pn = e.product.pokedex_number
+        if pn:
+            species.add(pn)
+            if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
+                best_image_by_species[pn] = (price, e.product.image_url)
 
     recently_added = entries[:3]  # already newest-first via order_by('-added_at')
     top_valued = sorted(entries, key=lambda e: e.product.price or Decimal('0'), reverse=True)[:3]
@@ -1264,6 +1274,7 @@ def pokedex_my_collection(request):
         'product_ids': product_ids,
         'caught_pokedex_numbers': sorted(species),
         'species_collected': len(species),
+        'caught_card_images': {str(pn): img for pn, (_, img) in best_image_by_species.items()},
         'collection_value': str(collection_value),
         'top_valued': PokemonProductSerializer([e.product for e in top_valued], many=True, context={'request': request}).data,
         'recently_added': PokemonProductSerializer([e.product for e in recently_added], many=True, context={'request': request}).data,
