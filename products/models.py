@@ -294,3 +294,39 @@ class SetCompletionEvent(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.card_set} -- {self.get_tier_display()}"
+
+
+class PokedexCollectionEntry(models.Model):
+    """
+    One row = one customer has marked one exact card/variant (a single
+    PokemonProduct row) as owned in their personal Pokedex collection.
+
+    Michael, 2026-08-02: deliberately a SEPARATE feature from ChecklistEntry
+    / set completion -- "I want to be able to select the card or Variant of
+    Card, add to a separate PokeDex collection, not tie in into Checklist,
+    that was the one issue I had with pkmn.gg version. I want to track my
+    Poke Dex separate to rest of my collection." So a Pokemon "counts" as
+    caught on the Pokedex the moment ANY one of its cards has a row here,
+    independent of whatever's checked on that card's set Checklist -- the
+    two features share no data.
+
+    Uses a direct FK to PokemonProduct (unlike ChecklistEntry's string-based
+    card_set/card_key) since a Pokedex entry is inherently about one exact
+    physical print a customer says they own, not an abstract per-set card
+    slot that needs to survive a catalog resync the same way a checklist
+    tick does.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pokedex_entries")
+    product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE, related_name="pokedex_entries")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="unique_pokedex_entry"),
+        ]
+        indexes = [
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.product.name} (product #{self.product_id})"
