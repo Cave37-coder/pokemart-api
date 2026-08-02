@@ -335,29 +335,41 @@ def _send_manual_invoice_email(invoice):
     inbox ends up with the copy either way, just not silently blind-copied
     when it's the only recipient.
     """
-    html = build_manual_invoice_html(invoice, show_controls=False)
-    subject = f'Your PokeBulk SA Invoice — {invoice.invoice_number}'
-    text_body = strip_tags(html)
-
-    if invoice.customer_email:
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body,
-            to=[invoice.customer_email],
-            bcc=['enquiries@pokebulk.co.za'],
-        )
-    else:
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body,
-            to=['enquiries@pokebulk.co.za'],
-        )
-    email.attach_alternative(html, 'text/html')
-
-    pdf_bytes = html_to_pdf(html)
-    email.attach(f'{invoice.invoice_number}.pdf', pdf_bytes, 'application/pdf')
-
+    # Michael, 2026-08-02: the whole body used to only wrap email.send() in
+    # try/except -- building the HTML, generating the PDF (xhtml2pdf), and
+    # constructing the EmailMultiAlternatives were all outside it. If any of
+    # those steps ever threw, the exception escaped this function entirely.
+    # For the automatic send that's especially bad: it runs inside
+    # transaction.on_commit in pos_save_view, AFTER the invoice was already
+    # saved to the DB -- an uncaught exception there crashes the save
+    # request with a 500 *after* the data is already committed, so you'd
+    # see "network error saving invoice" even though the invoice actually
+    # saved, and no email would ever be attempted, with nothing telling you
+    # why. Wrapping the entire thing means every failure mode reports back
+    # as (False, detail) instead of silently blowing up the caller.
     try:
+        html = build_manual_invoice_html(invoice, show_controls=False)
+        subject = f'Your PokeBulk SA Invoice — {invoice.invoice_number}'
+        text_body = strip_tags(html)
+
+        if invoice.customer_email:
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_body,
+                to=[invoice.customer_email],
+                bcc=['enquiries@pokebulk.co.za'],
+            )
+        else:
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_body,
+                to=['enquiries@pokebulk.co.za'],
+            )
+        email.attach_alternative(html, 'text/html')
+
+        pdf_bytes = html_to_pdf(html)
+        email.attach(f'{invoice.invoice_number}.pdf', pdf_bytes, 'application/pdf')
+
         email.send(fail_silently=False)
         if invoice.customer_email:
             return True, f"emailed to {invoice.customer_email}."
@@ -661,6 +673,17 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                 ok, detail = _send_manual_invoice_email(invoice)
                 email_result['sent'] = ok
                 email_result['detail'] = detail
+                # The JSON response's email_sent/email_detail fields (below)
+                # weren't actually being read anywhere in the POS screen's
+                # JS -- it just redirects on success and never looked at
+                # them, so a failed send was invisible. Queuing a proper
+                # Django admin message here means it shows as a banner on
+                # the invoice's change page the moment the redirect lands,
+                # same place the manual Email button's result already shows.
+                if ok:
+                    messages.success(request, f"{invoice.invoice_number} {detail}")
+                else:
+                    messages.error(request, f"{invoice.invoice_number}: {detail}")
             transaction.on_commit(_fire_confirmation_email)
 
         return JsonResponse({
