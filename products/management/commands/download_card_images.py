@@ -113,6 +113,7 @@ POKEMONTCGIO_MAP = {
     # SWSH Era
     "SSH":"swsh1","RCL":"swsh2","DAA":"swsh3","CPA":"swsh35","VIV":"swsh4",
     "SHF":"swsh45","BST":"swsh5","CRE":"swsh6","EVS":"swsh7","CEL":"swsh8",
+    "CLB":"swsh8",  # Celebrations -- "CLB" is this catalog's actual card_set code, "CEL" was the pokemontcg.io-convention alias only
     "FST":"swsh9","BRS":"swsh10","ASR":"swsh11","LOR":"swsh12","SIT":"swsh13",
     "CRZ":"swsh12pt5","PR-SW":"swshp",
     # SV Era — SVI and SV1 are the same set on pokemontcg.io
@@ -145,7 +146,7 @@ TCGDEX_MAP = {
     "TEU":("sm","sm9"),"UNB":("sm","sm10"),"UNM":("sm","sm11"),"CEC":("sm","sm12"),
     "SSH":("swsh","swsh1"),"RCL":("swsh","swsh2"),"DAA":("swsh","swsh3"),
     "VIV":("swsh","swsh4"),"BST":("swsh","swsh5"),"CRE":("swsh","swsh6"),
-    "EVS":("swsh","swsh7"),"CEL":("swsh","swsh8"),"FST":("swsh","swsh9"),
+    "EVS":("swsh","swsh7"),"CEL":("swsh","swsh8"),"CLB":("swsh","swsh8"),"FST":("swsh","swsh9"),
     "BRS":("swsh","swsh10"),"ASR":("swsh","swsh11"),"LOR":("swsh","swsh12"),
     "SIT":("swsh","swsh13"),"CRZ":("swsh","swsh12pt5"),
     "SV1":("sv","sv1"),"SVI":("sv","sv1"),"PAL":("sv","sv2"),"OBF":("sv","sv3"),
