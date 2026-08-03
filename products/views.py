@@ -1273,11 +1273,18 @@ def pokedex_my_collection(request):
         product_ids.append(e.product_id)
         price = e.product.price or Decimal('0')
         collection_value += price
-        pn = e.product.pokedex_number
-        if pn:
-            species.add(pn)
-            if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
-                best_image_by_species[pn] = (price, e.product.image_url)
+        # Tag-team cards ("Pheromosa & Buzzwole GX") depict TWO Pokemon --
+        # pokedex_number is the primary, pokedex_number_2 the secondary.
+        # Owning one of these genuinely means you own a print of BOTH
+        # species, so both need to count as "caught" and both are eligible
+        # for the real-card-art treatment, not just the primary one. Michael
+        # spotted this 2026-08-04: owning "Pheromosa & Buzzwole GX" marked
+        # Buzzwole caught but left Pheromosa showing as not-caught.
+        for pn in (e.product.pokedex_number, e.product.pokedex_number_2):
+            if pn:
+                species.add(pn)
+                if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
+                    best_image_by_species[pn] = (price, e.product.image_url)
 
     recently_added = entries[:3]  # already newest-first via order_by('-added_at')
     top_valued = sorted(entries, key=lambda e: e.product.price or Decimal('0'), reverse=True)[:3]
