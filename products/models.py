@@ -109,6 +109,14 @@ class PokemonProduct(models.Model):
     pokemon_types = models.ManyToManyField(PokemonType, blank=True, related_name="products")
     rarity = models.CharField(max_length=30, choices=RARITY_CHOICES, default="common")
     pokedex_number = models.PositiveIntegerField(null=True, blank=True)
+    # Michael, 2026-08-02: "the TAG Team cards with 2 Pokemon, must have
+    # Pokedex numbers added" -- cards like "Pikachu & Zekrom-GX" depict two
+    # separate Pokemon. Deliberately a SECOND nullable field rather than
+    # restructuring pokedex_number into a list: every existing filter, the
+    # Pokedex pages, and the ?pokedex= query param all assume a single int
+    # and keep working unchanged for the ~99% of cards with one Pokemon.
+    # Only tag-team/multi-Pokemon cards ever get this set.
+    pokedex_number_2 = models.PositiveIntegerField(null=True, blank=True)
     card_number = models.PositiveIntegerField(null=True, blank=True)
     number = models.CharField(max_length=20, blank=True)
     variant_override = models.CharField(max_length=20, blank=True)
