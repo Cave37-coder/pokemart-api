@@ -1277,9 +1277,12 @@ def pokedex_my_collection(request):
         # pokedex_number is the primary, pokedex_number_2 the secondary.
         # Owning one of these genuinely means you own a print of BOTH
         # species, so both need to count as "caught" and both are eligible
-        # for the real-card-art treatment, not just the primary one. Michael
-        # spotted this 2026-08-04: owning "Pheromosa & Buzzwole GX" marked
-        # Buzzwole caught but left Pheromosa showing as not-caught.
+        # for the real-card-art treatment -- confirmed final answer from
+        # Michael 2026-08-04 after a brief revert-then-correct: "if it is
+        # selected for second Pokedex number, then it must only be shown
+        # for that selection, not only the first number" -- i.e. the second
+        # dex number must get its own credit too, not be ignored in favour
+        # of just the primary.
         for pn in (e.product.pokedex_number, e.product.pokedex_number_2):
             if pn:
                 species.add(pn)
