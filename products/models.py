@@ -327,10 +327,24 @@ class PokedexCollectionEntry(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pokedex_entries")
     product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE, related_name="pokedex_entries")
     added_at = models.DateTimeField(auto_now_add=True)
+    # Michael, 2026-08-04: tag-team cards ("Pheromosa & Buzzwole GX") depict
+    # TWO Pokemon on one physical card/product row. Final decision after
+    # testing the "both species always get credit" behaviour live: "if you
+    # select a card on a page for a pokemon, that selection must be for that
+    # pokemon only, not bleed into the other pokemon on the tag team card" --
+    # i.e. catching this card from Pheromosa's page credits ONLY Pheromosa;
+    # catching the SAME physical card again from Buzzwole's page is a
+    # separate, independent action that credits Buzzwole. This field records
+    # which of the (up to two) species this particular catch was for, so the
+    # same product can have zero, one, or two rows for the same user -- one
+    # per species it's been caught for. Null only for rows written before
+    # this field existed; those were backfilled to the product's primary
+    # pokedex_number in the migration that added this field.
+    caught_for_pokedex_number = models.IntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "product"], name="unique_pokedex_entry"),
+            models.UniqueConstraint(fields=["user", "product", "caught_for_pokedex_number"], name="unique_pokedex_entry_per_species"),
         ]
         indexes = [
             models.Index(fields=["user"]),

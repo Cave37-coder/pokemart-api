@@ -1221,8 +1221,22 @@ def checklist_import(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def pokedex_toggle(request):
-    """Flip one exact card/variant's owned state in the Pokedex collection.
-    Body: {"product_id": 12345}. Returns {"owned": true/false}."""
+    """Flip one exact card/variant's owned state in the Pokedex collection,
+    scoped to ONE species. Body: {"product_id": 12345, "pokedex_number": 795}.
+    pokedex_number is optional for single-species cards (defaults to the
+    product's primary pokedex_number) but REQUIRED to mean anything for
+    tag-team cards.
+
+    Michael, 2026-08-04, after live-testing the "both species always credited"
+    version: "if you select a card on a page for a pokemon, that selection
+    must be for that pokemon only, not bleed into the other pokemon on the
+    tag team card." So catching "Pheromosa & Buzzwole GX" from Pheromosa's
+    page only creates a row for 795 -- Buzzwole stays uncaught until the
+    SAME card is separately caught from Buzzwole's page too. That's why this
+    looks up/creates by (user, product, pokedex_number) instead of just
+    (user, product) -- the same product can have up to two independent rows.
+    Returns {"owned": true/false, "pokedex_number": <int>}.
+    """
     product_id = request.data.get('product_id')
     if not product_id:
         return Response({'error': 'product_id is required'}, status=400)
@@ -1231,13 +1245,21 @@ def pokedex_toggle(request):
     except PokemonProduct.DoesNotExist:
         return Response({'error': 'Product not found'}, status=404)
 
-    existing = PokedexCollectionEntry.objects.filter(user=request.user, product=product).first()
+    pokedex_number = request.data.get('pokedex_number')
+    if pokedex_number is None:
+        pokedex_number = product.pokedex_number
+    else:
+        pokedex_number = int(pokedex_number)
+
+    existing = PokedexCollectionEntry.objects.filter(
+        user=request.user, product=product, caught_for_pokedex_number=pokedex_number
+    ).first()
     if existing:
         existing.delete()
-        return Response({'owned': False})
+        return Response({'owned': False, 'pokedex_number': pokedex_number})
 
-    PokedexCollectionEntry.objects.create(user=request.user, product=product)
-    return Response({'owned': True})
+    PokedexCollectionEntry.objects.create(user=request.user, product=product, caught_for_pokedex_number=pokedex_number)
+    return Response({'owned': True, 'pokedex_number': pokedex_number})
 
 
 @api_view(['GET'])
@@ -1261,6 +1283,7 @@ def pokedex_my_collection(request):
         .order_by('-added_at')
     )
     product_ids = []
+    owned_pairs = []  # [product_id, pokedex_number] -- the exact species this specific catch counts for
     species = set()
     collection_value = Decimal('0')
     # Michael, 2026-08-02: "add the actual image in colour of card owned...
@@ -1268,32 +1291,35 @@ def pokedex_my_collection(request):
     # caught species' generic sprite for the real print the customer owns.
     # Keeps whichever owned print is worth the most, since that's the one
     # worth showing off.
+    #
+    # Michael, 2026-08-04, FINAL (superseding the "both species always
+    # credited" version from earlier the same day): "if you select a card on
+    # a page for a pokemon, that selection must be for that pokemon only,
+    # not bleed into the other pokemon on the tag team card." So each entry
+    # counts ONLY toward caught_for_pokedex_number -- catching "Pheromosa &
+    # Buzzwole GX" from Pheromosa's page no longer auto-credits Buzzwole.
     best_image_by_species = {}  # pokedex_number -> (price, image_url)
     for e in entries:
         product_ids.append(e.product_id)
         price = e.product.price or Decimal('0')
         collection_value += price
-        # Tag-team cards ("Pheromosa & Buzzwole GX") depict TWO Pokemon --
-        # pokedex_number is the primary, pokedex_number_2 the secondary.
-        # Owning one of these genuinely means you own a print of BOTH
-        # species, so both need to count as "caught" and both are eligible
-        # for the real-card-art treatment -- confirmed final answer from
-        # Michael 2026-08-04 after a brief revert-then-correct: "if it is
-        # selected for second Pokedex number, then it must only be shown
-        # for that selection, not only the first number" -- i.e. the second
-        # dex number must get its own credit too, not be ignored in favour
-        # of just the primary.
-        for pn in (e.product.pokedex_number, e.product.pokedex_number_2):
-            if pn:
-                species.add(pn)
-                if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
-                    best_image_by_species[pn] = (price, e.product.image_url)
+        # Legacy rows written before caught_for_pokedex_number existed were
+        # backfilled to the product's primary pokedex_number in that field's
+        # migration, but fall back defensively here too in case any slip
+        # through with a null.
+        pn = e.caught_for_pokedex_number or e.product.pokedex_number
+        if pn:
+            owned_pairs.append([e.product_id, pn])
+            species.add(pn)
+            if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
+                best_image_by_species[pn] = (price, e.product.image_url)
 
     recently_added = entries[:3]  # already newest-first via order_by('-added_at')
     top_valued = sorted(entries, key=lambda e: e.product.price or Decimal('0'), reverse=True)[:3]
 
     return Response({
         'product_ids': product_ids,
+        'owned_pairs': owned_pairs,
         'caught_pokedex_numbers': sorted(species),
         'species_collected': len(species),
         'caught_card_images': {str(pn): img for pn, (_, img) in best_image_by_species.items()},
