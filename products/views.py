@@ -14,7 +14,10 @@ class PokemonProductFilter(django_filters.FilterSet):
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
     category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
-    pokedex = django_filters.NumberFilter(field_name='pokedex_number', lookup_expr='exact')
+    # Tag-team cards ("Pikachu & Zekrom-GX") carry the second Pokemon's dex
+    # number in pokedex_number_2 -- ?pokedex=0644 should surface that card
+    # too, not just cards where Zekrom is the PRIMARY (pokedex_number) one.
+    pokedex = django_filters.NumberFilter(method='filter_pokedex')
     card_number = django_filters.NumberFilter(field_name='card_number', lookup_expr='exact')
     subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
@@ -23,6 +26,9 @@ class PokemonProductFilter(django_filters.FilterSet):
     legal_standard = django_filters.BooleanFilter(field_name='legal_standard', method='filter_legal_standard')
     legality = django_filters.CharFilter(method='filter_legality')
     prize_pack_series = django_filters.CharFilter(field_name='prize_pack_series', lookup_expr='icontains')
+
+    def filter_pokedex(self, queryset, name, value):
+        return queryset.filter(Q(pokedex_number=value) | Q(pokedex_number_2=value))
 
     def filter_in_stock(self, queryset, name, value):
         if value:
@@ -68,7 +74,13 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     serializer_class = PokemonProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PokemonProductFilter
-    search_fields = ['name', 'card_set__name', 'description', 'artist', 'pokedex_number', 'card_number']
+    # NOTE: "=" prefix on the numeric fields switches DRF's SearchFilter from
+    # its default icontains to an exact match for that field. Without it,
+    # typing "25" into the search box matched every card whose dex/card
+    # number CONTAINED "25" as a substring -- 125, 225, 251-259, etc (715
+    # rows instead of the 178 that are actually #25) -- confirmed via
+    # verify_search_fixes.py on 2026-08-03.
+    search_fields = ['name', 'card_set__name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number']
     ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
     ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
 
