@@ -36,10 +36,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
-from products.models import PokemonProduct, PokedexCollectionEntry
+from products.completion import TIER_LABELS, TIER_ORDER
+from products.models import PokemonProduct, PokedexCollectionEntry, SetCompletionEvent, CardSet
 from products.serializers import PokemonProductSerializer
 from users.views import check_rate_limit
-from .models import Block, TradeRequest, Message, Report
+from .models import Block, TradeRequest, Message, Report, Friendship
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -127,22 +128,108 @@ def _is_blocked_either_way(user_id_a, user_id_b):
     ).exists()
 
 
-def _visible_profile_or_404(user_id):
-    """The one gate every public-profile-reading endpoint uses -- opted in
-    AND has picked a display name, exactly like the checklist leaderboard."""
-    return get_object_or_404(
-        User.objects.exclude(public_display_name=""),
-        pk=user_id, community_profile_public=True,
-    )
+def _are_friends(user_id_a, user_id_b):
+    """Symmetric -- doesn't matter who originally sent the request, only
+    that it's in the 'accepted' state."""
+    return Friendship.objects.filter(
+        Q(from_user_id=user_id_a, to_user_id=user_id_b) |
+        Q(from_user_id=user_id_b, to_user_id=user_id_a),
+        status="accepted",
+    ).exists()
+
+
+def _friendship_status(viewer_id, other_id):
+    """Relative to the viewer: 'self', 'friends', 'pending_sent',
+    'pending_received', or 'none'."""
+    if viewer_id is None:
+        return "none"
+    if viewer_id == other_id:
+        return "self"
+    fr = Friendship.objects.filter(
+        Q(from_user_id=viewer_id, to_user_id=other_id) |
+        Q(from_user_id=other_id, to_user_id=viewer_id)
+    ).first()
+    if not fr:
+        return "none"
+    if fr.status == "accepted":
+        return "friends"
+    if fr.status == "pending":
+        return "pending_sent" if fr.from_user_id == viewer_id else "pending_received"
+    return "none"  # declined -- treated as if nothing ever happened, can re-request
+
+
+_TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
+_TIER_RANK['complete_set'] = len(TIER_ORDER)
+
+
+def _best_completions_for_user(user):
+    """Same source of truth and same 'highest tier per set' logic as
+    products.views.checklist_my_completions, just for an arbitrary user
+    instead of always request.user -- reuses SetCompletionEvent so this can
+    never drift out of sync with what the Wall of Honour counts as
+    'complete'. Returns a list (not a dict) since this is for display, with
+    set names resolved for convenience."""
+    events = SetCompletionEvent.objects.filter(user=user).values_list('card_set', 'tier')
+    best = {}
+    for card_set, tier in events:
+        current = best.get(card_set)
+        if current is None or _TIER_RANK.get(tier, -1) > _TIER_RANK.get(current, -1):
+            best[card_set] = tier
+    if not best:
+        return []
+    sets_by_code = {s.code: s for s in CardSet.objects.filter(code__in=best.keys())}
+    return [
+        {
+            "set_code": code,
+            "set_name": sets_by_code[code].name if code in sets_by_code else code,
+            "tier": tier,
+            "tier_label": TIER_LABELS.get(tier, tier),
+        }
+        for code, tier in sorted(best.items())
+    ]
+
+
+def _visible_profile_or_404(user_id, viewer_id=None):
+    """The one gate every public-profile-reading endpoint uses. A profile is
+    visible if EITHER: (a) opted into general public browsing
+    (community_profile_public) -- same double-check as the checklist
+    leaderboard, needs a display name too, or (b) the viewer is an accepted
+    friend of this user, regardless of the public toggle -- friendship is a
+    stronger, more deliberate grant than "browsable by anyone" (2026-08-07,
+    Michael: friends should "share their collections amongst themselves"
+    even if they're not broadcasting to the whole Community directory)."""
+    user = get_object_or_404(User.objects.exclude(public_display_name=""), pk=user_id)
+    if user.community_profile_public:
+        return user
+    if viewer_id is not None and _are_friends(viewer_id, user.id):
+        return user
+    # Not public and not a friend -- 404, same as "doesn't exist" from the
+    # outside, don't leak that this account exists but is just private.
+    from django.http import Http404
+    raise Http404
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def public_profile(request, user_id):
-    """A customer's public community profile: Pokedex collection summary +
-    (if they've also opted their wishlist in -- same single toggle covers
-    both) their want-list. GET /api/community/profile/<user_id>/"""
-    user = _visible_profile_or_404(user_id)
+    """A customer's community profile. Three independent visibility layers,
+    each opted into separately:
+      - community_profile_public: summary Pokedex stats + recent 6 catches
+        + wishlist -- what gives strangers browsing Community "a reason to
+        look" (Michael, 2026-08-07).
+      - checklist_public: per-set tier completion list (same data source as
+        the leaderboard/Wall of Honour).
+      - Being FRIENDS with the viewer: unlocks the FULL interactive Pokedex
+        (every caught species + card art, enough to drive the same
+        Gen-tabbed grid Michael sees for his own /pokedex), regardless of
+        whether community_profile_public/checklist_public are on -- the
+        stronger, more deliberate grant.
+    Collection VALUE in Rand is never included via this endpoint, full stop,
+    friend or not -- see the module docstring for why.
+    GET /api/community/profile/<user_id>/"""
+    viewer_id = request.user.id if request.user.is_authenticated else None
+    user = _visible_profile_or_404(user_id, viewer_id=viewer_id)
+    is_friend = viewer_id is not None and _are_friends(viewer_id, user.id)
 
     entries = list(
         PokedexCollectionEntry.objects.filter(user=user)
@@ -160,11 +247,11 @@ def public_profile(request, user_id):
                 best_image_by_species[pn] = (price, e.product.image_url)
 
     recently_added = entries[:6]
-
     wishlist_products = user.wishlist.select_related('card_set', 'card_set__era').all()
 
-    return Response({
+    payload = {
         **_public_card(user, request),
+        "friendship_status": _friendship_status(viewer_id, user.id),
         "species_collected": len(species),
         "caught_pokedex_numbers": sorted(species),
         "recent_catches": PokemonProductSerializer(
@@ -172,12 +259,29 @@ def public_profile(request, user_id):
         ).data,
         "wishlist": PokemonProductSerializer(wishlist_products, many=True, context={'request': request}).data,
         "can_message": (
-            request.user.is_authenticated
-            and request.user.id != user.id
+            viewer_id is not None
+            and viewer_id != user.id
             and user.messaging_enabled
-            and not _is_blocked_either_way(request.user.id, user.id)
+            and not _is_blocked_either_way(viewer_id, user.id)
         ),
-    })
+        # Only ever non-empty when checklist_public is on -- matches the
+        # leaderboard/Wall of Honour's own opt-in, independent of everything
+        # else on this page.
+        "checklist_completions": _best_completions_for_user(user) if user.checklist_public else [],
+        "is_friend": is_friend,
+    }
+
+    if is_friend:
+        # Full grid data -- same shape pokedex_my_collection returns for
+        # yourself (minus collection_value, never exposed here), so the
+        # frontend can feed it straight into the existing PokedexGrid
+        # component instead of a second bespoke rendering path.
+        payload["full_pokedex"] = {
+            "caught_pokedex_numbers": sorted(species),
+            "caught_card_images": {str(pn): url for pn, (_, url) in best_image_by_species.items()},
+        }
+
+    return Response(payload)
 
 
 @api_view(['GET'])
@@ -234,6 +338,113 @@ def most_wanted(request):
             {"wanted_by": p.wanted_by, **PokemonProductSerializer(p, context={'request': request}).data}
             for p in qs
         ]
+    })
+
+
+# ── Friends ──────────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def friend_request_send(request):
+    """POST /api/community/friends/request/  body: {"to_user_id": 5}
+    If to_user already sent ME a pending request, this auto-accepts it
+    instead of creating a second row -- a mutual "I want to be friends with
+    you too" shouldn't require the first person to separately go respond to
+    their own now-redundant incoming request."""
+    me = request.user
+    to_user_id = request.data.get('to_user_id')
+    if not to_user_id:
+        return Response({'error': 'to_user_id is required'}, status=400)
+    if str(to_user_id) == str(me.id):
+        return Response({'error': "Can't friend yourself"}, status=400)
+
+    to_user = get_object_or_404(User, pk=to_user_id)
+    if _is_blocked_either_way(me.id, to_user.id):
+        return Response({'error': 'Unable to contact this customer'}, status=403)
+    if _are_friends(me.id, to_user.id):
+        return Response({'error': 'Already friends'}, status=400)
+
+    allowed, _ = check_rate_limit(f"community_friend_req:{me.id}", limit=30, window_seconds=3600)
+    if not allowed:
+        return Response({'error': 'Too many friend requests sent recently. Please try again later.'}, status=429)
+
+    reverse_pending = Friendship.objects.filter(from_user=to_user, to_user=me, status='pending').first()
+    if reverse_pending:
+        reverse_pending.status = 'accepted'
+        reverse_pending.save(update_fields=['status', 'updated_at'])
+        return Response({'id': reverse_pending.id, 'status': 'accepted', 'auto_accepted': True})
+
+    existing = Friendship.objects.filter(from_user=me, to_user=to_user).first()
+    if existing:
+        if existing.status == 'declined':
+            existing.status = 'pending'
+            existing.save(update_fields=['status', 'updated_at'])
+            return Response({'id': existing.id, 'status': 'pending'}, status=201)
+        return Response({'id': existing.id, 'status': existing.status})
+
+    fr = Friendship.objects.create(from_user=me, to_user=to_user, status='pending')
+    return Response({'id': fr.id, 'status': fr.status}, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def friend_request_respond(request, friendship_id):
+    """POST /api/community/friends/<id>/respond/  body: {"action": "accept"|"decline"}
+    Only the recipient (to_user) can respond."""
+    fr = get_object_or_404(Friendship, pk=friendship_id, to_user=request.user)
+    action = request.data.get('action')
+    if action not in ('accept', 'decline'):
+        return Response({'error': 'action must be "accept" or "decline"'}, status=400)
+    if fr.status != 'pending':
+        return Response({'error': f'This request is already {fr.status}'}, status=400)
+
+    fr.status = 'accepted' if action == 'accept' else 'declined'
+    fr.save(update_fields=['status', 'updated_at'])
+    return Response({'id': fr.id, 'status': fr.status})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def friend_remove(request):
+    """POST /api/community/friends/remove/  body: {"user_id": 5}
+    Removes an accepted friendship (either direction) or withdraws/declines
+    a still-pending request between the two."""
+    me = request.user
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=400)
+    Friendship.objects.filter(
+        Q(from_user=me, to_user_id=user_id) | Q(from_user_id=user_id, to_user=me)
+    ).delete()
+    return Response({'removed': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def friends_list(request):
+    """GET /api/community/friends/ -> accepted friends + pending sent/received."""
+    me = request.user
+    accepted = Friendship.objects.filter(
+        Q(from_user=me) | Q(to_user=me), status='accepted'
+    ).select_related('from_user', 'to_user')
+    pending_sent = Friendship.objects.filter(from_user=me, status='pending').select_related('to_user')
+    pending_received = Friendship.objects.filter(to_user=me, status='pending').select_related('from_user')
+
+    friends = []
+    for fr in accepted:
+        other = fr.to_user if fr.from_user_id == me.id else fr.from_user
+        friends.append(_public_card(other, request))
+
+    return Response({
+        "friends": friends,
+        "pending_sent": [
+            {"id": fr.id, "user": _public_card(fr.to_user, request), "created_at": fr.created_at}
+            for fr in pending_sent
+        ],
+        "pending_received": [
+            {"id": fr.id, "user": _public_card(fr.from_user, request), "created_at": fr.created_at}
+            for fr in pending_received
+        ],
     })
 
 

@@ -6,6 +6,11 @@ urlpatterns = [
     path("browse/", views.community_browse, name="community-browse"),
     path("most-wanted/", views.most_wanted, name="community-most-wanted"),
 
+    path("friends/", views.friends_list, name="community-friends"),
+    path("friends/request/", views.friend_request_send, name="community-friend-request"),
+    path("friends/<int:friendship_id>/respond/", views.friend_request_respond, name="community-friend-respond"),
+    path("friends/remove/", views.friend_remove, name="community-friend-remove"),
+
     path("conversations/", views.conversations_list, name="community-conversations"),
     path("conversations/<int:user_id>/", views.conversation_thread, name="community-conversation-thread"),
     path("messages/send/", views.send_message, name="community-send-message"),

@@ -28,6 +28,49 @@ from django.conf import settings
 from django.db import models
 
 
+class Friendship(models.Model):
+    """One row = one friend REQUEST, which becomes a friendSHIP once
+    accepted (2026-08-07, Michael: "give them the option to make friends
+    and share their collections amongst themselves"). Directional at
+    creation (from_user asked, to_user hasn't answered yet) but symmetric
+    once accepted -- are_friends() below checks both directions, so it
+    doesn't matter who originally sent the request.
+
+    Being friends is a STRONGER visibility grant than community_profile_public
+    on its own: it unlocks the full interactive Pokedex grid (every caught
+    species + card art, browsable by Generation, same view Michael gets for
+    himself) and the full per-set Checklist tier breakdown, regardless of
+    whether the profile is opted into general public browsing. The public
+    Community toggle is what gives strangers "a reason to look" (a taste --
+    summary stats, recent catches, wishlist); friendship is what unlocks the
+    real thing. Collection VALUE in Rand is still never exposed here either
+    way -- see community/views.py for why.
+    """
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("declined", "Declined"),
+    ]
+    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="friendships_sent")
+    to_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="friendships_received")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["from_user", "to_user"], name="unique_friendship_pair"),
+        ]
+        indexes = [
+            models.Index(fields=["to_user", "status"], name="community_fr_to_status_idx"),
+            models.Index(fields=["from_user", "status"], name="community_fr_from_status_idx"),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.from_user.username} -> {self.to_user.username} ({self.status})"
+
+
 class Block(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="blocks_made")
     blocked_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="blocks_received")
