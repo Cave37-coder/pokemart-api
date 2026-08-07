@@ -37,7 +37,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from products.completion import TIER_LABELS, TIER_ORDER
-from products.models import PokemonProduct, PokedexCollectionEntry, SetCompletionEvent, CardSet
+from products.models import PokemonProduct, PokedexCollectionEntry, SetCompletionEvent, CardSet, ChecklistEntry
 from products.serializers import PokemonProductSerializer
 from users.views import check_rate_limit
 from .models import Block, TradeRequest, Message, Report, Friendship
@@ -281,6 +281,22 @@ def public_profile(request, user_id):
             "caught_card_images": {str(pn): url for pn, (_, url) in best_image_by_species.items()},
         }
 
+        # Michael, 2026-08-08: "add the checklist to Friends access, so they
+        # can share their sets that they have, also show what is needed" --
+        # unlike checklist_completions above (best TIER per set, gated by
+        # checklist_public and visible to any public-profile viewer), this is
+        # the raw per-card checked/unchecked data, same shape
+        # products.views.checklist_entries already returns for your OWN
+        # account ({"ASC": ["001/217_N", ...], ...}). Friends-only, same
+        # stronger-grant precedent as full_pokedex just above -- exact
+        # per-card gaps are a more useful (and more sensitive) want-list than
+        # the tier summary, so it doesn't piggyback on checklist_public.
+        checklist_rows = ChecklistEntry.objects.filter(user=user).values('card_set', 'card_key')
+        checklist_entries_by_set = {}
+        for row in checklist_rows:
+            checklist_entries_by_set.setdefault(row['card_set'], []).append(row['card_key'])
+        payload["full_checklist"] = {"entries": checklist_entries_by_set}
+
     return Response(payload)
 
 
@@ -317,19 +333,29 @@ def community_browse(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def most_wanted(request):
-    """Top products by wishlist count, across every customer (not just
-    opted-in public profiles -- this is aggregate/anonymous demand, not
-    attributed to anyone). Doubles as a demand signal for stocking
-    decisions and as social-proof marketing on the site itself.
+    """Top products by wishlist count -- ONLY counting customers with a
+    public community profile (Michael, 2026-08-08: "if person doesn't have
+    public profile, don't add their cards to wishlist list... I don't know
+    who is looking for that card, it will just add clutter on a page
+    supposed to be used to help people ... from others that have public
+    profiles"). Originally counted every wishlist site-wide as anonymous
+    aggregate demand; changed because a card only a private wishlist wants
+    isn't something anyone browsing Community can actually act on -- same
+    double opt-in check (community_profile_public AND a real display name)
+    every other public-profile-gated view already uses.
     GET /api/community/most-wanted/?limit=20"""
     try:
         limit = min(int(request.GET.get('limit', 20)), 100)
     except (TypeError, ValueError):
         limit = 20
 
+    public_wisher = Q(
+        wishlisted_by__community_profile_public=True,
+    ) & ~Q(wishlisted_by__public_display_name="")
+
     qs = (
         PokemonProduct.objects.filter(is_active=True)
-        .annotate(wanted_by=Count('wishlisted_by'))
+        .annotate(wanted_by=Count('wishlisted_by', filter=public_wisher, distinct=True))
         .filter(wanted_by__gt=0)
         .order_by('-wanted_by')[:limit]
     )
