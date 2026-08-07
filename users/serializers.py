@@ -16,6 +16,22 @@ class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True, allow_blank=False)
     phone_number = serializers.CharField(required=True, allow_blank=False, max_length=20)
 
+    # Michael, 2026-08-08: found live -- 15 email addresses (30 accounts)
+    # already exist as duplicate signups, and it's the root cause of the
+    # "reset succeeds, login still fails" reports (a reset link is only
+    # ever minted for ONE of the duplicate accounts). Fixed the reset flow
+    # itself to update every account sharing an email, but that doesn't
+    # stop the underlying duplicate from being created in the first place --
+    # this closes that off going forward. Existing duplicates are untouched
+    # here; Michael can decide separately how those should be merged/cleaned.
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError(
+                "An account already exists with this email. Try signing in, "
+                "or use 'Forgot password' if you don't remember your username."
+            )
+        return value
+
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'password', 'trainer_level', 'first_name', 'last_name', 'phone_number', 'address_line1', 'address_line2', 'address_city', 'address_province', 'address_postal_code', 'pudo_locker_name', 'pudo_locker_address']

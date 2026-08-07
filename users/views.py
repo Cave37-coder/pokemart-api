@@ -267,6 +267,30 @@ class PasswordResetConfirmView(APIView):
         if not default_token_generator.check_token(user, token):
             return Response({'error': 'Invalid or expired reset link.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Michael, 2026-08-08: found live via diagnose_duplicate_emails.py --
+        # 15 email addresses (30 accounts) in production are shared by more
+        # than one registered username (duplicate signups). The reset link
+        # is only ever minted for ONE specific account (the uid baked into
+        # it), but the customer has no way of knowing -- or controlling --
+        # which of their duplicate usernames PasswordResetRequestView
+        # happened to pick when it looked up that email. Result: "reset
+        # says success, but login still fails" whenever they normally log
+        # in under the OTHER username -- reproduced exactly on Michael's
+        # own Ty/CaVe37 accounts. Setting the new password on every active
+        # account sharing this email (not just the one in the link) makes
+        # the reset actually usable regardless of which duplicate username
+        # the customer logs in with, without deleting or merging anything.
+        if user.email:
+            siblings = User.objects.filter(email__iexact=user.email, is_active=True).exclude(pk=user.pk)
+            for sibling in siblings:
+                sibling.set_password(new_password)
+                sibling.save(update_fields=['password'])
+                logger.info(
+                    "Password reset also propagated to duplicate-email sibling "
+                    "user_id=%s username=%s (reset link was for user_id=%s username=%s)",
+                    sibling.pk, sibling.username, user.pk, user.username,
+                )
+
         user.set_password(new_password)
         user.save(update_fields=['password'])
         return Response({'detail': 'Password has been reset successfully.'})
