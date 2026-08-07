@@ -61,3 +61,13 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
     new_password = serializers.CharField(min_length=8)
+
+
+# Michael, 2026-08-07: "add to Profile that you can change password" --
+# separate from the logged-out PasswordReset* flow above (which needs an
+# email link because the customer can't authenticate at all). This is for
+# a customer who IS logged in and just wants to change it from /profile,
+# so it takes their current password instead of an emailed token.
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)

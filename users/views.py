@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+    ChangePasswordSerializer,
 )
 
 
@@ -265,6 +266,40 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_password)
         user.save(update_fields=['password'])
         return Response({'detail': 'Password has been reset successfully.'})
+
+
+class ChangePasswordView(APIView):
+    """
+    Michael, 2026-08-07: "add to Profile, that you can change Password" --
+    for a customer who's already logged in, unlike PasswordResetRequest/
+    ConfirmView above which exist specifically for someone who is NOT
+    logged in and needs an emailed token instead. Requires the current
+    password so a stolen/left-open session alone isn't enough to lock the
+    real owner out.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ip = get_client_ip(request)
+        allowed, _ = check_rate_limit(f"changepw:{request.user.pk}:{ip}", limit=5, window_seconds=900)
+        if not allowed:
+            return Response(
+                {'error': 'Too many attempts. Please wait a few minutes and try again.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        current_password = serializer.validated_data['current_password']
+        new_password = serializer.validated_data['new_password']
+
+        if not request.user.check_password(current_password):
+            return Response({'error': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=['password'])
+        logger.info("Password changed via profile for user_id=%s", request.user.pk)
+        return Response({'detail': 'Password updated successfully.'})
 
 
 # ── Wishlist (2026-08-07) ────────────────────────────────────────────────
