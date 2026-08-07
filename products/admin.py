@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
 from .models import PokemonProduct, Category, PokemonType, Era, CardSet, PokedexCollectionEntry
@@ -58,11 +59,45 @@ def upload_logos_to_r2(modeladmin, request, queryset):
 upload_logos_to_r2.short_description = "Upload logo(s) to R2 (re-host external URLs)"
 
 
+# Michael, 2026-08-08: "can django give me place to drop in an image rather,
+# i have them downloaded?" -- `logo_file` here is deliberately NOT a real
+# model field/ImageField. Railway's filesystem is ephemeral (wiped on every
+# redeploy), so anything saved via Django's default local storage would
+# just vanish -- this is a plain form-only upload widget; save_model()
+# below reads the uploaded bytes straight out of memory and puts them on
+# R2 immediately, then sets the real `logo_url` field to the resulting CDN
+# URL. Nothing ever touches local disk. Pasting a URL directly into the
+# logo_url column (list_editable, unchanged) still works exactly as before
+# for anyone who'd rather do that instead.
+class EraAdminForm(forms.ModelForm):
+    logo_file = forms.ImageField(
+        required=False,
+        help_text="Upload an image file instead of pasting a URL -- it's uploaded to R2 automatically and Logo url below gets set/replaced.",
+    )
+
+    class Meta:
+        model = Era
+        fields = "__all__"
+
+
 @admin.register(Era)
 class EraAdmin(admin.ModelAdmin):
+    form = EraAdminForm
     list_display = ["code", "name", "logo_url"]
     list_editable = ["logo_url"]
     search_fields = ["code", "name"]
+    actions = [upload_logos_to_r2]
+
+    def save_model(self, request, obj, form, change):
+        uploaded = form.cleaned_data.get("logo_file")
+        if uploaded:
+            s3 = _r2_client()
+            ext = "png" if uploaded.name.lower().endswith("png") else "jpg"
+            content_type = "image/png" if ext == "png" else "image/jpeg"
+            key = f"eras/logos/{obj.code}_logo.{ext}"
+            s3.put_object(Bucket=R2_BUCKET, Key=key, Body=uploaded.read(), ContentType=content_type)
+            obj.logo_url = f"{R2_CDN}/{key}"
+        super().save_model(request, obj, form, change)
     actions = [upload_logos_to_r2]
 
 
