@@ -198,7 +198,10 @@ class PasswordResetRequestView(APIView):
                 f"Hi {user.first_name or user.username},\n\n"
                 f"We received a request to reset your PokeBulk SA password. "
                 f"Click the link below to choose a new one:\n\n{reset_url}\n\n"
-                f"This link expires in a few hours and can only be used once. "
+                f"This link is valid for up to 3 days and can only be used once. "
+                f"Important: don't log in to your account before using this link -- "
+                f"logging in (even a failed attempt on the old password) will "
+                f"invalidate it, and you'll need to request a new one.\n\n"
                 f"If you didn't request this, you can safely ignore this email "
                 f"-- your password will not be changed.\n\n"
                 f"-- PokeBulk SA"
@@ -208,7 +211,8 @@ class PasswordResetRequestView(APIView):
 <p>Hi {user.first_name or user.username},</p>
 <p>We received a request to reset your PokeBulk SA password. Click the button below to choose a new one:</p>
 <p><a href="{reset_url}" style="background:#ff6b35;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">Reset Password</a></p>
-<p style="font-size:12px;color:#888">This link expires in a few hours and can only be used once. If you didn't request this, you can safely ignore this email -- your password will not be changed.</p>
+<p style="font-size:12px;color:#888">This link is valid for up to 3 days and can only be used once. <strong>Don't log in to your account before using this link</strong> -- doing so will invalidate it, and you'll need to request a new one.</p>
+<p style="font-size:12px;color:#888">If you didn't request this, you can safely ignore this email -- your password will not be changed.</p>
 <p style="font-size:12px;color:#888">-- PokeBulk SA</p>
 </body></html>'''
 
