@@ -22,6 +22,7 @@ urlpatterns = [
     path("stock/dividers/", views.stock_dividers, name="stock-dividers"),
     path("stock/played/", views.stock_add_played, name="stock-add-played"),
     path("sets/", views.sets_list, name="sets-list"),
+    path("eras/", views.eras_list, name="eras-list"),
     path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
     path("checklists/stock-check/", views.checklist_stock, name="checklist-stock"),
     path("checklists/entries/", views.checklist_entries, name="checklist-entries"),

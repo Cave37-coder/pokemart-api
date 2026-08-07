@@ -5,7 +5,8 @@ from .models import PokemonProduct, Category, PokemonType, Era, CardSet, Pokedex
 
 @admin.register(Era)
 class EraAdmin(admin.ModelAdmin):
-    list_display = ["code", "name"]
+    list_display = ["code", "name", "logo_url"]
+    list_editable = ["logo_url"]
     search_fields = ["code", "name"]
 
 

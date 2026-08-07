@@ -5,6 +5,14 @@ from django.db import models
 class Era(models.Model):
     code = models.CharField(max_length=10, unique=True)
     name = models.CharField(max_length=100)
+    # Michael, 2026-08-08: "replace the simple Era labels with the actual
+    # Era Logo" on the Checklist page's Overview grid -- distinct from
+    # CardSet.logo_url (one specific set's box art), this is a single
+    # wordmark/logo representing the whole era (e.g. "Scarlet & Violet",
+    # "Sword & Shield"). Blank by default -- Michael is sourcing/pasting
+    # these himself via admin; the frontend falls back to the existing
+    # coloured text pill for any era left blank.
+    logo_url = models.URLField(max_length=500, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
