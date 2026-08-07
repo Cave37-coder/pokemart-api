@@ -3,11 +3,67 @@ from django.contrib.admin.views.autocomplete import AutocompleteJsonView
 from .models import PokemonProduct, Category, PokemonType, Era, CardSet, PokedexCollectionEntry
 
 
+# Michael, 2026-08-08: "yes r2 always for images, set in rules!" -- every
+# image URL on the site should end up hosted on R2 (images.pokebulk.co.za),
+# never left as an external hotlink, same convention upload_set_images.py /
+# upload_to_r2.py already use for card/set images. This is the first place
+# that convention is wired into a live admin action instead of a one-off
+# local script -- paste any URL into logo_url, select the row(s), run
+# "Upload logo(s) to R2" from the action dropdown, done.
+def _r2_client():
+    import boto3
+    from botocore.config import Config
+    return boto3.client(
+        "s3",
+        endpoint_url="https://229506129ad4206787dd4d3227608e17.r2.cloudflarestorage.com",
+        aws_access_key_id="fdff88cee69c515cf67d4ae275d1bc72",
+        aws_secret_access_key="e7122d20bd2ad8121756a86f4165af40be5fd3efe40fbdca5f5ca922bb1ace8f",
+        config=Config(signature_version="s3v4"),
+        region_name="auto",
+    )
+
+
+R2_BUCKET = "pokebulkcards"
+R2_CDN = "https://images.pokebulk.co.za"
+
+
+def upload_logos_to_r2(modeladmin, request, queryset):
+    import requests
+
+    s3 = _r2_client()
+    uploaded, skipped, failed = 0, 0, 0
+    for era in queryset:
+        if not era.logo_url:
+            skipped += 1
+            continue
+        if era.logo_url.startswith(R2_CDN):
+            skipped += 1
+            continue
+        try:
+            resp = requests.get(era.logo_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            ext = "png" if ".png" in era.logo_url.lower() else "jpg"
+            content_type = "image/png" if ext == "png" else "image/jpeg"
+            key = f"eras/logos/{era.code}_logo.{ext}"
+            s3.put_object(Bucket=R2_BUCKET, Key=key, Body=resp.content, ContentType=content_type)
+            era.logo_url = f"{R2_CDN}/{key}"
+            era.save(update_fields=["logo_url"])
+            uploaded += 1
+        except Exception as e:
+            failed += 1
+            modeladmin.message_user(request, f"{era.code}: failed to upload ({e})", level="error")
+    modeladmin.message_user(request, f"Uploaded {uploaded}, skipped {skipped} (blank or already on R2), failed {failed}.")
+
+
+upload_logos_to_r2.short_description = "Upload logo(s) to R2 (re-host external URLs)"
+
+
 @admin.register(Era)
 class EraAdmin(admin.ModelAdmin):
     list_display = ["code", "name", "logo_url"]
     list_editable = ["logo_url"]
     search_fields = ["code", "name"]
+    actions = [upload_logos_to_r2]
 
 
 @admin.register(CardSet)
