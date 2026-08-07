@@ -10,7 +10,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.middleware.csrf import get_token
 from django.db import transaction
 from django.db.models import Q
@@ -174,6 +174,25 @@ class OrderAdmin(admin.ModelAdmin):
         if 'status__exact' not in request.GET and 'status__in' not in request.GET:
             qs = qs.exclude(status__in=['cancelled', 'invoiced'])
         return qs
+
+    def get_object(self, request, object_id, from_field=None):
+        # Django reuses get_queryset() above for single-object lookups too
+        # (this is what powers the change/detail page) -- so clicking into
+        # any Complete or Cancelled order, from a filtered list, Recent
+        # Actions, or a bookmarked link, hit the same status exclusion and
+        # 404'd with "Order with ID '115' doesn't exist. Perhaps it was
+        # deleted?" even though it's still very much in the DB. The
+        # exclusion should only ever apply to the changelist's default view,
+        # never to opening a specific order directly. Mirrors Django's own
+        # ModelAdmin.get_object() but against the real, unfiltered queryset.
+        queryset = admin.ModelAdmin.get_queryset(self, request).select_related('user')
+        model = queryset.model
+        field = model._meta.pk if from_field is None else model._meta.get_field(from_field)
+        try:
+            object_id = field.to_python(object_id)
+            return queryset.get(**{field.name: object_id})
+        except (model.DoesNotExist, ValidationError, ValueError):
+            return None
 
     def customer_name_display(self, obj):
         full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
