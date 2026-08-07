@@ -54,11 +54,24 @@ class ProductAutocompleteJsonView(AutocompleteJsonView):
 
 @admin.register(PokemonProduct)
 class PokemonProductAdmin(admin.ModelAdmin):
-    list_display = ["name", "card_set", "variant_override", "price", "stock", "pos_stock", "is_active"]
+    # wanted_by_count: 2026-08-07, community wishlist feature -- lets Michael
+    # sort/scan the whole catalog by customer demand (wishlist adds) right
+    # here, no separate reporting page needed. Annotated in get_queryset so
+    # it's a real DB-level count (sortable via admin_order_field), not a
+    # per-row Python query.
+    list_display = ["name", "card_set", "variant_override", "price", "stock", "pos_stock", "is_active", "wanted_by_count"]
     list_filter = ["card_set__era", "card_set", "variant_override", "is_active"]
     search_fields = ["name", "sku", "card_set__name", "card_set__code"]
     list_editable = ["price", "stock"]
     ordering = ["-card_set__release_date", "card_number"]
+
+    def get_queryset(self, request):
+        from django.db.models import Count
+        return super().get_queryset(request).annotate(_wanted_by_count=Count('wishlisted_by'))
+
+    @admin.display(description="Wanted by", ordering="_wanted_by_count")
+    def wanted_by_count(self, obj):
+        return obj._wanted_by_count
 
     fieldsets = [
         ("Card Info", {

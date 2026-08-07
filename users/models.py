@@ -57,5 +57,30 @@ class User(AbstractUser):
         help_text="Opt-in: show this customer's checklist completion on leaderboards and the Wall of Honour."
     )
 
+    # ── Community: public collection profile + DMs (2026-08-07) ────────────
+    # Deliberately separate from checklist_public, same reasoning Michael
+    # gave for keeping the Pokedex feature itself independent from
+    # Checklists: "I want to track my Poke Dex separate to rest of my
+    # collection." A customer might want checklist progress public but their
+    # Pokedex/wishlist private, or vice versa -- one flag can't express that.
+    # Both still reuse public_display_name/avatar as the one shared public
+    # identity across every opt-in feature rather than adding a second name.
+    community_profile_public = models.BooleanField(
+        default=False,
+        help_text="Opt-in: show this customer's Pokedex collection and wishlist on a public community profile page."
+    )
+    community_bio = models.CharField(
+        max_length=200, blank=True,
+        help_text="Short public note shown on the community profile, e.g. \"Looking for shiny Charizards!\""
+    )
+    # A second, separate opt-in on top of community_profile_public -- seeing
+    # someone's collection is low-risk, but receiving unsolicited messages
+    # from strangers is a different kind of exposure, so it gets its own
+    # explicit switch rather than being bundled in.
+    messaging_enabled = models.BooleanField(
+        default=False,
+        help_text="Opt-in: allow other customers to send this customer direct messages / trade requests."
+    )
+
     def __str__(self):
         return self.username

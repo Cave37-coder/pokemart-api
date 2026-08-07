@@ -129,6 +129,9 @@ class ProfileView(APIView):
             "pudo_locker_code": u.pudo_locker_code,
             "public_display_name": u.public_display_name,
             "checklist_public": u.checklist_public,
+            "community_profile_public": u.community_profile_public,
+            "community_bio": u.community_bio,
+            "messaging_enabled": u.messaging_enabled,
             "profile_complete": profile_complete,
         })
 
@@ -141,6 +144,7 @@ class ProfileView(APIView):
             "address_province", "address_postal_code",
             "pudo_locker_name", "pudo_locker_address", "pudo_locker_code",
             "public_display_name", "checklist_public",
+            "community_profile_public", "community_bio", "messaging_enabled",
         ]
         for field in allowed:
             if field in request.data:
@@ -261,3 +265,45 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_password)
         user.save(update_fields=['password'])
         return Response({'detail': 'Password has been reset successfully.'})
+
+
+# ── Wishlist (2026-08-07) ────────────────────────────────────────────────
+# The `wishlist` M2M field on User has existed since 0001_initial but never
+# had an API -- these two views are the first thing that actually lets a
+# customer manage it. Same toggle pattern as products.views.pokedex_toggle
+# for consistency (one endpoint, existence of the relation IS the state).
+from rest_framework.decorators import api_view, permission_classes
+from products.models import PokemonProduct
+from products.serializers import PokemonProductSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def wishlist_list(request):
+    """This customer's own wishlist, full card data (same shape the rest of
+    the site already uses for CardTile). GET /api/auth/wishlist/"""
+    products = request.user.wishlist.select_related('card_set', 'card_set__era').all()
+    return Response({
+        'product_ids': list(products.values_list('id', flat=True)),
+        'products': PokemonProductSerializer(products, many=True, context={'request': request}).data,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def wishlist_toggle(request):
+    """Adds/removes one card from this customer's wishlist.
+    POST /api/auth/wishlist/toggle/  body: {"product_id": 123}"""
+    product_id = request.data.get('product_id')
+    if not product_id:
+        return Response({'error': 'product_id is required'}, status=400)
+    try:
+        product = PokemonProduct.objects.get(pk=product_id)
+    except PokemonProduct.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=404)
+
+    if request.user.wishlist.filter(pk=product.pk).exists():
+        request.user.wishlist.remove(product)
+        return Response({'on_wishlist': False})
+    request.user.wishlist.add(product)
+    return Response({'on_wishlist': True})

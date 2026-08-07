@@ -8,6 +8,8 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("me/", views.MeView.as_view(), name="me"),
     path("profile/", views.ProfileView.as_view(), name="profile"),
+    path("wishlist/", views.wishlist_list, name="wishlist-list"),
+    path("wishlist/toggle/", views.wishlist_toggle, name="wishlist-toggle"),
     path("password-reset/request/", views.PasswordResetRequestView.as_view(), name="password-reset-request"),
     path("password-reset/confirm/", views.PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
 ]

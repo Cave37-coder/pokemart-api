@@ -1,0 +1,491 @@
+# pokemart-api: community/views.py
+#
+# Customer community feature (2026-08-07): public Pokedex-collection/wishlist
+# profiles, a browse directory, a "most wanted" demand board, direct
+# messaging, trade requests, and block/report. Function-based @api_view
+# views throughout, manual Response dicts rather than DRF serializers --
+# matches the existing style in products/views.py and users/views.py rather
+# than introducing a new pattern for just this feature.
+#
+# Privacy decisions made while building this (flagging explicitly rather
+# than burying them):
+#   - Public profiles are looked up by numeric user id, never by username --
+#     mirrors the existing checklist_public design ("Shown on leaderboards
+#     instead of the real username"), since username is customer-chosen and
+#     may be a real name/email-like string.
+#   - Collection VALUE (Rand amount) is deliberately never exposed on a
+#     public profile, only item counts -- broadcasting exactly how much
+#     cardboard someone has at home is a real-world safety concern (a
+#     target list for theft), not just a business one. The customer's own
+#     private /pokedex page still shows their own value to themselves.
+#   - Every visibility gate re-checks BOTH community_profile_public AND a
+#     non-blank public_display_name, same double-check the existing
+#     checklist leaderboard/Wall of Honour use -- an opted-in customer who
+#     never set a display name still shouldn't leak their real username.
+
+import logging
+from decimal import Decimal
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.mail import EmailMultiAlternatives
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+
+from products.models import PokemonProduct, PokedexCollectionEntry
+from products.serializers import PokemonProductSerializer
+from users.views import check_rate_limit
+from .models import Block, TradeRequest, Message, Report
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+def _notify_new_message_email(message):
+    """Best-effort email nudge for a new DM/trade message (2026-08-07,
+    Michael: "Yes you can add email notifications"). Wrapped in
+    try/except -- a failed notification must never break the actual message
+    send, same rule as every other email call site in this codebase (e.g.
+    orders/signals.py's status-update email). Rate-limited to one
+    notification per (sender, recipient) pair per 15 minutes so a fast
+    back-and-forth chat sends one email, not one per message -- reuses the
+    same cache-based limiter as login/password-reset/community rate limits."""
+    recipient = message.recipient
+    if not recipient.email:
+        return
+    allowed, _ = check_rate_limit(
+        f"community_msg_email:{message.sender_id}:{recipient.id}", limit=1, window_seconds=900,
+    )
+    if not allowed:
+        return
+    try:
+        sender_name = message.sender.public_display_name or message.sender.username
+        site_url = getattr(settings, 'SITE_URL', 'https://pokebulk.co.za')
+        thread_url = f"{site_url}/messages/{message.sender_id}"
+        preview = message.body[:200]
+
+        subject = f'New message from {sender_name} on PokeBulk SA'
+        text_body = (
+            f"Hi {recipient.first_name or recipient.username},\n\n"
+            f"{sender_name} sent you a message on PokeBulk SA:\n\n"
+            f"\"{preview}\"\n\n"
+            f"Reply here: {thread_url}\n\n"
+            f"-- PokeBulk SA\n\n"
+            f"You're getting this because messaging is turned on in your profile. "
+            f"Turn it off anytime at {site_url}/profile."
+        )
+        html_body = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;padding:20px">
+<h2 style="color:#ff6b35">New message from {sender_name}</h2>
+<p>Hi {recipient.first_name or recipient.username},</p>
+<p>{sender_name} sent you a message on PokeBulk SA:</p>
+<p style="background:#f5f5f5;border-radius:8px;padding:12px 16px;font-style:italic">&quot;{preview}&quot;</p>
+<p><a href="{thread_url}" style="background:#ff6b35;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">Reply</a></p>
+<p style="font-size:12px;color:#888">You're getting this because messaging is turned on in your profile. Turn it off anytime in your profile settings.</p>
+<p style="font-size:12px;color:#888">-- PokeBulk SA</p>
+</body></html>'''
+
+        email = EmailMultiAlternatives(subject=subject, body=text_body, to=[recipient.email])
+        email.attach_alternative(html_body, 'text/html')
+        email.send(fail_silently=False)
+        logger.info(
+            "Community message notification email sent to user_id=%s from user_id=%s",
+            recipient.id, message.sender_id,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send community message notification email to user_id=%s from user_id=%s",
+            recipient.id, message.sender_id,
+        )
+
+
+def _avatar_url(user, request):
+    if user.avatar:
+        return request.build_absolute_uri(user.avatar.url)
+    return None
+
+
+def _public_card(user, request):
+    """Shared shape for 'who is this' across every endpoint below."""
+    return {
+        "id": user.id,
+        "display_name": user.public_display_name,
+        "avatar": _avatar_url(user, request),
+        "trainer_level": user.trainer_level,
+        "community_bio": user.community_bio,
+        "messaging_enabled": user.messaging_enabled,
+    }
+
+
+def _is_blocked_either_way(user_id_a, user_id_b):
+    return Block.objects.filter(
+        Q(user_id=user_id_a, blocked_user_id=user_id_b) |
+        Q(user_id=user_id_b, blocked_user_id=user_id_a)
+    ).exists()
+
+
+def _visible_profile_or_404(user_id):
+    """The one gate every public-profile-reading endpoint uses -- opted in
+    AND has picked a display name, exactly like the checklist leaderboard."""
+    return get_object_or_404(
+        User.objects.exclude(public_display_name=""),
+        pk=user_id, community_profile_public=True,
+    )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_profile(request, user_id):
+    """A customer's public community profile: Pokedex collection summary +
+    (if they've also opted their wishlist in -- same single toggle covers
+    both) their want-list. GET /api/community/profile/<user_id>/"""
+    user = _visible_profile_or_404(user_id)
+
+    entries = list(
+        PokedexCollectionEntry.objects.filter(user=user)
+        .select_related('product')
+        .order_by('-added_at')
+    )
+    species = set()
+    best_image_by_species = {}
+    for e in entries:
+        pn = e.caught_for_pokedex_number or e.product.pokedex_number
+        if pn:
+            species.add(pn)
+            price = e.product.price or Decimal('0')
+            if e.product.image_url and (pn not in best_image_by_species or price > best_image_by_species[pn][0]):
+                best_image_by_species[pn] = (price, e.product.image_url)
+
+    recently_added = entries[:6]
+
+    wishlist_products = user.wishlist.select_related('card_set', 'card_set__era').all()
+
+    return Response({
+        **_public_card(user, request),
+        "species_collected": len(species),
+        "caught_pokedex_numbers": sorted(species),
+        "recent_catches": PokemonProductSerializer(
+            [e.product for e in recently_added], many=True, context={'request': request}
+        ).data,
+        "wishlist": PokemonProductSerializer(wishlist_products, many=True, context={'request': request}).data,
+        "can_message": (
+            request.user.is_authenticated
+            and request.user.id != user.id
+            and user.messaging_enabled
+            and not _is_blocked_either_way(request.user.id, user.id)
+        ),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def community_browse(request):
+    """Directory of every opted-in public profile, newest-collection-first.
+    GET /api/community/browse/?q=search"""
+    qs = (
+        User.objects.filter(community_profile_public=True)
+        .exclude(public_display_name="")
+        .annotate(
+            species_count=Count('pokedex_entries__caught_for_pokedex_number', distinct=True),
+            wishlist_count=Count('wishlist', distinct=True),
+        )
+    )
+    q = (request.GET.get('q') or '').strip()
+    if q:
+        qs = qs.filter(public_display_name__icontains=q)
+    qs = qs.order_by('-species_count')[:60]
+
+    return Response({
+        "profiles": [
+            {
+                **_public_card(u, request),
+                "species_collected": u.species_count,
+                "wishlist_count": u.wishlist_count,
+            }
+            for u in qs
+        ]
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def most_wanted(request):
+    """Top products by wishlist count, across every customer (not just
+    opted-in public profiles -- this is aggregate/anonymous demand, not
+    attributed to anyone). Doubles as a demand signal for stocking
+    decisions and as social-proof marketing on the site itself.
+    GET /api/community/most-wanted/?limit=20"""
+    try:
+        limit = min(int(request.GET.get('limit', 20)), 100)
+    except (TypeError, ValueError):
+        limit = 20
+
+    qs = (
+        PokemonProduct.objects.filter(is_active=True)
+        .annotate(wanted_by=Count('wishlisted_by'))
+        .filter(wanted_by__gt=0)
+        .order_by('-wanted_by')[:limit]
+    )
+    return Response({
+        "most_wanted": [
+            {"wanted_by": p.wanted_by, **PokemonProductSerializer(p, context={'request': request}).data}
+            for p in qs
+        ]
+    })
+
+
+# ── Messaging ────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def conversations_list(request):
+    """One row per other customer this user has ever exchanged messages
+    with, most recent activity first. GET /api/community/conversations/"""
+    me = request.user
+    msgs = (
+        Message.objects.filter(Q(sender=me) | Q(recipient=me))
+        .select_related('sender', 'recipient')
+        .order_by('-created_at')
+    )
+    by_other = {}
+    for m in msgs:
+        other = m.recipient if m.sender_id == me.id else m.sender
+        if other.id not in by_other:
+            unread = Message.objects.filter(sender=other, recipient=me, read_at__isnull=True).count()
+            by_other[other.id] = {
+                "other_user": _public_card(other, request),
+                "last_message": {
+                    "body": m.body, "created_at": m.created_at, "from_me": m.sender_id == me.id,
+                },
+                "unread_count": unread,
+            }
+    return Response({"conversations": list(by_other.values())})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def conversation_thread(request, user_id):
+    """Full message history with one other customer, oldest first. Marks
+    their unread messages to you as read as a side effect of viewing it.
+    GET /api/community/conversations/<user_id>/"""
+    other = get_object_or_404(User, pk=user_id)
+    me = request.user
+    thread = Message.objects.filter(
+        Q(sender=me, recipient=other) | Q(sender=other, recipient=me)
+    ).order_by('created_at')
+
+    Message.objects.filter(sender=other, recipient=me, read_at__isnull=True).update(
+        read_at=timezone.now()
+    )
+
+    return Response({
+        "other_user": _public_card(other, request),
+        "messages": [
+            {
+                "id": m.id, "body": m.body, "created_at": m.created_at,
+                "from_me": m.sender_id == me.id,
+                "trade_request_id": m.trade_request_id,
+            }
+            for m in thread
+        ],
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_message(request):
+    """POST /api/community/messages/send/  body: {"to_user_id": 5, "body": "..."}
+    A cold DM (no prior thread) requires the recipient to have opted in via
+    messaging_enabled. A REPLY within an existing thread always goes through
+    regardless of the recipient's current toggle state -- they clearly
+    already engaged, and losing the ability to reply mid-conversation the
+    moment someone flips a setting would be a confusing, unnecessary block."""
+    me = request.user
+    to_user_id = request.data.get('to_user_id')
+    body = (request.data.get('body') or '').strip()
+    if not to_user_id or not body:
+        return Response({'error': 'to_user_id and body are required'}, status=400)
+    if str(to_user_id) == str(me.id):
+        return Response({'error': "Can't message yourself"}, status=400)
+
+    # Basic anti-spam: 40 messages/hour per sender, same cache-based limiter
+    # already used for login/password-reset. Generous enough for genuine
+    # back-and-forth chat, tight enough to stop someone blasting every
+    # public profile in the directory.
+    allowed, _ = check_rate_limit(f"community_msg:{me.id}", limit=40, window_seconds=3600)
+    if not allowed:
+        return Response({'error': 'Too many messages sent recently. Please try again later.'}, status=429)
+
+    to_user = get_object_or_404(User, pk=to_user_id)
+
+    if _is_blocked_either_way(me.id, to_user.id):
+        return Response({'error': 'Unable to send this message'}, status=403)
+
+    existing_thread = Message.objects.filter(
+        Q(sender=me, recipient=to_user) | Q(sender=to_user, recipient=me)
+    ).exists()
+    if not to_user.messaging_enabled and not existing_thread:
+        return Response({'error': 'This customer is not accepting messages right now'}, status=403)
+
+    trade_request_id = request.data.get('trade_request_id')
+    msg = Message.objects.create(
+        sender=me, recipient=to_user, body=body[:2000],
+        trade_request_id=trade_request_id or None,
+    )
+    _notify_new_message_email(msg)
+    return Response({
+        "id": msg.id, "body": msg.body, "created_at": msg.created_at, "from_me": True,
+    }, status=201)
+
+
+# ── Trade requests ───────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trade_request_create(request):
+    """POST /api/community/trade-requests/
+    body: {"to_user_id": 5, "wanted_product_id": 123, "message": "..."}
+    wanted_product_id is optional (a general opener), but when given it
+    should normally be something from to_user's own wishlist -- not
+    enforced server-side (a customer might reasonably offer something the
+    other person hasn't listed yet), just a UI convention."""
+    me = request.user
+    to_user_id = request.data.get('to_user_id')
+    if not to_user_id:
+        return Response({'error': 'to_user_id is required'}, status=400)
+    if str(to_user_id) == str(me.id):
+        return Response({'error': "Can't send yourself a trade request"}, status=400)
+
+    allowed, _ = check_rate_limit(f"community_trade:{me.id}", limit=20, window_seconds=3600)
+    if not allowed:
+        return Response({'error': 'Too many trade requests sent recently. Please try again later.'}, status=429)
+
+    to_user = get_object_or_404(User, pk=to_user_id)
+    if _is_blocked_either_way(me.id, to_user.id):
+        return Response({'error': 'Unable to contact this customer'}, status=403)
+    if not to_user.messaging_enabled:
+        return Response({'error': 'This customer is not accepting messages right now'}, status=403)
+
+    wanted_product_id = request.data.get('wanted_product_id')
+    wanted_product = None
+    if wanted_product_id:
+        wanted_product = get_object_or_404(PokemonProduct, pk=wanted_product_id)
+
+    message_body = (request.data.get('message') or '').strip()
+
+    trade = TradeRequest.objects.create(
+        from_user=me, to_user=to_user, wanted_product=wanted_product, message=message_body,
+    )
+    if message_body:
+        trade_msg = Message.objects.create(
+            sender=me, recipient=to_user, body=message_body[:2000], trade_request=trade,
+        )
+        _notify_new_message_email(trade_msg)
+    return Response({
+        "id": trade.id, "status": trade.status, "created_at": trade.created_at,
+        "wanted_product_id": trade.wanted_product_id,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trade_request_respond(request, trade_id):
+    """POST /api/community/trade-requests/<id>/respond/  body: {"action": "accept"|"decline"}
+    Only the recipient can respond. Posts a short system-style Message back
+    into the thread so the sender sees the outcome without a separate
+    notification channel."""
+    trade = get_object_or_404(TradeRequest, pk=trade_id, to_user=request.user)
+    action = request.data.get('action')
+    if action not in ('accept', 'decline'):
+        return Response({'error': 'action must be "accept" or "decline"'}, status=400)
+    if trade.status != 'pending':
+        return Response({'error': f'This trade request is already {trade.status}'}, status=400)
+
+    trade.status = 'accepted' if action == 'accept' else 'declined'
+    trade.save(update_fields=['status', 'updated_at'])
+
+    note = "accepted your trade request! 🎉" if action == 'accept' else "declined your trade request."
+    response_msg = Message.objects.create(
+        sender=request.user, recipient=trade.from_user,
+        body=f"{request.user.public_display_name or 'This trainer'} {note}",
+        trade_request=trade,
+    )
+    _notify_new_message_email(response_msg)
+    return Response({"id": trade.id, "status": trade.status})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def trade_requests_list(request):
+    """Everything sent to, or received by, this customer.
+    GET /api/community/trade-requests/"""
+    me = request.user
+    sent = TradeRequest.objects.filter(from_user=me).select_related('to_user', 'wanted_product')
+    received = TradeRequest.objects.filter(to_user=me).select_related('from_user', 'wanted_product')
+
+    def _shape(t, other_field):
+        other = getattr(t, other_field)
+        return {
+            "id": t.id, "status": t.status, "message": t.message, "created_at": t.created_at,
+            "other_user": _public_card(other, request),
+            "wanted_product": PokemonProductSerializer(t.wanted_product, context={'request': request}).data if t.wanted_product else None,
+        }
+
+    return Response({
+        "sent": [_shape(t, 'to_user') for t in sent],
+        "received": [_shape(t, 'from_user') for t in received],
+    })
+
+
+# ── Block / report ───────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def block_user(request):
+    """POST /api/community/block/  body: {"user_id": 5}"""
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=400)
+    target = get_object_or_404(User, pk=user_id)
+    Block.objects.get_or_create(user=request.user, blocked_user=target)
+    return Response({'blocked': True})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unblock_user(request):
+    """POST /api/community/unblock/  body: {"user_id": 5}"""
+    user_id = request.data.get('user_id')
+    Block.objects.filter(user=request.user, blocked_user_id=user_id).delete()
+    return Response({'blocked': False})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_user(request):
+    """POST /api/community/report/
+    body: {"reported_user_id": 5, "reason": "spam", "details": "...", "message_id": 123}
+    Pure queue -- lands in Django admin for Michael to review, nothing here
+    auto-actions the report."""
+    reported_user_id = request.data.get('reported_user_id')
+    reason = request.data.get('reason')
+    valid_reasons = {c[0] for c in Report.REASON_CHOICES}
+    if not reported_user_id or reason not in valid_reasons:
+        return Response({'error': f'reported_user_id is required and reason must be one of {sorted(valid_reasons)}'}, status=400)
+
+    allowed, _ = check_rate_limit(f"community_report:{request.user.id}", limit=10, window_seconds=3600)
+    if not allowed:
+        return Response({'error': 'Too many reports submitted recently. Please try again later.'}, status=429)
+
+    reported_user = get_object_or_404(User, pk=reported_user_id)
+    message_id = request.data.get('message_id')
+    message = Message.objects.filter(pk=message_id).first() if message_id else None
+
+    Report.objects.create(
+        reporter=request.user, reported_user=reported_user, message=message,
+        reason=reason, details=(request.data.get('details') or '').strip(),
+    )
+    return Response({'reported': True}, status=201)

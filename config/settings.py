@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'payments',
     'inventory',
     'analytics_dashboard',
+    'community',
 ]
 
 # --- STATIC FILES (production) ---

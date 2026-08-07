@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/", include("orders.urls")),
     path("api/payments/", include("payments.urls")),
     path("api/analytics/", include("analytics_dashboard.urls")),
+    path("api/community/", include("community.urls")),
 
     # Standalone POS (pos.pokebulk.co.za) auth endpoints -- see
     # orders/pos_auth.py. These let the POS app log in using the same
