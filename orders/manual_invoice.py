@@ -162,6 +162,118 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
     return html
 
 
+def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
+    """Packing/pull sheet for a Manual Invoice — same idea as the regular
+    Order pull sheet (orders/views.py::print_order), grouped by set with a
+    checkbox column, but built off ManualInvoiceItem's own snapshot fields
+    (set_name/card_number/variant/description) since manual invoice lines
+    aren't guaranteed to be linked to a real PokemonProduct (off-site stock
+    has no product row at all)."""
+    from itertools import groupby
+    from django.utils import timezone
+
+    VARIANT_COLORS = {
+        'N': '#e8e8e8;color:#333', 'H': '#fff3cd;color:#856404', 'RH': '#e8e4ff;color:#4c3d99',
+        'PB': '#fce4ec;color:#ad1457', 'MB': '#ede7f6;color:#5e35b1', 'FB': '#e8f5e9;color:#2e7d32',
+        'LB': '#fff0f3;color:#c2185b', 'QB': '#fff3e0;color:#e65100', 'UB': '#e3f2fd;color:#1565c0',
+        'DB': '#efebe9;color:#4e342e', 'FE': '#f3e5f5;color:#6a1b9a',
+    }
+
+    items = list(invoice.items.select_related('product').all())
+
+    def get_set_key(item):
+        return item.set_name or 'Other / Unlisted'
+
+    sorted_items = sorted(items, key=lambda i: (get_set_key(i), i.card_number or '', i.description or ''))
+
+    sets_html = ''
+    for set_name, group in groupby(sorted_items, key=get_set_key):
+        cards = list(group)
+        line_count = len(cards)
+        total_qty = sum(item.quantity for item in cards)
+        rows = ''
+        for i, item in enumerate(cards, 1):
+            num = item.card_number or '--'
+            name = item.description or (item.product.name if item.product else 'Item')
+            var_code = item.variant or 'N'
+            var_label = VARIANT_LABEL_FULL.get(var_code, var_code or 'Unknown')
+            var_style = VARIANT_COLORS.get(var_code, '#e8e8e8;color:#333')
+            unit_price = float(item.unit_price or 0)
+            rows += f'''<tr>
+              <td>{i}</td><td>#{num}</td><td>{name}</td>
+              <td><span style="background:{var_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span></td>
+              <td>{item.quantity}</td><td>R {unit_price:.2f}</td>
+              <td style="font-size:13px">[ ]</td>
+            </tr>'''
+
+        if total_qty != line_count:
+            set_count_label = f'{line_count} line{"s" if line_count != 1 else ""} / {total_qty} card{"s" if total_qty != 1 else ""} total'
+        else:
+            set_count_label = f'{total_qty} card{"s" if total_qty != 1 else ""}'
+
+        sets_html += f'''<div style="margin-bottom:6px">
+          <h3 style="font-size:13px;background:#f0f0f0;padding:3px 8px;border-left:3px solid #ff6b35;margin-bottom:2px">{set_name} ({set_count_label})</h3>
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:#eee">
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">#</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="60">Card #</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc">Card Name</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="130">Variant</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">Qty</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Price</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="30">Done</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+          </table></div>'''
+
+    delivery_info = invoice.delivery_note.replace('\n', '<br>') if invoice.delivery_note else '-- no delivery info provided --'
+    item_count = invoice.item_count
+    subtotal = float(invoice.subtotal)
+    shipping = float(invoice.shipping_cost or 0)
+    total = float(invoice.total)
+    printed_at = timezone.now().strftime('%d %b %Y %H:%M')
+
+    controls_html = '''<div class="no-print" style="margin-bottom:16px">
+  <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:14px;cursor:pointer">Print</button>
+  <button onclick="window.close()" style="margin-left:8px;padding:8px 20px;border-radius:6px;border:1px solid #ccc;cursor:pointer">Close</button>
+</div>''' if show_controls else ''
+
+    contact_line = ' | '.join(p for p in [invoice.customer_email, invoice.customer_phone] if p)
+
+    html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Pull Sheet {invoice.invoice_number} - PokeBulk SA</title>
+<style>* {{ margin:0;padding:0;box-sizing:border-box }} body {{ font-family:Arial,sans-serif;font-size:12px;color:#000;padding:14px;line-height:1.2 }} table {{ border-collapse:collapse }} table td {{ padding:2px 8px;border-bottom:1px solid #eee;font-size:11px }} @media print {{ .no-print {{ display:none }} @page {{ margin:10mm;size:A4 }} }}</style>
+</head><body>
+{controls_html}
+<div style="display:flex;justify-content:space-between;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:8px">
+  <div>
+    <h1 style="font-size:20px;margin-bottom:4px">PokeBulk SA - Packing Slip</h1>
+    <div style="font-size:12px;color:#444;margin-top:2px">Manual Invoice {invoice.invoice_number} | {invoice.created_at.strftime("%d %b %Y %H:%M")} | {item_count} cards</div>
+    <div style="font-size:12px;color:#444">Customer: <strong>{invoice.customer_name}</strong>{" (" + contact_line + ")" if contact_line else ""}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:24px;font-weight:bold;color:#ff6b35">R {total:.2f}</div>
+    <div style="font-size:12px;color:#444">{"Paid" if invoice.payment_received else "Awaiting Payment"}</div>
+  </div>
+</div>
+<div style="border:1px solid #ccc;padding:6px 10px;border-radius:4px;margin-bottom:8px;font-size:11px;line-height:1.3">
+  <strong>Delivery Details</strong><br>{delivery_info}
+</div>
+<h2 style="margin-bottom:4px;font-size:14px">Cards to Pack - Grouped by Set</h2>
+{sets_html}
+<table style="width:100%;border-collapse:collapse;margin-top:4px">
+  <tr style="font-weight:bold;background:#fff3e8"><td colspan="5" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {total:.2f}</td><td></td></tr>
+</table>
+<div style="margin-top:10px;border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#666">
+  Printed: {printed_at} | PokeBulk SA - Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park | enquiries@pokebulk.co.za
+</div>
+</body></html>'''
+    return html
+
+
 def html_to_pdf(html):
     """Converts invoice HTML to PDF bytes using xhtml2pdf (pure Python,
     no native/GTK dependency — installs cleanly on Windows and Railway)."""

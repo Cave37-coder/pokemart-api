@@ -9,6 +9,27 @@ from django.dispatch import receiver
 from products.models import PokemonProduct
 
 
+# Michael, 2026-08-11: "add a 5% discount on all products to anyone that is
+# part of the community!" -- "part of the community" = opted into the public
+# community profile (User.community_profile_public), same opt-in that
+# already drives the Community directory/Most Wanted/friends features.
+# Centralized here as the one source of truth so Cart, CheckoutView, and
+# Order all agree on the exact same eligibility rule and rate -- nothing
+# else should hardcode "5" or re-derive eligibility separately.
+COMMUNITY_DISCOUNT_PERCENT = Decimal("5.00")
+
+
+def community_discount_percent(user):
+    """Returns the discount percentage (e.g. Decimal('5.00')) this user
+    currently qualifies for, or Decimal('0') if not logged in / not opted
+    into the community profile."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return Decimal("0")
+    if getattr(user, "community_profile_public", False):
+        return COMMUNITY_DISCOUNT_PERCENT
+    return Decimal("0")
+
+
 class Cart(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -18,8 +39,28 @@ class Cart(models.Model):
         return f"Cart({self.user.username})"
 
     @property
-    def total(self):
+    def subtotal(self):
         return sum(item.subtotal for item in self.items.all())
+
+    @property
+    def discount_percent(self):
+        return community_discount_percent(self.user)
+
+    @property
+    def discount_amount(self):
+        pct = self.discount_percent
+        if not pct:
+            return Decimal("0.00")
+        return (self.subtotal * pct / Decimal("100")).quantize(Decimal("0.01"))
+
+    @property
+    def total(self):
+        """Post-discount total -- this is what checkout actually charges.
+        Deliberately keeps the name `total` (rather than adding a new field)
+        since every existing caller (CartSerializer, pile/checkout pages)
+        already treats this as "the amount due"; it should always mean
+        that, discount included."""
+        return self.subtotal - self.discount_amount
 
 
 class CartItem(models.Model):
@@ -77,6 +118,21 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     stripe_payment_intent = models.CharField(max_length=200, blank=True)
+
+    # Community discount (2026-08-11) — snapshotted at checkout, same reasoning
+    # as OrderItem.price_at_purchase: if Michael changes the discount rate later,
+    # or the customer's community_profile_public status changes, past orders
+    # must keep showing what was actually charged at the time, not a
+    # recalculated value. discount_amount is already subtracted into total_price
+    # (see CheckoutView) -- these two fields exist purely for display/audit.
+    discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text="Community discount percentage applied at checkout (snapshot), e.g. 5 for 5%."
+    )
+    discount_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Community discount amount applied at checkout (snapshot). Already subtracted from Total price."
+    )
 
     # Payment
     payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="payfast", blank=True)

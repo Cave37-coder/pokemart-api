@@ -37,7 +37,7 @@ VARIANT_CHOICES = [
     ('DB', 'Dusk Ball'),
 ]
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
-from .manual_invoice import build_manual_invoice_html, html_to_pdf
+from .manual_invoice import build_manual_invoice_html, build_manual_invoice_pull_sheet_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
 from .buy_order_document import build_buy_order_html, html_to_pdf as buy_order_html_to_pdf
 from .widgets import StatusStepperWidget
@@ -116,7 +116,7 @@ class OrderAdmin(admin.ModelAdmin):
         # AppDirectoriesFinder. Run collectstatic if it's not showing up.
         css = {'all': ('orders/order_admin_compact.css',)}
 
-    list_display = ['id', 'customer_name_display', 'status_badge', 'payment_status_display', 'subtotal_display', 'shipping_col', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
+    list_display = ['id', 'customer_name_display', 'status_badge', 'payment_status_display', 'subtotal_display', 'discount_col', 'shipping_col', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
     list_filter = ['status', PaidFilter, 'payment_method', 'delivery_method']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
     readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display', 'payment_status_display']
@@ -129,6 +129,7 @@ class OrderAdmin(admin.ModelAdmin):
                 ('user', 'customer_info'),
                 'status',
                 ('payment_method', 'eft_confirmed', 'cash_confirmed', 'payment_status_display'),
+                ('discount_percent', 'discount_amount'),
                 ('total_price', 'shipping_display', 'invoice_total_display'),
                 'print_button',
                 ('created_at', 'updated_at'),
@@ -249,8 +250,16 @@ class OrderAdmin(admin.ModelAdmin):
     payment_status_display.short_description = 'Paid'
 
     def subtotal_display(self, obj):
-        return f"{float(obj.total_price or 0) - float(obj.shipping_cost or 0):.2f}"
+        # total_price already has the discount subtracted (see CheckoutView),
+        # so the raw item subtotal is total_price - shipping + discount.
+        return f"{float(obj.total_price or 0) - float(obj.shipping_cost or 0) + float(obj.discount_amount or 0):.2f}"
     subtotal_display.short_description = 'Price'
+
+    def discount_col(self, obj):
+        if not obj.discount_amount:
+            return '-'
+        return format_html('<span style="color:#2e7d32">-R {:.2f} ({:.0f}%)</span>', obj.discount_amount, obj.discount_percent)
+    discount_col.short_description = 'Discount'
 
     def shipping_col(self, obj):
         return f"{float(obj.shipping_cost or 0):.2f}"
@@ -282,7 +291,7 @@ class OrderAdmin(admin.ModelAdmin):
         if not obj.pk:
             return '-'
         subtotal = sum(float(i.price_at_purchase) * i.quantity for i in obj.items.all())
-        total = subtotal + float(obj.shipping_cost or 0)
+        total = subtotal - float(obj.discount_amount or 0) + float(obj.shipping_cost or 0)
         stored = float(obj.total_price or 0)
         mismatch = abs(total - stored) > 0.01
         color = '#ff4444' if mismatch else '#2e7d32'
@@ -475,14 +484,16 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         print_url = reverse('admin:manual-invoice-print', args=[obj.pk])
         pdf_url = reverse('admin:manual-invoice-pdf', args=[obj.pk])
         email_url = reverse('admin:manual-invoice-email', args=[obj.pk])
+        pull_sheet_url = reverse('admin:manual-invoice-pull-sheet', args=[obj.pk])
         email_confirm_target = obj.customer_email or 'this customer (no email on file)'
         return format_html(
             '''<div style="display:flex;gap:6px;flex-wrap:wrap;white-space:nowrap">
+                <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">🖨 Pull Sheet</a>
                 <a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;display:inline-block">📄 Print / View</a>
                 <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">⬇ PDF</a>
                 <a href="{}" onclick="return confirm('Email this invoice to {}? This will send a real email.')" style="background:#2e7d32;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">✉️ Email</a>
             </div>''',
-            print_url, pdf_url, email_url, email_confirm_target
+            pull_sheet_url, print_url, pdf_url, email_url, email_confirm_target
         )
     invoice_button.short_description = 'Invoice'
 
@@ -500,6 +511,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             path('<int:pk>/manual-invoice-print/', self.admin_site.admin_view(self.print_invoice_view), name='manual-invoice-print'),
             path('<int:pk>/manual-invoice-pdf/', self.admin_site.admin_view(self.pdf_invoice_view), name='manual-invoice-pdf'),
             path('<int:pk>/manual-invoice-email/', self.admin_site.admin_view(self.email_invoice_view), name='manual-invoice-email'),
+            path('<int:pk>/manual-invoice-pull-sheet/', self.admin_site.admin_view(self.pull_sheet_view), name='manual-invoice-pull-sheet'),
             path('pos/', self.admin_site.admin_view(self.pos_view), name='manual-invoice-pos'),
             path('pos/search/', self.admin_site.admin_view(self.pos_search_view), name='manual-invoice-pos-search'),
             path('pos/save/', self.admin_site.admin_view(self.pos_save_view), name='manual-invoice-pos-save'),
@@ -509,6 +521,11 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
     def print_invoice_view(self, request, pk):
         invoice = get_object_or_404(ManualInvoice, pk=pk)
         html = build_manual_invoice_html(invoice, show_controls=True)
+        return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+    def pull_sheet_view(self, request, pk):
+        invoice = get_object_or_404(ManualInvoice, pk=pk)
+        html = build_manual_invoice_pull_sheet_html(invoice, show_controls=True)
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
     def pdf_invoice_view(self, request, pk):

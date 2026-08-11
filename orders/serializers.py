@@ -18,11 +18,18 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    discount_percent = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    discount_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    # Post-discount total -- unchanged field name so every existing caller
+    # (pile/checkout pages) keeps working, it now just already has the
+    # community discount baked in. subtotal/discount_percent/discount_amount
+    # above are the new fields the frontend uses to show the breakdown.
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Cart
-        fields = ['id', 'items', 'total', 'updated_at']
+        fields = ['id', 'items', 'subtotal', 'discount_percent', 'discount_amount', 'total', 'updated_at']
 
 
 class OrderTrackingSerializer(serializers.ModelSerializer):
@@ -52,12 +59,13 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
     'id', 'status', 'status_display', 'total_price', 'items',
     'tracking',
+    'shipping_cost', 'discount_percent', 'discount_amount',
     'delivery_method', 'delivery_address_line1', 'delivery_address_line2',
     'delivery_city', 'delivery_province', 'delivery_postal_code',
     'waybill_number', 'courier_name', 'courier_tracking_url',
     'customer_note', 'created_at',
      ]
-        read_only_fields = ['id', 'status', 'total_price', 'created_at']
+        read_only_fields = ['id', 'status', 'total_price', 'created_at', 'shipping_cost', 'discount_percent', 'discount_amount']
 
 
 class OrderStatusUpdateSerializer(serializers.ModelSerializer):

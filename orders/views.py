@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from products.models import PokemonProduct
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, community_discount_percent
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
     OrderStatusUpdateSerializer
@@ -213,11 +213,24 @@ class CheckoutView(APIView):
         except Exception:
             shipping_cost = Decimal('0')
 
-        total = subtotal + shipping_cost
+        # Community discount (2026-08-11) -- 5% off for anyone with a public
+        # community profile. Snapshotted onto the order (see Order model
+        # docstring) rather than only ever computed live, so the invoice
+        # keeps showing what was actually charged even if the rate or the
+        # customer's opt-in status changes later.
+        discount_percent = community_discount_percent(request.user)
+        discount_amount = (
+            (subtotal * discount_percent / Decimal('100')).quantize(Decimal('0.01'))
+            if discount_percent else Decimal('0.00')
+        )
+
+        total = subtotal - discount_amount + shipping_cost
 
         order = Order.objects.create(
             user=request.user,
             total_price=total,
+            discount_percent=discount_percent,
+            discount_amount=discount_amount,
             status='pending_eft' if is_eft else ('awaiting_payment' if payment_method == 'payfast' else 'pending'),
             payment_method='coc' if is_coc else payment_method,
             shipping_method=shipping_method,
@@ -540,6 +553,7 @@ def print_order(request, order_id):
 <table style="width:100%;border-collapse:collapse;margin-top:4px">
   <tr style="font-weight:bold;background:#fff3e8"><td colspan="5" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
   <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
+  {f'<tr style="font-weight:bold;background:#f9f9f9;color:#2e7d32"><td colspan="5" style="text-align:right;padding:4px 8px">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:4px 8px">-R {order.discount_amount:.2f}</td><td></td></tr>' if order.discount_amount else ''}
   <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
   <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {order.total_price:.2f}</td><td></td></tr>
 </table>
@@ -607,7 +621,8 @@ def _build_invoice_html(order, show_controls=True):
 
     subtotal = sum(float(item.price_at_purchase) * item.quantity for item in items)
     shipping = float(order.shipping_cost or 0)
-    total = subtotal + shipping
+    discount_amount = float(order.discount_amount or 0)
+    total = subtotal - discount_amount + shipping
     item_count = sum(i.quantity for i in items)
     invoice_date = order.created_at.strftime('%d-%m-%Y')
     invoice_num = f'INV {order.id:08d}'
@@ -683,6 +698,7 @@ def _build_invoice_html(order, show_controls=True):
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
   <table style="width:260px">
     <tr><td style="padding:2px 8px;color:#555">Subtotal ({item_count} items)</td><td style="padding:2px 8px;text-align:right">R {subtotal:.2f}</td></tr>
+    {f'<tr><td style="padding:2px 8px;color:#2e7d32">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:2px 8px;text-align:right;color:#2e7d32">-R {discount_amount:.2f}</td></tr>' if discount_amount else ''}
     <tr><td style="padding:2px 8px;color:#555">Shipping</td><td style="padding:2px 8px;text-align:right">{"FREE" if shipping == 0 else f"R {shipping:.2f}"}</td></tr>
     <tr style="font-weight:bold;font-size:14px;border-top:2px solid #ff6b35"><td style="padding:5px 8px">TOTAL</td><td style="padding:5px 8px;text-align:right;color:#ff6b35">R {total:.2f}</td></tr>
   </table>
