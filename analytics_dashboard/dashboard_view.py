@@ -102,6 +102,7 @@ a {{ color:#ff6b35 }}
       </select>
     </form>
   </div>
+  <div style="margin-bottom:24px"><a href="/admin/store-overview/" style="font-size:12px">→ Store Overview (real stock &amp; sales data)</a></div>
 
   {error_block}
   {conversion_cards}

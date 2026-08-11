@@ -6,6 +6,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from products.admin import ProductAutocompleteJsonView
 from orders.pos_auth import pos_csrf_view, pos_login_view, pos_logout_view, pos_whoami_view
 from analytics_dashboard.dashboard_view import dashboard_page
+from analytics_dashboard.store_overview_view import store_overview_page
 
 urlpatterns = [
     # Must come BEFORE path("admin/", admin.site.urls) below -- Django's
@@ -18,6 +19,10 @@ urlpatterns = [
     # same pattern as manage_set_view.py) -- must also come before
     # path("admin/", ...) for the same reason as autocomplete above.
     path("admin/analytics-dashboard/", dashboard_page, name="analytics-dashboard-page"),
+    # Michael, 2026-08-11: "create a page wth all of that, showing all those
+    # things? quick overview" -- stock + real (DB-exact, not GA4) sales
+    # figures in one place. Same before-admin/ ordering reasoning as above.
+    path("admin/store-overview/", store_overview_page, name="store-overview-page"),
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
