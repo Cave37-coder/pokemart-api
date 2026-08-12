@@ -389,9 +389,16 @@ from django.db.models import Count, Q
 @permission_classes([IsAdminUser])
 def admin_customer_search(request):
     """GET /api/auth/admin/customers/?search=theuns
-    With no search, returns customers who actually have checklist activity,
-    busiest collector first -- more useful for staff browsing than an
-    alphabetical dump of every account ever registered."""
+
+    Michael, 2026-08-12: "the invoice totals pages is limited to users that
+    have worked on checklists, i can't access other users!" -- this used to
+    filter the no-search default down to checklist_count__gt=0, which made
+    sense when this endpoint only fed the Checklists lookup, but it now also
+    backs the sales-totals panel on the same page, so a customer with zero
+    checklist activity (e.g. a pure buyer) needs to be reachable too. Every
+    customer is included now, whether searching or just browsing -- active
+    collectors still surface first by default, they're just no longer the
+    ONLY thing shown."""
     User = get_user_model()
     search = request.GET.get('search', '').strip()
     qs = User.objects.annotate(checklist_count=Count('checklist_entries', distinct=True))
@@ -400,8 +407,6 @@ def admin_customer_search(request):
             Q(username__icontains=search) | Q(email__icontains=search)
             | Q(first_name__icontains=search) | Q(last_name__icontains=search)
         )
-    else:
-        qs = qs.filter(checklist_count__gt=0)
     qs = qs.order_by('-checklist_count', 'username')[:50]
     return Response([{
         'id': u.id,
