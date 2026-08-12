@@ -26,6 +26,7 @@ urlpatterns = [
     path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
     path("checklists/stock-check/", views.checklist_stock, name="checklist-stock"),
     path("checklists/entries/", views.checklist_entries, name="checklist-entries"),
+    path("checklists/admin/customer/<int:user_id>/", views.checklist_admin_customer, name="checklist-admin-customer"),
     path("checklists/toggle/", views.checklist_toggle, name="checklist-toggle"),
     path("checklists/clear-set/", views.checklist_clear_set, name="checklist-clear-set"),
     path("checklists/import/", views.checklist_import, name="checklist-import"),

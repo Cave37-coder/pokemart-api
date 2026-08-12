@@ -1133,7 +1133,7 @@ def checklist_stock(request):
 # they switched devices. See ChecklistEntry model for details.
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from decimal import Decimal
@@ -1154,6 +1154,41 @@ def checklist_entries(request):
     for e in entries:
         grouped.setdefault(e['card_set'], []).append(e['card_key'])
     return Response(grouped)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def checklist_admin_customer(request, user_id):
+    """Staff-only equivalent of checklist_entries, but for ANY customer by id
+    (2026-08-12, Michael: "I also want access to customers checklists, so
+    that i can check what they need!"). Feeds the /staff/checklists page --
+    same {"ASC": ["001/217_N", ...]} entries shape checklist_entries already
+    returns, plus a bit of contact info so staff don't need a second lookup.
+    Not gated by checklist_public/friendship like community.public_profile --
+    staff can see everyone, same as they already can in Django admin.
+    """
+    User = get_user_model()
+    try:
+        customer = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'Customer not found'}, status=404)
+
+    entries = ChecklistEntry.objects.filter(user=customer).values('card_set', 'card_key')
+    grouped = {}
+    for e in entries:
+        grouped.setdefault(e['card_set'], []).append(e['card_key'])
+
+    return Response({
+        'customer': {
+            'id': customer.id,
+            'username': customer.username,
+            'email': customer.email,
+            'first_name': customer.first_name,
+            'last_name': customer.last_name,
+            'phone_number': customer.phone_number,
+        },
+        'entries': grouped,
+    })
 
 
 @api_view(['POST'])

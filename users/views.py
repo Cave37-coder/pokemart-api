@@ -370,3 +370,44 @@ def wishlist_toggle(request):
         return Response({'on_wishlist': False})
     request.user.wishlist.add(product)
     return Response({'on_wishlist': True})
+
+
+# ── Staff: customer checklist lookup (2026-08-12) ───────────────────────────
+# Michael: "I also want access to customers checklists, so that i can check
+# what they need!" -- distinct from community/views.py's public_profile,
+# which only exposes full_checklist to FRIENDS or when checklist_public is
+# on. Staff need to look up ANY customer regardless of their privacy opt-ins
+# (same reasoning Django admin already has full visibility), so this is a
+# separate IsAdminUser-only endpoint rather than loosening the customer-facing
+# privacy gates. Feeds the /staff/checklists page's customer search box.
+from rest_framework.permissions import IsAdminUser
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_customer_search(request):
+    """GET /api/auth/admin/customers/?search=theuns
+    With no search, returns customers who actually have checklist activity,
+    busiest collector first -- more useful for staff browsing than an
+    alphabetical dump of every account ever registered."""
+    User = get_user_model()
+    search = request.GET.get('search', '').strip()
+    qs = User.objects.annotate(checklist_count=Count('checklist_entries', distinct=True))
+    if search:
+        qs = qs.filter(
+            Q(username__icontains=search) | Q(email__icontains=search)
+            | Q(first_name__icontains=search) | Q(last_name__icontains=search)
+        )
+    else:
+        qs = qs.filter(checklist_count__gt=0)
+    qs = qs.order_by('-checklist_count', 'username')[:50]
+    return Response([{
+        'id': u.id,
+        'username': u.username,
+        'email': u.email,
+        'first_name': u.first_name,
+        'last_name': u.last_name,
+        'checklist_count': u.checklist_count,
+    } for u in qs])
