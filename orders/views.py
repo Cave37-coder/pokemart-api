@@ -530,6 +530,61 @@ class AdminManualInvoiceStatusUpdateView(APIView):
         return Response(ManualInvoiceListSerializer(invoice).data)
 
 
+class AdminCustomerSalesSummaryView(APIView):
+    """Staff-only per-customer sales totals (2026-08-12) -- Michael: "Can we
+    add individual customer totaling? Show active orders and their total and
+    then customers total sales, must include manual invoices." Feeds the
+    customer panel on /staff/checklists, right alongside the checklist
+    have/needed view already there.
+
+    ManualInvoice has no user FK (walk-in customers don't need an account),
+    so it's matched to this customer by email -- same join key Michael
+    already uses himself when a repeat customer calls in. Every total here
+    excludes 'cancelled' (both Order and ManualInvoice), matching how the
+    Store Overview page already defines "sales" so the two pages agree.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, user_id):
+        from django.contrib.auth import get_user_model
+        from django.db.models import Sum
+        User = get_user_model()
+        try:
+            customer = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        orders_qs = Order.objects.filter(user=customer)
+
+        # "Active" = not yet finished either way (same exclude set
+        # AdminOrderListView already defaults to for its open-orders view).
+        active_orders = list(orders_qs.exclude(status__in=['cancelled', 'invoiced']).order_by('-created_at'))
+        active_orders_total = sum((o.total_price for o in active_orders), Decimal('0.00'))
+
+        order_sales_total = orders_qs.exclude(status='cancelled').aggregate(t=Sum('total_price'))['t'] or Decimal('0.00')
+
+        manual_invoices = (
+            ManualInvoice.objects.filter(customer_email__iexact=customer.email).exclude(status='cancelled')
+            if customer.email else ManualInvoice.objects.none()
+        )
+        manual_invoice_total = sum((mi.total for mi in manual_invoices), Decimal('0.00'))
+
+        return Response({
+            'active_orders': [{
+                'id': o.id,
+                'status': o.status,
+                'status_display': o.get_status_display(),
+                'total_price': str(o.total_price),
+                'created_at': o.created_at,
+            } for o in active_orders],
+            'active_orders_total': str(active_orders_total),
+            'order_sales_total': str(order_sales_total),
+            'manual_invoice_total': str(manual_invoice_total),
+            'manual_invoice_count': manual_invoices.count(),
+            'total_sales': str(order_sales_total + manual_invoice_total),
+        })
+
+
 @staff_member_required
 def print_order(request, order_id):
     from django.utils import timezone
