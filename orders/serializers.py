@@ -149,11 +149,12 @@ class ManualInvoiceListSerializer(serializers.ModelSerializer):
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     item_count = serializers.IntegerField(read_only=True)
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = ManualInvoice
         fields = [
-            'id', 'invoice_number', 'customer_name', 'customer_email', 'customer_phone',
+            'id', 'invoice_number', 'status', 'status_display', 'customer_name', 'customer_email', 'customer_phone',
             'shipping_cost', 'discount_percent', 'discount_amount', 'subtotal', 'total',
             'item_count', 'payment_received', 'payment_method', 'payment_method_display',
             'created_at',

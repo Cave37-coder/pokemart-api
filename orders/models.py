@@ -285,6 +285,22 @@ class ManualInvoice(models.Model):
     customer_email = models.EmailField(blank=True)
     customer_phone = models.CharField(max_length=50, blank=True)
 
+    # Fulfillment status (2026-08-12): Michael, "Manual Invoicing can we do
+    # a status too? Created / Payment confirmed / Packed / Complete /
+    # Cancelled" -- mirrors the real Order model's own status workflow, but
+    # deliberately a much shorter list since Manual Invoice has no courier/
+    # waybill tracking of its own (see delivery_note free-text field
+    # instead). Defaults to 'created' since that's what pos_save_view
+    # already means the moment an invoice exists.
+    STATUS_CHOICES = [
+        ('created', 'Created'),
+        ('payment_confirmed', 'Payment Confirmed'),
+        ('packed', 'Packed'),
+        ('complete', 'Complete'),
+        ('cancelled', 'Cancelled'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
+
     delivery_note = models.TextField(
         blank=True,
         help_text="Free-text delivery/collection info — address, Pudo locker, 'collection', etc."
@@ -327,6 +343,13 @@ class ManualInvoice(models.Model):
             last = ManualInvoice.objects.order_by('-id').first()
             next_num = (last.id + 1) if last else 1
             self.invoice_number = f"MINV-{next_num:05d}"
+        # Keep payment_received in sync with status -- once status has moved
+        # to "Payment Confirmed" or anywhere past it (Packed/Complete), the
+        # payment obviously came in, regardless of which of the two fields
+        # staff actually clicked. Never flips it back off automatically
+        # (e.g. Cancelled doesn't un-confirm a payment that really happened).
+        if self.status in ('payment_confirmed', 'packed', 'complete'):
+            self.payment_received = True
         super().save(*args, **kwargs)
 
     @property

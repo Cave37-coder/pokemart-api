@@ -423,8 +423,8 @@ class ManualInvoiceItemInline(admin.TabularInline):
 
 @admin.register(ManualInvoice)
 class ManualInvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_number', 'customer_name', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
-    list_filter = ['payment_received', 'payment_method', 'created_at']
+    list_display = ['invoice_number', 'customer_name', 'status_badge', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
+    list_filter = ['status', 'payment_received', 'payment_method', 'created_at']
     search_fields = ['invoice_number', 'customer_name', 'customer_email']
     readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button']
     ordering = ['-created_at']
@@ -432,7 +432,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Invoice', {
-            'fields': ('invoice_number', 'created_at', 'updated_at', 'invoice_button')
+            'fields': ('invoice_number', 'status', 'created_at', 'updated_at', 'invoice_button')
         }),
         ('Customer', {
             'fields': ('customer_name', 'customer_email', 'customer_phone')
@@ -447,6 +447,23 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'fields': ('internal_note',)
         }),
     )
+
+    # Same color language as OrderAdmin.status_badge -- not a shared
+    # STATUS_COLOR dict since the two status sets don't line up 1:1
+    # (Manual Invoice has no courier/booking stages of its own).
+    MANUAL_INVOICE_STATUS_COLORS = {
+        'created': '#546e7a', 'payment_confirmed': '#1565c0',
+        'packed': '#6a1b9a', 'complete': '#1b5e20', 'cancelled': '#757575',
+    }
+
+    def status_badge(self, obj):
+        color = self.MANUAL_INVOICE_STATUS_COLORS.get(obj.status, '#333')
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;white-space:nowrap">{}</span>',
+            color, obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
 
     def save_model(self, request, obj, form, change):
         if not obj.pk and not obj.created_by_id:

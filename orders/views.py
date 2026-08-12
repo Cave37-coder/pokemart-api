@@ -478,6 +478,10 @@ class AdminManualInvoiceListView(generics.ListAPIView):
     def get_queryset(self):
         qs = ManualInvoice.objects.prefetch_related('items')
 
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
         payment_filter = self.request.query_params.get('payment_received')
         if payment_filter in ('true', 'false'):
             qs = qs.filter(payment_received=(payment_filter == 'true'))
@@ -490,6 +494,40 @@ class AdminManualInvoiceListView(generics.ListAPIView):
             )
 
         return qs.order_by('-created_at')
+
+
+class AdminManualInvoiceStatusUpdateView(APIView):
+    """PATCH-only status update for a Manual Invoice (2026-08-12) -- Michael:
+    "Manual Invoicing can we do a status too?" Mirrors OrderStatusUpdateView's
+    shape (status + optional payment fields in one PATCH) but much simpler:
+    no waybill/courier/tracking, no OrderTracking-equivalent history table.
+    payment_received/payment_method can be updated in the same call, but
+    ManualInvoice.save() already auto-syncs payment_received once status
+    reaches 'payment_confirmed' or later, so that's rarely needed separately."""
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk):
+        try:
+            invoice = ManualInvoice.objects.get(pk=pk)
+        except ManualInvoice.DoesNotExist:
+            return Response({'error': 'Manual invoice not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get('status')
+        if new_status is not None:
+            if new_status not in dict(ManualInvoice.STATUS_CHOICES):
+                return Response({'error': f'Invalid status: {new_status}'}, status=status.HTTP_400_BAD_REQUEST)
+            invoice.status = new_status
+
+        if 'payment_received' in request.data:
+            invoice.payment_received = bool(request.data.get('payment_received'))
+        if 'payment_method' in request.data:
+            method = request.data.get('payment_method') or ''
+            if method and method not in dict(ManualInvoice.PAYMENT_METHOD_CHOICES):
+                return Response({'error': f'Invalid payment_method: {method}'}, status=status.HTTP_400_BAD_REQUEST)
+            invoice.payment_method = method
+
+        invoice.save()
+        return Response(ManualInvoiceListSerializer(invoice).data)
 
 
 @staff_member_required
