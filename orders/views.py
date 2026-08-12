@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -17,10 +17,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from products.models import PokemonProduct
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, community_discount_percent
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, community_discount_percent
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
-    OrderStatusUpdateSerializer
+    OrderStatusUpdateSerializer, AdminOrderListSerializer,
+    ManualInvoiceListSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -392,23 +393,69 @@ class OrderStatusUpdateView(APIView):
 
 
 class AdminOrderListView(generics.ListAPIView):
-    serializer_class = OrderSerializer
+    """Feeds the staff Orders dashboard's changelist-style table (2026-08-12).
+    Deliberately lean -- no nested item/product data, just what a
+    changelist row needs, plus status/paid/search filters mirroring
+    OrderAdmin's own list_filter/search_fields/PaidFilter so the new
+    dashboard and Django admin stay behaviourally consistent."""
+    serializer_class = AdminOrderListSerializer
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related(
-            Prefetch(
-                'items',
-                queryset=OrderItem.objects.select_related(
-                    'product__category', 'product__card_set__era'
-                ).prefetch_related('product__pokemon_types')
-            ),
-            'tracking',
-        ).select_related('user')
+        qs = Order.objects.select_related('user').prefetch_related('items')
+
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
-        return qs
+        else:
+            # Same default as OrderAdmin's changelist -- open orders only,
+            # unless a status is explicitly requested (including 'cancelled'
+            # or 'invoiced' themselves).
+            qs = qs.exclude(status__in=['cancelled', 'invoiced'])
+
+        paid_filter = self.request.query_params.get('paid')
+        if paid_filter in ('yes', 'no'):
+            paid_q = (
+                (Q(payment_method='payfast') & ~Q(stripe_payment_intent=''))
+                | Q(payment_method='eft', eft_confirmed=True)
+                | Q(payment_method='coc', cash_confirmed=True)
+            )
+            qs = qs.filter(paid_q) if paid_filter == 'yes' else qs.exclude(paid_q)
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(user__username__icontains=search) | Q(user__email__icontains=search)
+                | Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
+                | Q(waybill_number__icontains=search)
+            )
+
+        return qs.order_by('-created_at')
+
+
+class AdminManualInvoiceListView(generics.ListAPIView):
+    """Manual Invoice's first REST API (2026-08-12) -- read-only, feeds the
+    staff dashboard's Manual Invoices tab. Creating/editing invoices still
+    goes through the existing POS screen (admin.py's pos_view), linked out
+    to rather than rebuilt here."""
+    serializer_class = ManualInvoiceListSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        qs = ManualInvoice.objects.prefetch_related('items')
+
+        payment_filter = self.request.query_params.get('payment_received')
+        if payment_filter in ('true', 'false'):
+            qs = qs.filter(payment_received=(payment_filter == 'true'))
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(customer_name__icontains=search) | Q(customer_email__icontains=search)
+                | Q(invoice_number__icontains=search)
+            )
+
+        return qs.order_by('-created_at')
 
 
 @staff_member_required
