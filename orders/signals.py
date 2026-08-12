@@ -73,23 +73,20 @@ def _send_status_update_email(order):
             f"    Status: {status_label}\n\n"
         )
 
-        # Michael, 2026-08-02: once a courier status is selected, include
-        # whatever waybill/tracking info is on file so the customer doesn't
-        # have to log in just to get their Pudo waybill number. Limited to
-        # the two statuses that actually mean "handed to the courier" --
-        # 'booked' (Courier Booking) and 'collected' (Courier Collected) --
-        # not every status, since waybill info usually isn't set yet before
-        # that point anyway.
-        if order.status in ('booked', 'collected'):
-            courier_lines = []
-            if order.courier_name:
-                courier_lines.append(f"    Courier: {order.courier_name}")
-            if order.waybill_number:
-                courier_lines.append(f"    Waybill / Tracking Number: {order.waybill_number}")
-            if order.courier_tracking_url:
-                courier_lines.append(f"    Track your parcel: {order.courier_tracking_url}")
-            if courier_lines:
-                text_body += "\n".join(courier_lines) + "\n\n"
+        # Michael, 2026-08-12: include whatever waybill/tracking info is on
+        # file on EVERY status-update email once it's been added to the
+        # order, not just on the 'booked'/'collected' statuses -- so the
+        # tracking number keeps showing up (e.g. on the later "Complete"
+        # email) instead of only appearing once and then disappearing.
+        courier_lines = []
+        if order.courier_name:
+            courier_lines.append(f"    Courier: {order.courier_name}")
+        if order.waybill_number:
+            courier_lines.append(f"    Waybill / Tracking Number: {order.waybill_number}")
+        if order.courier_tracking_url:
+            courier_lines.append(f"    Track your parcel: {order.courier_tracking_url}")
+        if courier_lines:
+            text_body += "\n".join(courier_lines) + "\n\n"
 
         text_body += (
             f"You can view your full order details anytime by signing in at "
