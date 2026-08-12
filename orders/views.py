@@ -369,25 +369,59 @@ class OrderStatusUpdateView(APIView):
         courier_name = request.data.get('courier_name', '')
         courier_url = request.data.get('courier_tracking_url', '')
 
-        if new_status not in dict(Order.STATUS_CHOICES):
+        # status is now optional -- a request can be payment-confirmation-only
+        # (see below) with no status change at all.
+        if new_status is not None and new_status not in dict(Order.STATUS_CHOICES):
             return Response({'error': f'Invalid status: {new_status}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        order.status = new_status
+        if new_status is not None:
+            order.status = new_status
         if waybill:
             order.waybill_number = waybill
         if courier_name:
             order.courier_name = courier_name
         if courier_url:
             order.courier_tracking_url = courier_url
-        order.save()
 
-        OrderTracking.objects.create(
-            order=order,
-            status=new_status,
-            note=note,
-            waybill_number=waybill,
-            created_by=request.user,
-        )
+        # Payment confirmation (2026-08-12): Michael, "only feature to add,
+        # is payment confirmation, Cash - EFT - Payfast" -- EFT/Cash are
+        # manual tick boxes, matching OrderAdmin's own eft_confirmed/
+        # cash_confirmed fields exactly. PayFast is normally confirmed
+        # automatically by the ITN webhook writing stripe_payment_intent,
+        # but that field's exposed here too as an editable reference for
+        # the rare case staff need to correct it by hand -- the same
+        # capability OrderAdmin's collapsed "Technical" fieldset already
+        # allows, just surfaced in the new staff dashboard too. Checked
+        # with 'in' (not truthiness) so explicitly un-ticking a
+        # confirmation (False) is distinguishable from "wasn't sent".
+        if 'eft_confirmed' in request.data:
+            order.eft_confirmed = bool(request.data.get('eft_confirmed'))
+        if 'cash_confirmed' in request.data:
+            order.cash_confirmed = bool(request.data.get('cash_confirmed'))
+        if 'stripe_payment_intent' in request.data:
+            order.stripe_payment_intent = request.data.get('stripe_payment_intent') or ''
+
+        # Stashed as plain attributes (never saved to the DB) so
+        # orders/signals.py's post_save receiver can build a richer
+        # OrderTracking entry -- real note/waybill/created_by -- instead of
+        # the bare one it used to create alone.
+        #
+        # Found while wiring this up: now that the signal actually fires
+        # (orders/apps.py's ready() fix, earlier today), this view's OWN
+        # unconditional OrderTracking.objects.create() call that used to
+        # sit right after order.save() would have started producing a
+        # DUPLICATE tracking row -- plus a second status-update email to
+        # the customer -- every single time, since the signal already
+        # creates one too whenever status changes. That call is removed
+        # below entirely; the signal is now the one and only place a
+        # status change ever creates a tracking row or sends the update
+        # email, no matter whether the change came from this view, the
+        # Django admin form, or anywhere else that calls order.save().
+        order._tracking_note = note
+        order._tracking_waybill = waybill
+        order._tracking_created_by = request.user
+
+        order.save()
 
         return Response(OrderSerializer(order).data)
 

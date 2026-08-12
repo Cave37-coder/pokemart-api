@@ -71,10 +71,21 @@ class OrderSerializer(serializers.ModelSerializer):
 class OrderStatusUpdateSerializer(serializers.ModelSerializer):
     note = serializers.CharField(required=False, allow_blank=True)
     waybill_number = serializers.CharField(required=False, allow_blank=True)
+    status = serializers.ChoiceField(choices=Order.STATUS_CHOICES, required=False)
+    # Payment confirmation (2026-08-12) -- documents the same fields
+    # OrderStatusUpdateView actually reads off request.data. All optional:
+    # a request can update just status, just payment confirmation, or both
+    # in one PATCH.
+    eft_confirmed = serializers.BooleanField(required=False)
+    cash_confirmed = serializers.BooleanField(required=False)
+    stripe_payment_intent = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Order
-        fields = ['status', 'note', 'waybill_number', 'courier_name', 'courier_tracking_url']
+        fields = [
+            'status', 'note', 'waybill_number', 'courier_name', 'courier_tracking_url',
+            'eft_confirmed', 'cash_confirmed', 'stripe_payment_intent',
+        ]
 
 
 # =============================================================================

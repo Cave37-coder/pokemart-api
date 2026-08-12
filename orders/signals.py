@@ -15,10 +15,23 @@ def create_tracking_on_status_change(sender, instance, created, **kwargs):
         return
     last = OrderTracking.objects.filter(order=instance).order_by('-created_at').first()
     if not last or last.status != instance.status:
+        # _tracking_note/_tracking_waybill/_tracking_created_by are plain
+        # (non-model, never-saved) attributes OrderStatusUpdateView stashes
+        # onto the instance right before calling .save(), so this one
+        # signal handler -- the single place any status change creates a
+        # tracking row or sends the update email, from any code path --
+        # can still record who made the change and any note/waybill they
+        # attached, not just the bare status. Falls back to the instance's
+        # real waybill_number when nothing was stashed (e.g. a status
+        # change made directly through the Django admin form, which sets
+        # waybill_number on the instance itself before save() rather than
+        # stashing a separate attribute).
         OrderTracking.objects.create(
             order=instance,
             status=instance.status,
-            note="",
+            note=getattr(instance, '_tracking_note', '') or '',
+            waybill_number=getattr(instance, '_tracking_waybill', '') or instance.waybill_number or '',
+            created_by=getattr(instance, '_tracking_created_by', None),
         )
         _send_status_update_email(instance)
 
