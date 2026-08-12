@@ -541,11 +541,18 @@ class AdminCustomerSalesSummaryView(APIView):
     customer panel on /staff/checklists, right alongside the checklist
     have/needed view already there.
 
-    ManualInvoice has no user FK (walk-in customers don't need an account),
-    so it's matched to this customer by email -- same join key Michael
-    already uses himself when a repeat customer calls in. Every total here
-    excludes 'cancelled' (both Order and ManualInvoice), matching how the
-    Store Overview page already defines "sales" so the two pages agree.
+    Matched on the linked ManualInvoice.user account (reliable) OR a
+    matching email (covers older/walk-in invoices from before account
+    linking existed) -- same join key Michael already uses himself when a
+    repeat customer calls in. Every total here excludes 'cancelled' (both
+    Order and ManualInvoice), matching how the Store Overview page already
+    defines "sales" so the two pages agree.
+
+    2026-08-12 follow-up -- Michael: "not pulling in the manual invoices?"
+    -- the totals DID already include manual invoices, but the "active"
+    list itself was Order-only, so an in-progress manual invoice was
+    invisible even though it was silently baked into the total. active_*
+    below is now a single combined list of both types, sorted together.
     """
     permission_classes = [IsAdminUser]
 
@@ -559,34 +566,45 @@ class AdminCustomerSalesSummaryView(APIView):
             return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
 
         orders_qs = Order.objects.filter(user=customer)
-
-        # "Active" = not yet finished either way (same exclude set
-        # AdminOrderListView already defaults to for its open-orders view).
-        active_orders = list(orders_qs.exclude(status__in=['cancelled', 'invoiced']).order_by('-created_at'))
-        active_orders_total = sum((o.total_price for o in active_orders), Decimal('0.00'))
-
         order_sales_total = orders_qs.exclude(status='cancelled').aggregate(t=Sum('total_price'))['t'] or Decimal('0.00')
 
-        # Matched on the linked account (new, reliable) OR a matching email
-        # on an older/walk-in invoice that predates account linking -- so a
-        # repeat customer's history from before Michael started linking
-        # accounts still counts here, not just invoices created afterward.
         email_q = Q(customer_email__iexact=customer.email) if customer.email else Q(pk__in=[])
-        manual_invoices = ManualInvoice.objects.filter(Q(user=customer) | email_q).exclude(status='cancelled')
-        manual_invoice_total = sum((mi.total for mi in manual_invoices), Decimal('0.00'))
+        manual_invoices_qs = ManualInvoice.objects.filter(Q(user=customer) | email_q).exclude(status='cancelled')
+        manual_invoice_total = sum((mi.total for mi in manual_invoices_qs), Decimal('0.00'))
+
+        # "Active" = not yet finished either way. Orders: same exclude set
+        # AdminOrderListView already defaults to. Manual Invoice: excludes
+        # its own equivalent 'finished' states (complete/cancelled) --
+        # 'cancelled' is already excluded on manual_invoices_qs above.
+        active_items = [{
+            'type': 'order',
+            'id': o.id,
+            'label': f'#{o.id}',
+            'status': o.status,
+            'status_display': o.get_status_display(),
+            'total': str(o.total_price),
+            'created_at': o.created_at,
+        } for o in orders_qs.exclude(status__in=['cancelled', 'invoiced'])]
+
+        active_items += [{
+            'type': 'manual_invoice',
+            'id': mi.id,
+            'label': mi.invoice_number,
+            'status': mi.status,
+            'status_display': mi.get_status_display(),
+            'total': str(mi.total),
+            'created_at': mi.created_at,
+        } for mi in manual_invoices_qs.exclude(status='complete')]
+
+        active_items.sort(key=lambda x: x['created_at'], reverse=True)
+        active_total = sum((Decimal(x['total']) for x in active_items), Decimal('0.00'))
 
         return Response({
-            'active_orders': [{
-                'id': o.id,
-                'status': o.status,
-                'status_display': o.get_status_display(),
-                'total_price': str(o.total_price),
-                'created_at': o.created_at,
-            } for o in active_orders],
-            'active_orders_total': str(active_orders_total),
+            'active_orders': active_items,
+            'active_orders_total': str(active_total),
             'order_sales_total': str(order_sales_total),
             'manual_invoice_total': str(manual_invoice_total),
-            'manual_invoice_count': manual_invoices.count(),
+            'manual_invoice_count': manual_invoices_qs.count(),
             'total_sales': str(order_sales_total + manual_invoice_total),
         })
 
