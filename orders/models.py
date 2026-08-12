@@ -285,6 +285,25 @@ class ManualInvoice(models.Model):
     customer_email = models.EmailField(blank=True)
     customer_phone = models.CharField(max_length=50, blank=True)
 
+    # Link to an existing site account (2026-08-12) -- Michael: "wire in the
+    # site users to the manual invoicing side, so i can add the user name to
+    # the manual invoice, if i know they exist, new walk in customer will
+    # just have name and email." Optional and separate from created_by
+    # (which is always the STAFF member who rang it up) -- this is the
+    # CUSTOMER the invoice is for, when they happen to have an account.
+    # customer_name/customer_email/customer_phone stay as free-text fields
+    # regardless (a real walk-in with no account still needs them), but the
+    # POS screen auto-fills them from this user once picked, which is what
+    # solves "not having email address to manual invoicing" -- the user's
+    # account email gets used even if the customer doesn't rattle it off at
+    # the till. on_delete=SET_NULL: deleting the account should never delete
+    # invoice history.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="manual_invoices_as_customer",
+        help_text="Link to this customer's site account, if they have one and you know it. Leave blank for a walk-in with no account."
+    )
+
     # Fulfillment status (2026-08-12): Michael, "Manual Invoicing can we do
     # a status too? Created / Payment confirmed / Packed / Complete /
     # Cancelled" -- mirrors the real Order model's own status workflow, but

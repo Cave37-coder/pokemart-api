@@ -423,19 +423,26 @@ class ManualInvoiceItemInline(admin.TabularInline):
 
 @admin.register(ManualInvoice)
 class ManualInvoiceAdmin(admin.ModelAdmin):
-    list_display = ['invoice_number', 'customer_name', 'status_badge', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
+    list_display = ['invoice_number', 'customer_name', 'user', 'status_badge', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
     list_filter = ['status', 'payment_received', 'payment_method', 'created_at']
-    search_fields = ['invoice_number', 'customer_name', 'customer_email']
+    search_fields = ['invoice_number', 'customer_name', 'customer_email', 'user__username', 'user__email']
     readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button']
     ordering = ['-created_at']
     inlines = [ManualInvoiceItemInline]
+    # Site-account link (2026-08-12) -- Michael: "wire in the site users to
+    # the manual invoicing side, so i can add the user name to the manual
+    # invoice, if i know they exist". autocomplete_fields (rather than a
+    # plain FK dropdown) reuses CustomUserAdmin's inherited search_fields so
+    # this doesn't render as an unusable dropdown of every registered user.
+    autocomplete_fields = ['user']
 
     fieldsets = (
         ('Invoice', {
             'fields': ('invoice_number', 'status', 'created_at', 'updated_at', 'invoice_button')
         }),
         ('Customer', {
-            'fields': ('customer_name', 'customer_email', 'customer_phone')
+            'fields': ('user', 'customer_name', 'customer_email', 'customer_phone'),
+            'description': "Link 'user' if this customer has a site account -- optional. customer_name/email/phone stay editable either way (a walk-in with no account still needs them filled in).",
         }),
         ('Delivery', {
             'fields': ('delivery_note',)
@@ -531,9 +538,40 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             path('<int:pk>/manual-invoice-pull-sheet/', self.admin_site.admin_view(self.pull_sheet_view), name='manual-invoice-pull-sheet'),
             path('pos/', self.admin_site.admin_view(self.pos_view), name='manual-invoice-pos'),
             path('pos/search/', self.admin_site.admin_view(self.pos_search_view), name='manual-invoice-pos-search'),
+            path('pos/customers/', self.admin_site.admin_view(self.pos_customer_search_view), name='manual-invoice-pos-customer-search'),
             path('pos/save/', self.admin_site.admin_view(self.pos_save_view), name='manual-invoice-pos-save'),
         ]
         return custom + super().get_urls()
+
+    def pos_customer_search_view(self, request):
+        """Site-account lookup for the POS screen's new "existing customer"
+        search box (2026-08-12) -- Michael: "if i know they exist". Same
+        term/matching approach as users.views.admin_customer_search (name/
+        username/email), kept as its own small view here rather than shared,
+        since this one only needs to return the handful of fields the POS
+        form actually autofills."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+
+        term = request.GET.get('term', '').strip()
+        if len(term) < 2:
+            return JsonResponse({'results': []})
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users = User.objects.filter(
+            Q(username__icontains=term) | Q(email__icontains=term)
+            | Q(first_name__icontains=term) | Q(last_name__icontains=term)
+        ).order_by('username')[:15]
+
+        results = [{
+            'id': u.id,
+            'name': (f"{u.first_name} {u.last_name}".strip() or u.username),
+            'username': u.username,
+            'email': u.email,
+            'phone': u.phone_number,
+        } for u in users]
+        return JsonResponse({'results': results})
 
     def print_invoice_view(self, request, pk):
         invoice = get_object_or_404(ManualInvoice, pk=pk)
@@ -573,8 +611,9 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         # logo/symbol URLs for later use.
         sets_url = reverse('sets-list')
         save_url = reverse('admin:manual-invoice-pos-save')
+        customer_search_url = reverse('admin:manual-invoice-pos-customer-search')
         cancel_url = reverse('admin:orders_manualinvoice_changelist')
-        html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES)
+        html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES, customer_search_url)
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
     def pos_search_view(self, request):
@@ -671,6 +710,16 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         if payment_method not in ('eft', 'cash', 'card'):
             payment_method = ''
 
+        # Linked site account (2026-08-12), optional -- set only when the
+        # POS screen's customer search box actually resolved one. A stale/
+        # tampered id that no longer exists just falls back to no link
+        # rather than failing the whole save.
+        linked_user = None
+        customer_user_id = payload.get('customer_user_id')
+        if customer_user_id:
+            from django.contrib.auth import get_user_model
+            linked_user = get_user_model().objects.filter(pk=customer_user_id).first()
+
         # Michael, 2026-08-02: "is automatic, when i save invoice? with BCC
         # to enquiries?" -- yes now. The invoice + line items are wrapped in
         # one atomic block, and the confirmation email (same content/BCC as
@@ -684,6 +733,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
 
         with transaction.atomic():
             invoice = ManualInvoice.objects.create(
+                user=linked_user,
                 customer_name=customer_name,
                 customer_email=(payload.get('customer_email') or '').strip(),
                 customer_phone=(payload.get('customer_phone') or '').strip(),

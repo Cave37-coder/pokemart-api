@@ -476,7 +476,7 @@ class AdminManualInvoiceListView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
-        qs = ManualInvoice.objects.prefetch_related('items')
+        qs = ManualInvoice.objects.select_related('user').prefetch_related('items')
 
         status_filter = self.request.query_params.get('status')
         if status_filter:
@@ -491,6 +491,10 @@ class AdminManualInvoiceListView(generics.ListAPIView):
             qs = qs.filter(
                 Q(customer_name__icontains=search) | Q(customer_email__icontains=search)
                 | Q(invoice_number__icontains=search)
+                # 2026-08-12: also matches by the linked site account, so
+                # searching a username/account email finds invoices where
+                # the free-text customer_name/email don't happen to match.
+                | Q(user__username__icontains=search) | Q(user__email__icontains=search)
             )
 
         return qs.order_by('-created_at')
@@ -563,10 +567,12 @@ class AdminCustomerSalesSummaryView(APIView):
 
         order_sales_total = orders_qs.exclude(status='cancelled').aggregate(t=Sum('total_price'))['t'] or Decimal('0.00')
 
-        manual_invoices = (
-            ManualInvoice.objects.filter(customer_email__iexact=customer.email).exclude(status='cancelled')
-            if customer.email else ManualInvoice.objects.none()
-        )
+        # Matched on the linked account (new, reliable) OR a matching email
+        # on an older/walk-in invoice that predates account linking -- so a
+        # repeat customer's history from before Michael started linking
+        # accounts still counts here, not just invoices created afterward.
+        email_q = Q(customer_email__iexact=customer.email) if customer.email else Q(pk__in=[])
+        manual_invoices = ManualInvoice.objects.filter(Q(user=customer) | email_q).exclude(status='cancelled')
         manual_invoice_total = sum((mi.total for mi in manual_invoices), Decimal('0.00'))
 
         return Response({

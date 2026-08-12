@@ -87,6 +87,16 @@ POS_HTML = """<!DOCTYPE html>
   .customer-fields { border-top: 1px solid #2a2a35; padding-top: 10px; margin-top: 6px; }
   .customer-fields input, .customer-fields textarea { width: 100%; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #333; background: #12121A; color: #fff; font-size: 12px; font-family: inherit; }
   .customer-fields label { font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 2px; }
+  .customer-search-wrap { position: relative; margin-bottom: 8px; }
+  #customer-search-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: #1a1a24; border: 1px solid #444; border-radius: 6px; max-height: 220px; overflow-y: auto; display: none; }
+  .customer-search-row { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #2a2a35; }
+  .customer-search-row:last-child { border-bottom: none; }
+  .customer-search-row:hover { background: #ff6b3522; }
+  .customer-search-row-name { font-size: 12px; font-weight: bold; color: #fff; }
+  .customer-search-row-meta { font-size: 10px; color: #999; }
+  .customer-search-empty { padding: 8px 10px; font-size: 11px; color: #888; }
+  .linked-customer-badge { display: none; align-items: center; justify-content: space-between; gap: 8px; background: #17332444; border: 1px solid #2fbf71; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 11px; color: #4ade80; }
+  .linked-customer-badge button { background: none; border: none; color: #ff5555; font-size: 11px; cursor: pointer; text-decoration: underline; }
   .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; color: #ccc; }
   .totals-row.discount { color: #2e7d32; }
   .totals-row.grand { font-size: 18px; font-weight: bold; color: #ff6b35; border-top: 2px solid #ff6b35; margin-top: 6px; padding-top: 8px; }
@@ -144,6 +154,15 @@ POS_HTML = """<!DOCTYPE html>
     <div class="totals-row"><span>Shipping</span><input type="number" id="shipping-cost" value="0" step="0.01"></div>
     <div class="totals-row grand"><span>TOTAL</span><span id="total-value">R 0.00</span></div>
     <div class="customer-fields">
+      <label>Existing customer? Search by name / email / username</label>
+      <div class="customer-search-wrap">
+        <input type="text" id="customer-search-input" placeholder="Start typing... (2+ characters)" autocomplete="off">
+        <div id="customer-search-results"></div>
+      </div>
+      <div class="linked-customer-badge" id="linked-customer-badge">
+        <span id="linked-customer-label"></span>
+        <button type="button" id="unlink-customer-btn">Unlink</button>
+      </div>
       <label>Customer name *</label>
       <input type="text" id="customer-name" placeholder="Required">
       <label>Email</label>
@@ -166,10 +185,13 @@ const SEARCH_URL = "__SEARCH_URL__";
 const SETS_URL = "__SETS_URL__";
 const SAVE_URL = "__SAVE_URL__";
 const CSRF_TOKEN = "__CSRF_TOKEN__";
+const CUSTOMER_SEARCH_URL = "__CUSTOMER_SEARCH_URL__";
 
 let cart = [];
 let searchTimeout = null;
 let lastResults = [];
+let linkedCustomerId = null;
+let customerSearchTimeout = null;
 
 const searchInput = document.getElementById('search-input');
 const setSelect = document.getElementById('set-select');
@@ -450,6 +472,86 @@ function updateTotals() {
 shippingInput.addEventListener('input', updateTotals);
 discountInput.addEventListener('input', updateTotals);
 
+// Existing-customer search (2026-08-12) -- Michael: "wire in the site users
+// to the manual invoicing side, so i can add the user name to the manual
+// invoice, if i know they exist... this takes away not having email
+// address to manual invoicing." Picking a result autofills name/email/
+// phone from their account and remembers the link (customer_user_id) to
+// send with the save. New walk-in customers just skip this box entirely
+// and type name/email straight into the fields below, same as before.
+const customerSearchInput = document.getElementById('customer-search-input');
+const customerSearchResultsEl = document.getElementById('customer-search-results');
+const linkedBadgeEl = document.getElementById('linked-customer-badge');
+const linkedLabelEl = document.getElementById('linked-customer-label');
+const nameInput = document.getElementById('customer-name');
+const emailInput = document.getElementById('customer-email');
+const phoneInput = document.getElementById('customer-phone');
+
+customerSearchInput.addEventListener('input', () => {
+  clearTimeout(customerSearchTimeout);
+  const term = customerSearchInput.value.trim();
+  if (term.length < 2) {
+    customerSearchResultsEl.style.display = 'none';
+    return;
+  }
+  customerSearchTimeout = setTimeout(() => doCustomerSearch(term), 300);
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.customer-search-wrap')) {
+    customerSearchResultsEl.style.display = 'none';
+  }
+});
+
+async function doCustomerSearch(term) {
+  try {
+    const res = await fetch(CUSTOMER_SEARCH_URL + '?term=' + encodeURIComponent(term));
+    const data = await res.json();
+    renderCustomerResults(data.results || []);
+  } catch (e) {
+    customerSearchResultsEl.style.display = 'none';
+  }
+}
+
+function renderCustomerResults(results) {
+  if (!results.length) {
+    customerSearchResultsEl.innerHTML = '<div class="customer-search-empty">No matching accounts.</div>';
+    customerSearchResultsEl.style.display = 'block';
+    return;
+  }
+  customerSearchResultsEl.innerHTML = results.map(c => {
+    const meta = [c.username ? '@' + c.username : '', c.email || ''].filter(Boolean).join(' • ');
+    return '<div class="customer-search-row" data-id="' + c.id + '">' +
+      '<div class="customer-search-row-name">' + escapeHtml(c.name) + '</div>' +
+      '<div class="customer-search-row-meta">' + escapeHtml(meta) + '</div>' +
+    '</div>';
+  }).join('');
+  customerSearchResultsEl.style.display = 'block';
+  customerSearchResultsEl.querySelectorAll('.customer-search-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const c = results.find(x => String(x.id) === row.getAttribute('data-id'));
+      if (!c) return;
+      linkCustomer(c);
+    });
+  });
+}
+
+function linkCustomer(c) {
+  linkedCustomerId = c.id;
+  nameInput.value = c.name;
+  emailInput.value = c.email || '';
+  phoneInput.value = c.phone || '';
+  linkedLabelEl.textContent = '✓ Linked to ' + c.name + (c.username ? ' (@' + c.username + ')' : '');
+  linkedBadgeEl.style.display = 'flex';
+  customerSearchInput.value = '';
+  customerSearchResultsEl.style.display = 'none';
+}
+
+document.getElementById('unlink-customer-btn').addEventListener('click', () => {
+  linkedCustomerId = null;
+  linkedBadgeEl.style.display = 'none';
+});
+
 document.getElementById('save-btn').addEventListener('click', async () => {
   saveErrorEl.textContent = '';
   const customerName = document.getElementById('customer-name').value.trim();
@@ -457,6 +559,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   if (!cart.length) { saveErrorEl.textContent = 'Add at least one item before saving.'; return; }
 
   const payload = {
+    customer_user_id: linkedCustomerId,
     customer_name: customerName,
     customer_email: document.getElementById('customer-email').value.trim(),
     customer_phone: document.getElementById('customer-phone').value.trim(),
@@ -497,10 +600,13 @@ renderCart();
 </body></html>"""
 
 
-def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices):
+def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices, customer_search_url):
     """variant_choices: iterable of (code, label) tuples -- pass the same
     VARIANT_CHOICES used by manage_set_view.py so the POS filter can never
-    drift out of sync with the codes actually stored on products."""
+    drift out of sync with the codes actually stored on products.
+
+    customer_search_url (2026-08-12): powers the "existing customer" search
+    box -- ManualInvoiceAdmin.pos_customer_search_view."""
     variant_options = ''.join(
         f'<option value="{code}">{label}</option>' for code, label in variant_choices
     )
@@ -512,4 +618,5 @@ def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, varia
     html = html.replace("__SAVE_URL__", save_url)
     html = html.replace("__CANCEL_URL__", cancel_url)
     html = html.replace("__VARIANT_OPTIONS__", variant_options)
+    html = html.replace("__CUSTOMER_SEARCH_URL__", customer_search_url)
     return html

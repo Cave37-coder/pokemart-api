@@ -150,11 +150,16 @@ class ManualInvoiceListSerializer(serializers.ModelSerializer):
     item_count = serializers.IntegerField(read_only=True)
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # Linked site account (2026-08-12), if one was picked on the POS screen
+    # -- read-only here, null when this is a plain walk-in with no account.
+    user_id = serializers.IntegerField(source='user.id', read_only=True, default=None)
+    user_username = serializers.CharField(source='user.username', read_only=True, default=None)
 
     class Meta:
         model = ManualInvoice
         fields = [
             'id', 'invoice_number', 'status', 'status_display', 'customer_name', 'customer_email', 'customer_phone',
+            'user_id', 'user_username',
             'shipping_cost', 'discount_percent', 'discount_amount', 'subtotal', 'total',
             'item_count', 'payment_received', 'payment_method', 'payment_method_display',
             'created_at',
