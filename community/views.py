@@ -110,10 +110,25 @@ def _avatar_url(user, request):
 
 
 def _public_card(user, request):
-    """Shared shape for 'who is this' across every endpoint below."""
+    """Shared shape for 'who is this' across every endpoint below.
+
+    BUG FIX 2026-08-12 (Michael: "Community not working 100% new customer
+    tried last night, not linking up"): display_name used to be
+    user.public_display_name with NO fallback -- blank for anyone who
+    hasn't opted into picking one, which rendered as a blank name on a
+    friend's card (the actual bug: two customers had already become
+    friends, but the new one never set a display name, so their entry on
+    the Friends tab showed as nothing but an icon). Safe to fall back to
+    username here globally: community_browse/most_wanted already exclude
+    blank-display-name users from their querysets before ever calling this,
+    so this fallback only ever kicks in for friends/pending lists and a
+    friend's profile page -- exactly the contexts where the viewer already
+    has a legitimate, consented relationship with this person and isn't
+    being shown a stranger who chose to stay unnamed.
+    """
     return {
         "id": user.id,
-        "display_name": user.public_display_name,
+        "display_name": user.public_display_name or user.username,
         "avatar": _avatar_url(user, request),
         "trainer_level": user.trainer_level,
         "community_bio": user.community_bio,
@@ -197,11 +212,23 @@ def _visible_profile_or_404(user_id, viewer_id=None):
     friend of this user, regardless of the public toggle -- friendship is a
     stronger, more deliberate grant than "browsable by anyone" (2026-08-07,
     Michael: friends should "share their collections amongst themselves"
-    even if they're not broadcasting to the whole Community directory)."""
-    user = get_object_or_404(User.objects.exclude(public_display_name=""), pk=user_id)
-    if user.community_profile_public:
-        return user
+    even if they're not broadcasting to the whole Community directory).
+
+    BUG FIX 2026-08-12 (Michael: "Community not working 100% new customer
+    tried last night, not linking up"): the display-name requirement used
+    to apply BEFORE the friendship check (via .exclude(public_display_name=
+    "") on the initial lookup), so a friend who'd never set a display name
+    404'd here every time -- their profile was literally unreachable despite
+    being an accepted friend, exactly contradicting the "stronger grant"
+    this function is meant to give friends. Friendship is now checked
+    first, with no display-name requirement at all; the blank-name
+    exclusion only still applies to the public_community_profile path,
+    which is the one actually meant to require picking a name before
+    strangers can find you."""
+    user = get_object_or_404(User, pk=user_id)
     if viewer_id is not None and _are_friends(viewer_id, user.id):
+        return user
+    if user.community_profile_public and user.public_display_name:
         return user
     # Not public and not a friend -- 404, same as "doesn't exist" from the
     # outside, don't leak that this account exists but is just private.
