@@ -359,7 +359,22 @@ class OrderStatusUpdateView(APIView):
     @transaction.atomic
     def patch(self, request, pk):
         try:
-            order = Order.objects.get(pk=pk)
+            # PERF FIX 2026-08-12 (Michael: "everytime i retry, it sends
+            # email again!", seen on order #135 with 274 items): a bare
+            # Order.objects.get() here meant the OrderSerializer(order).data
+            # call at the bottom of this view triggered one extra query PER
+            # item just to fetch its product -- 274+ queries for a big
+            # order. Slow enough on a big order to plausibly blow past a
+            # gateway timeout, which drops the client's connection before it
+            # ever sees the (eventually successful) response -- the save
+            # looks "failed" in the browser even though it committed and the
+            # status-update email already went out, so every retry sends
+            # another one. select_related/prefetch_related here cuts that
+            # down to a handful of queries regardless of order size.
+            order = Order.objects.select_related('user').prefetch_related(
+                Prefetch('items', queryset=OrderItem.objects.select_related('product')),
+                'tracking',
+            ).get(pk=pk)
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 

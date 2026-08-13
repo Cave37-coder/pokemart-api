@@ -1,6 +1,7 @@
 import logging
 
 from django.core.mail import EmailMultiAlternatives
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -33,7 +34,26 @@ def create_tracking_on_status_change(sender, instance, created, **kwargs):
             waybill_number=getattr(instance, '_tracking_waybill', '') or instance.waybill_number or '',
             created_by=getattr(instance, '_tracking_created_by', None),
         )
-        _send_status_update_email(instance)
+        # BUG FIX 2026-08-12 (Michael: "everytime i retry, it sends email
+        # again!" alongside a "Failed to save" error on the staff dashboard):
+        # OrderStatusUpdateView.patch() wraps its whole body in
+        # @transaction.atomic, and this signal fires synchronously INSIDE
+        # that transaction (post_save runs before order.save() even
+        # returns). If anything after order.save() then fails -- e.g. a
+        # slow response on a huge order timing out before the client sees
+        # it -- the whole transaction rolls back: the status change and the
+        # OrderTracking row both get undone, but the email had ALREADY gone
+        # out over SMTP and can't be un-sent. From the DB's point of view
+        # nothing happened, so a retry looks like a brand new status change
+        # every time -- another tracking row attempt, another email, on and
+        # on for every retry, while the customer just keeps getting spammed
+        # and Michael never sees a save actually succeed. Same root cause
+        # CheckoutView and the Manual Invoice POS save already had to be
+        # fixed for once before ("email sent but nothing in the DB"). Fix is
+        # the same: only actually send once the transaction has truly
+        # committed -- if it rolls back, this callback is simply discarded
+        # and no email goes out at all.
+        transaction.on_commit(lambda: _send_status_update_email(instance))
 
 
 def _send_status_update_email(order):
