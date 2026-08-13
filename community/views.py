@@ -524,13 +524,23 @@ def user_search(request):
     find each other to become friends at all until one of them opts into
     full public browsing first, which is a much bigger ask than "let me add
     a friend". This is a separate, friend-request-only search: matches by
-    username (not display name -- a customer searching for someone
-    generally knows their login handle, not a display name that person
-    may not have set), no public-profile requirement, IsAuthenticated
-    rather than AllowAny since this is for logged-in customers finding each
-    other, not anonymous browsing. Blocked users (either direction) are
-    excluded so a block is actually respected here too, same as everywhere
-    else in this app.
+    username/display name AND real first/last name (2026-08-12 follow-up --
+    Michael: "can the friend search include names, not just user names" --
+    someone looking for a friend often only knows their real name, not
+    whatever they typed as a username at signup), no public-profile
+    requirement, IsAuthenticated rather than AllowAny since this is for
+    logged-in customers finding each other, not anonymous browsing. Blocked
+    users (either direction) are excluded so a block is actually respected
+    here too, same as everywhere else in this app.
+
+    real_name is only included in THIS response, not the shared
+    _public_card() shape everything else on the site uses -- account
+    holders' real names aren't shown anywhere else on the site (avatars/
+    profiles use the opt-in public_display_name instead), but since a
+    search-by-name match with no name shown back would be confusing, and
+    this endpoint already requires being logged in and typing 2+ characters
+    of a specific match (not a public listing anyone can browse), showing
+    the bit that matched here is a reasonable, narrow exception.
     """
     me = request.user
     q = (request.GET.get('q') or '').strip()
@@ -543,7 +553,10 @@ def user_search(request):
     exclude_ids.add(me.id)
 
     users = (
-        User.objects.filter(Q(username__icontains=q) | Q(public_display_name__icontains=q))
+        User.objects.filter(
+            Q(username__icontains=q) | Q(public_display_name__icontains=q)
+            | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        )
         .exclude(id__in=exclude_ids)
         .order_by('username')[:20]
     )
@@ -553,6 +566,7 @@ def user_search(request):
             {
                 **_public_card(u, request),
                 "username": u.username,
+                "real_name": f"{u.first_name} {u.last_name}".strip(),
                 "friendship_status": _friendship_status(me.id, u.id),
             }
             for u in users
