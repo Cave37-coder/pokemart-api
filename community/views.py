@@ -511,6 +511,55 @@ def friends_list(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_search(request):
+    """GET /api/community/users/search/?q=placebo
+
+    2026-08-12 -- Michael: "There is no way to search for users, to make
+    friends?" There wasn't: the Trainers tab (community_browse) is the only
+    existing search, and it deliberately only surfaces customers who've
+    turned on community_profile_public AND picked a display name -- exactly
+    right for "browse public collections", but it means two customers can't
+    find each other to become friends at all until one of them opts into
+    full public browsing first, which is a much bigger ask than "let me add
+    a friend". This is a separate, friend-request-only search: matches by
+    username (not display name -- a customer searching for someone
+    generally knows their login handle, not a display name that person
+    may not have set), no public-profile requirement, IsAuthenticated
+    rather than AllowAny since this is for logged-in customers finding each
+    other, not anonymous browsing. Blocked users (either direction) are
+    excluded so a block is actually respected here too, same as everywhere
+    else in this app.
+    """
+    me = request.user
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return Response({"results": []})
+
+    blocked_by_me = Block.objects.filter(user=me).values_list('blocked_user_id', flat=True)
+    blocking_me = Block.objects.filter(blocked_user=me).values_list('user_id', flat=True)
+    exclude_ids = set(blocked_by_me) | set(blocking_me)
+    exclude_ids.add(me.id)
+
+    users = (
+        User.objects.filter(Q(username__icontains=q) | Q(public_display_name__icontains=q))
+        .exclude(id__in=exclude_ids)
+        .order_by('username')[:20]
+    )
+
+    return Response({
+        "results": [
+            {
+                **_public_card(u, request),
+                "username": u.username,
+                "friendship_status": _friendship_status(me.id, u.id),
+            }
+            for u in users
+        ]
+    })
+
+
 # ── Messaging ────────────────────────────────────────────────────────────
 
 @api_view(['GET'])

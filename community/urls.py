@@ -7,6 +7,7 @@ urlpatterns = [
     path("most-wanted/", views.most_wanted, name="community-most-wanted"),
 
     path("friends/", views.friends_list, name="community-friends"),
+    path("users/search/", views.user_search, name="community-user-search"),
     path("friends/request/", views.friend_request_send, name="community-friend-request"),
     path("friends/<int:friendship_id>/respond/", views.friend_request_respond, name="community-friend-respond"),
     path("friends/remove/", views.friend_remove, name="community-friend-remove"),
