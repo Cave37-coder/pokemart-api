@@ -342,7 +342,17 @@ def community_browse(request):
     )
     q = (request.GET.get('q') or '').strip()
     if q:
-        qs = qs.filter(public_display_name__icontains=q)
+        # BUG FIX 2026-08-12 (Michael: "Not adding up, customer has same
+        # issue" -- searching by a customer's actual site username came up
+        # empty even though their chosen public_display_name might be
+        # something else entirely). Search used to only match
+        # public_display_name, so anyone searching by the name/handle they
+        # actually know a customer by -- their username, not whatever
+        # display name that customer happened to pick -- got zero results
+        # even though the profile is public and qualifies. Doesn't expose
+        # anything new: this only changes which of the already-public,
+        # already-named rows above get matched by a given search term.
+        qs = qs.filter(Q(public_display_name__icontains=q) | Q(username__icontains=q))
     qs = qs.order_by('-species_count')[:60]
 
     return Response({
