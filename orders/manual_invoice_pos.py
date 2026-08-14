@@ -100,7 +100,10 @@ POS_HTML = """<!DOCTYPE html>
   .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; color: #ccc; }
   .totals-row.discount { color: #2e7d32; }
   .totals-row.grand { font-size: 18px; font-weight: bold; color: #ff6b35; border-top: 2px solid #ff6b35; margin-top: 6px; padding-top: 8px; }
-  .eft-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; color: #ccc; }
+  .payment-row { margin: 10px 0; }
+  .payment-row label { font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  #payment-method { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #333; background: #12121A; color: #fff; font-size: 12px; }
+  #payment-method:focus { outline: none; border-color: #ff6b35; }
   #save-btn { background: #ff6b35; color: #fff; border: none; border-radius: 8px; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 4px; }
   #save-btn:hover { background: #e85a28; }
   #save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -172,9 +175,12 @@ POS_HTML = """<!DOCTYPE html>
       <label>Delivery / collection note</label>
       <textarea id="delivery-note" rows="2"></textarea>
     </div>
-    <div class="eft-row">
-      <input type="checkbox" id="eft-confirmed">
-      <label for="eft-confirmed">EFT payment already confirmed</label>
+    <div class="payment-row">
+      <label for="payment-method">Payment received</label>
+      <select id="payment-method">
+        <option value="">Not received</option>
+        __PAYMENT_METHOD_OPTIONS__
+      </select>
     </div>
     <button id="save-btn">Save Invoice</button>
     <div id="save-error"></div>
@@ -566,7 +572,8 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     delivery_note: document.getElementById('delivery-note').value.trim(),
     shipping_cost: parseFloat(shippingInput.value) || 0,
     discount_percent: Math.max(0, Math.min(100, parseFloat(discountInput.value) || 0)),
-    eft_confirmed: document.getElementById('eft-confirmed').checked,
+    payment_method: document.getElementById('payment-method').value,
+    payment_received: !!document.getElementById('payment-method').value,
     items: cart
   };
 
@@ -600,15 +607,25 @@ renderCart();
 </body></html>"""
 
 
-def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices, customer_search_url):
+def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices, customer_search_url, payment_method_choices=()):
     """variant_choices: iterable of (code, label) tuples -- pass the same
     VARIANT_CHOICES used by manage_set_view.py so the POS filter can never
     drift out of sync with the codes actually stored on products.
 
     customer_search_url (2026-08-12): powers the "existing customer" search
-    box -- ManualInvoiceAdmin.pos_customer_search_view."""
+    box -- ManualInvoiceAdmin.pos_customer_search_view.
+
+    payment_method_choices (2026-08-14, Michael: "Back to invoicing, can you
+    add the Payment dropdown on invoice management page") -- pass
+    ManualInvoice.PAYMENT_METHOD_CHOICES so the dropdown can never drift out
+    of sync with what the model/save view actually accept. Replaces the old
+    "EFT payment already confirmed" checkbox, which never even matched a
+    field pos_save_view read (it silently did nothing)."""
     variant_options = ''.join(
         f'<option value="{code}">{label}</option>' for code, label in variant_choices
+    )
+    payment_method_options = ''.join(
+        f'<option value="{code}">{label}</option>' for code, label in payment_method_choices
     )
 
     html = POS_HTML
@@ -619,4 +636,5 @@ def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, varia
     html = html.replace("__CANCEL_URL__", cancel_url)
     html = html.replace("__VARIANT_OPTIONS__", variant_options)
     html = html.replace("__CUSTOMER_SEARCH_URL__", customer_search_url)
+    html = html.replace("__PAYMENT_METHOD_OPTIONS__", payment_method_options)
     return html

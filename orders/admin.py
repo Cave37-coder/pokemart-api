@@ -613,7 +613,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         save_url = reverse('admin:manual-invoice-pos-save')
         customer_search_url = reverse('admin:manual-invoice-pos-customer-search')
         cancel_url = reverse('admin:orders_manualinvoice_changelist')
-        html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES, customer_search_url)
+        html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES, customer_search_url, ManualInvoice.PAYMENT_METHOD_CHOICES)
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
     def pos_search_view(self, request):
