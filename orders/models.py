@@ -311,10 +311,18 @@ class ManualInvoice(models.Model):
     # waybill tracking of its own (see delivery_note free-text field
     # instead). Defaults to 'created' since that's what pos_save_view
     # already means the moment an invoice exists.
+    #
+    # ORDER FIX 2026-08-12 (Michael: "most clients make payment when
+    # collecting, so when order is marked 'Packed' the payment is
+    # automatically tick as received, which is wrong!"): Packed now comes
+    # BEFORE Payment Confirmed in the workflow -- packing an order for
+    # collection doesn't mean it's been paid for yet. The values themselves
+    # ('packed'/'payment_confirmed') are unchanged, only the ORDER staff
+    # move through them and the save() auto-sync below.
     STATUS_CHOICES = [
         ('created', 'Created'),
-        ('payment_confirmed', 'Payment Confirmed'),
         ('packed', 'Packed'),
+        ('payment_confirmed', 'Payment Confirmed'),
         ('complete', 'Complete'),
         ('cancelled', 'Cancelled'),
     ]
@@ -363,11 +371,20 @@ class ManualInvoice(models.Model):
             next_num = (last.id + 1) if last else 1
             self.invoice_number = f"MINV-{next_num:05d}"
         # Keep payment_received in sync with status -- once status has moved
-        # to "Payment Confirmed" or anywhere past it (Packed/Complete), the
-        # payment obviously came in, regardless of which of the two fields
-        # staff actually clicked. Never flips it back off automatically
-        # (e.g. Cancelled doesn't un-confirm a payment that really happened).
-        if self.status in ('payment_confirmed', 'packed', 'complete'):
+        # to "Payment Confirmed" or "Complete", the payment obviously came
+        # in, regardless of which of the two fields staff actually clicked.
+        # Never flips it back off automatically (e.g. Cancelled doesn't
+        # un-confirm a payment that really happened).
+        #
+        # BUG FIX 2026-08-12 (Michael: "most clients make payment when
+        # collecting, so when order is marked 'Packed' the payment is
+        # automatically tick as received, which is wrong!"): 'packed' used
+        # to be in this list too -- packing an order ready for collection
+        # says nothing about whether it's been paid for, especially for
+        # collection customers who pay when they arrive. Only actually
+        # confirming payment (or completing the order) should auto-tick
+        # this now.
+        if self.status in ('payment_confirmed', 'complete'):
             self.payment_received = True
         super().save(*args, **kwargs)
 
