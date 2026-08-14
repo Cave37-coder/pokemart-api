@@ -341,10 +341,16 @@ class ManualInvoice(models.Model):
         help_text="Percentage discount applied to the item subtotal (before shipping), e.g. 10 for 10%. Leave 0 for no discount."
     )
 
+    # 'trade' added 2026-08-12 (Michael: "Add additional payment method to
+    # all 'Trade/Credit'") -- covers card-value trades / store credit used
+    # to settle an invoice instead of real money changing hands. Short code
+    # ('trade' not 'trade_credit') to fit the existing max_length=10 without
+    # a column-size migration.
     PAYMENT_METHOD_CHOICES = [
         ('eft', 'EFT'),
         ('cash', 'Cash'),
         ('card', 'Card'),
+        ('trade', 'Trade/Credit'),
     ]
 
     # Single yes/no plus a single method -- not independent tick boxes.

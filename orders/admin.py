@@ -707,7 +707,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             discount_percent = Decimal('0')
 
         payment_method = payload.get('payment_method') or ''
-        if payment_method not in ('eft', 'cash', 'card'):
+        if payment_method not in dict(ManualInvoice.PAYMENT_METHOD_CHOICES):
             payment_method = ''
 
         # Linked site account (2026-08-12), optional -- set only when the
