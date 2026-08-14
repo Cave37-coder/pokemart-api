@@ -57,10 +57,14 @@ class PaidFilter(admin.SimpleListFilter):
         return (('yes', 'Paid'), ('no', 'Unpaid'))
 
     def _paid_q(self):
+        # Decoupled from payment_method (2026-08-14) -- see
+        # OrderAdmin.payment_status_display for why: a customer's checkout
+        # selection no longer gates which confirmation counts, since actual
+        # payment on collection can be a different method entirely.
         return (
-            (Q(payment_method='payfast') & ~Q(stripe_payment_intent=''))
-            | Q(payment_method='eft', eft_confirmed=True)
-            | Q(payment_method='coc', cash_confirmed=True)
+            ~Q(stripe_payment_intent='')
+            | Q(eft_confirmed=True)
+            | Q(cash_confirmed=True)
         )
 
     def queryset(self, request, queryset):
@@ -223,30 +227,35 @@ class OrderAdmin(admin.ModelAdmin):
     status_badge.admin_order_field = 'status'
 
     def payment_status_display(self, obj):
-        """Single 'Paid' indicator combining all three payment_method paths.
-        PayFast confirmed via a webhook writing the PF Payment ID into
-        stripe_payment_intent (confirmed against Order #117's real tracking
-        log — status stays 'Order Received' throughout, it does NOT change
-        on payment, so status can't be used as the signal). eft_confirmed
-        covers EFT; cash_confirmed covers Cash on Collection."""
+        """'Paid' indicator, decoupled from payment_method (2026-08-14) --
+        Michael: "customer selects 'Cash on Collection', payments have been
+        made by EFT or Payfast on collection... need to show customers
+        option selected and then actual payment method used". Shows the
+        customer's checkout selection AND, separately, whichever method
+        actually got confirmed (which may not match). PayFast stays the
+        only fully automatic one, driven purely by stripe_payment_intent
+        from the webhook; EFT/Cash are staff-ticked and available
+        regardless of what the customer originally selected."""
         if not obj.pk:
             return '-'
-        method = obj.payment_method
-        if method == 'payfast':
-            confirmed = bool(obj.stripe_payment_intent)
-            label = 'PayFast'
-        elif method == 'eft':
-            confirmed = obj.eft_confirmed
-            label = 'EFT'
-        elif method == 'coc':
-            confirmed = obj.cash_confirmed
-            label = 'Cash on Collection'
+        selected_label = obj.get_payment_method_display() or 'Unknown'
+        if obj.stripe_payment_intent:
+            actual_label, confirmed = 'PayFast', True
+        elif obj.eft_confirmed:
+            actual_label, confirmed = 'EFT', True
+        elif obj.cash_confirmed:
+            actual_label, confirmed = 'Cash', True
         else:
-            confirmed = False
-            label = obj.get_payment_method_display() or 'Unknown'
+            actual_label, confirmed = None, False
         color = '#2e7d32' if confirmed else '#c62828'
         icon = '✅' if confirmed else '❌'
-        return format_html('<strong style="color:{}">{} {} — {}</strong>', color, icon, label, 'Paid' if confirmed else 'Unpaid')
+        if confirmed and actual_label != selected_label:
+            detail = f'{actual_label} received (selected {selected_label})'
+        elif confirmed:
+            detail = f'{actual_label} — Paid'
+        else:
+            detail = f'{selected_label} — Unpaid'
+        return format_html('<strong style="color:{}">{} {}</strong>', color, icon, detail)
     payment_status_display.short_description = 'Paid'
 
     def subtotal_display(self, obj):

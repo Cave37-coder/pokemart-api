@@ -464,10 +464,13 @@ class AdminOrderListView(generics.ListAPIView):
 
         paid_filter = self.request.query_params.get('paid')
         if paid_filter in ('yes', 'no'):
+            # Decoupled from payment_method (2026-08-14) -- see
+            # AdminOrderListSerializer.get_is_paid for why: actual payment
+            # on collection can differ from what the customer selected.
             paid_q = (
-                (Q(payment_method='payfast') & ~Q(stripe_payment_intent=''))
-                | Q(payment_method='eft', eft_confirmed=True)
-                | Q(payment_method='coc', cash_confirmed=True)
+                ~Q(stripe_payment_intent='')
+                | Q(eft_confirmed=True)
+                | Q(cash_confirmed=True)
             )
             qs = qs.filter(paid_q) if paid_filter == 'yes' else qs.exclude(paid_q)
 

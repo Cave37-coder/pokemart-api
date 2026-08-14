@@ -105,6 +105,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     customer_email = serializers.CharField(source='user.email', read_only=True)
     is_paid = serializers.SerializerMethodField()
+    paid_via = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -112,7 +113,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'status', 'status_display', 'customer_name', 'customer_email',
             'payment_method', 'payment_method_display', 'eft_confirmed', 'cash_confirmed',
-            'stripe_payment_intent', 'is_paid',
+            'stripe_payment_intent', 'is_paid', 'paid_via',
             'total_price', 'discount_percent', 'discount_amount', 'shipping_cost',
             'shipping_method', 'delivery_method', 'waybill_number', 'courier_name',
             'courier_tracking_url', 'item_count', 'created_at',
@@ -123,16 +124,29 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         return full or obj.user.username
 
     def get_is_paid(self, obj):
-        # Same combined logic as OrderAdmin.payment_status_display -- one
-        # source of truth duplicated here rather than imported, since
-        # admin.py isn't a module DRF serializers should depend on.
-        if obj.payment_method == 'payfast':
-            return bool(obj.stripe_payment_intent)
-        if obj.payment_method == 'eft':
-            return obj.eft_confirmed
-        if obj.payment_method == 'coc':
-            return obj.cash_confirmed
-        return False
+        # Decoupled from payment_method (2026-08-14) -- Michael: "customer
+        # selects 'Cash on Collection', payments have been made by EFT or
+        # Payfast on collection... need to show customers option selected
+        # and then actual payment method used". A customer's checkout
+        # choice no longer gates which confirmation flag counts -- any of
+        # the three actually being confirmed marks the order paid,
+        # regardless of what was originally selected. PayFast stays the
+        # only fully automatic one (driven purely by stripe_payment_intent
+        # from the webhook); EFT/Cash are staff-ticked. Same logic
+        # duplicated in OrderAdmin.payment_status_display/PaidFilter --
+        # not imported since admin.py shouldn't be a DRF serializer dependency.
+        return bool(obj.stripe_payment_intent) or obj.eft_confirmed or obj.cash_confirmed
+
+    def get_paid_via(self, obj):
+        """Which method actually got confirmed, which may differ from the
+        customer's payment_method selection at checkout. None if unpaid."""
+        if obj.stripe_payment_intent:
+            return 'PayFast'
+        if obj.eft_confirmed:
+            return 'EFT'
+        if obj.cash_confirmed:
+            return 'Cash'
+        return None
 
     def get_item_count(self, obj):
         return sum(i.quantity for i in obj.items.all())
