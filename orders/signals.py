@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import Order, OrderTracking
+from .models import Order, OrderTracking, ManualInvoice
 
 logger = logging.getLogger(__name__)
 
@@ -129,4 +129,69 @@ def _send_status_update_email(order):
         logger.exception(
             "Failed to send order status-update email for order_id=%s status=%s",
             order.id, order.status,
+        )
+
+
+# =============================================================================
+# MANUAL INVOICE status-update email (2026-08-12) -- Michael: "Do we have the
+# same emailing setup for manual invoicing status update?" We didn't; this
+# mirrors the Order status-update setup above as closely as it makes sense
+# to: same "only actually send once the transaction commits" safety
+# (transaction.on_commit), same BCC to admin@pokebulk.co.za, same "skip
+# silently if there's no email on file" behaviour rather than forcing a
+# fallback recipient (unlike the full invoice document email in admin.py's
+# _send_manual_invoice_email, this is just a status ping -- nothing useful
+# to send anyone if there's no customer to send it to). Deliberately reads
+# the stashed _status_just_changed attribute ManualInvoice.save() sets
+# BEFORE calling super().save() (there's no OrderTracking-equivalent history
+# table to compare against here), so this fires from every path that can
+# change status -- the staff dashboard's PATCH endpoint AND Django admin's
+# normal edit form -- not just one of them.
+# =============================================================================
+
+@receiver(post_save, sender=ManualInvoice)
+def send_manual_invoice_status_email(sender, instance, created, **kwargs):
+    if created:
+        return
+    if not getattr(instance, '_status_just_changed', False):
+        return
+    transaction.on_commit(lambda: _send_manual_invoice_status_email(instance))
+
+
+def _send_manual_invoice_status_email(invoice):
+    try:
+        customer_email = invoice.customer_email
+        if not customer_email:
+            logger.warning(
+                "Manual invoice %s status changed to %s but has no customer_email on file -- update not sent.",
+                invoice.invoice_number, invoice.status,
+            )
+            return
+
+        customer_name = (invoice.customer_name or '').split(' ')[0] or invoice.customer_name
+        status_label = invoice.get_status_display()
+
+        subject = f'Your PokeBulk SA invoice {invoice.invoice_number} update: {status_label}'
+        text_body = (
+            f"Hi {customer_name},\n\n"
+            f"Your PokeBulk SA invoice {invoice.invoice_number} has been updated:\n\n"
+            f"    Status: {status_label}\n\n"
+            f"-- PokeBulk SA"
+        )
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            to=[customer_email],
+            bcc=['admin@pokebulk.co.za'],
+        )
+        email.send(fail_silently=False)
+        logger.info(
+            "Manual invoice status-update email sent for invoice=%s status=%s to=%s",
+            invoice.invoice_number, invoice.status, customer_email,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send manual invoice status-update email for invoice=%s status=%s",
+            invoice.invoice_number, invoice.status,
         )

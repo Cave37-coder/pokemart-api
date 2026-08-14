@@ -370,6 +370,24 @@ class ManualInvoice(models.Model):
             last = ManualInvoice.objects.order_by('-id').first()
             next_num = (last.id + 1) if last else 1
             self.invoice_number = f"MINV-{next_num:05d}"
+
+        # Status-change email (2026-08-12) -- Michael: "Do we have the same
+        # emailing setup for manual invoicing status update?" We didn't;
+        # this stashes whether status actually changed (same "fetch old
+        # value before super().save()" trick _adjust_stock above uses) as a
+        # plain, never-persisted attribute, so orders/signals.py's post_save
+        # receiver -- the single place this email actually sends, covering
+        # every path that can change status (this DRF view, Django admin's
+        # normal edit form, anywhere else that ever calls .save()) -- can
+        # tell a real transition apart from an unrelated field edit. Not set
+        # on first creation (self.pk is None then, old_status stays None) --
+        # a brand new invoice already gets its own, separate creation email
+        # from pos_save_view, so this would otherwise double up.
+        old_status = None
+        if self.pk:
+            old_status = ManualInvoice.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+        self._status_just_changed = old_status is not None and old_status != self.status
+
         # Keep payment_received in sync with status -- once status has moved
         # to "Payment Confirmed" or "Complete", the payment obviously came
         # in, regardless of which of the two fields staff actually clicked.
