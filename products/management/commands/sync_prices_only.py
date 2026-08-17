@@ -27,6 +27,16 @@ MARKUP = Decimal("1.10")
 # remove it again so future nightly runs use the safe default of 5.
 MAX_JUMP_RATIO = Decimal(os.environ.get("PRICE_SYNC_MAX_JUMP_RATIO") or "5")
 
+# Floor price (2026-08-17) -- Michael: "we need to impliment R1.80 minimum
+# price on the site". A handful of bulk commons price out under R1 from raw
+# TCGCSV market data, not economically worth listing/shipping at that price.
+# Applied AFTER the suspicious-jump check above (it's a deliberate business
+# rule, not organic market data, so it shouldn't get caught by/count against
+# that clamp) and as a one-time sweep at the top of every run so it also
+# catches existing rows this sync never touches (no tcgcsv_product_id, or a
+# TCGCSV row that no longer exists) -- not just newly-synced ones.
+MIN_PRICE = Decimal(os.environ.get("PRICE_SYNC_MIN_PRICE") or "1.80")
+
 # TCGCSV variant name -> DB variant_override code. Must stay in sync with
 # VARIANT_CHOICES in orders/admin.py (the codes staff can actually assign to
 # a card) -- a TCGCSV label with no entry here silently falls back to 'N'
@@ -56,6 +66,15 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from products.models import PokemonProduct
+
+        # One-time sweep every run: catch anything already priced under the
+        # floor regardless of whether TCGCSV touches it this run (no
+        # tcgcsv_product_id, delisted pid, etc). price=0 is left alone --
+        # that means "never priced yet", not "priced too low", and gets a
+        # real first price the normal way once TCGCSV data comes in below.
+        floored = PokemonProduct.objects.filter(price__gt=0, price__lt=MIN_PRICE).update(price=MIN_PRICE)
+        if floored:
+            self.stdout.write(f"Floored {floored:,} product(s) up to the R{MIN_PRICE} minimum")
 
         # Fetch live USD/ZAR rate
         rate = Decimal("18.50")
@@ -155,13 +174,13 @@ class Command(BaseCommand):
                     continue
 
                 new_price = round_up_10c(Decimal(str(usd)) * rate * MARKUP)
-                if p.price == new_price:
-                    skipped += 1
-                    continue
 
-                # Sanity clamp -- see MAX_JUMP_RATIO above. p.price == 0
-                # means this product has never had a real price yet, so any
-                # first price is allowed through uncapped.
+                # Sanity clamp -- see MAX_JUMP_RATIO above. Checked against
+                # the raw TCGCSV-derived price (before the floor below) since
+                # this is meant to catch genuine bad market data, not react
+                # to the floor policy. p.price == 0 means this product has
+                # never had a real price yet, so any first price is allowed
+                # through uncapped.
                 if p.price and p.price > 0:
                     ratio = new_price / p.price if p.price else None
                     if ratio and (ratio > MAX_JUMP_RATIO or ratio < (1 / MAX_JUMP_RATIO)):
@@ -172,6 +191,14 @@ class Command(BaseCommand):
                                 f"R{p.price} -> R{new_price} (TCGCSV pid {pid})"
                             )
                         continue
+
+                # Floor applied last, after the clamp check -- a deliberate
+                # business rule, not something that should ever get skipped
+                # as a "suspicious jump".
+                new_price = max(new_price, MIN_PRICE)
+                if p.price == new_price:
+                    skipped += 1
+                    continue
 
                 p.price = new_price
                 to_update.append(p)

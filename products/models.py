@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -230,11 +232,23 @@ class PokemonProduct(models.Model):
         next_num = (last.id + 1) if last else 1
         return f"PKB-{str(next_num).zfill(3)}"
 
+    # R1.80 minimum sale price (2026-08-17), Michael: "we need to impliment
+    # R1.80 minimum price on the site" -- a handful of bulk commons price
+    # out under R1 from raw TCGCSV market data, not worth listing/shipping
+    # at that price. Enforced here so it's a real site-wide floor no matter
+    # how a price gets set (Django admin edit, import/enrich management
+    # commands, etc) -- the nightly sync command has its own copy of this
+    # same floor too since it writes via bulk_update(), which bypasses
+    # save() entirely.
+    MINIMUM_PRICE = Decimal("1.80")
+
     def save(self, *args, **kwargs):
         if not self.sku:
             self.sku = self.generate_sku()
         if not self.pb_id:
             self.pb_id = self.generate_pb_id()
+        if self.price is not None and self.price > 0 and self.price < self.MINIMUM_PRICE:
+            self.price = self.MINIMUM_PRICE
         super().save(*args, **kwargs)
 
 
