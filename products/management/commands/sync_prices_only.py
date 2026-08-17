@@ -1,4 +1,4 @@
-import math, time, requests
+import math, os, time, requests
 from decimal import Decimal, ROUND_UP
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -7,15 +7,48 @@ TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
 HEADERS = {"User-Agent": "PokeBulkSA/1.0 (pokebulk.co.za)"}
 MARKUP = Decimal("1.10")
 
-# TCGCSV variant name -> DB variant_override code
+# Reject an update that would move a price by more than this multiple in
+# either direction (2026-08-12 -- Michael: "some prices are horribly
+# wrong!!"). TCGCSV occasionally serves a garbage row for a productId (a
+# single mis-listed/troll TCGPlayer listing can blow out low/mid/high for a
+# whole card), and previously nothing stood between that garbage number and
+# a live price on the site. Anything past this ratio gets skipped and
+# reported instead of silently written -- a genuine 5x+ market move on a
+# single card overnight is rare enough that it's worth a human glance
+# either way.
+#
+# Configurable via PRICE_SYNC_MAX_JUMP_RATIO (2026-08-17) purely so a
+# one-off catch-up run can temporarily raise/disable this without a code
+# push+revert cycle: this same clamp, once live, will otherwise permanently
+# protect any row that was ALREADY wrong by more than 5x from ever
+# self-correcting again (confirmed live -- several Swablu reverse-holo rows
+# sat untouched since 2026-06-19 despite the nightly cron running fine every
+# day since). Set the env var sky-high in Railway, hit "Run now" once, then
+# remove it again so future nightly runs use the safe default of 5.
+MAX_JUMP_RATIO = Decimal(os.environ.get("PRICE_SYNC_MAX_JUMP_RATIO") or "5")
+
+# TCGCSV variant name -> DB variant_override code. Must stay in sync with
+# VARIANT_CHOICES in orders/admin.py (the codes staff can actually assign to
+# a card) -- a TCGCSV label with no entry here silently falls back to 'N'
+# below, which is exactly how the 1st Edition bug happened (see fix below).
 VARIANT_MAP = {
-    'Normal':             'N',
-    'Reverse Holofoil':   'RH',
-    'Holofoil':           'H',
-    '1st Edition Holofoil': 'H',
-    'Unlimited Holofoil': 'H',
-    '1st Edition':        'N',
-    'Unlimited':          'N',
+    'Normal':                 'N',
+    'Reverse Holofoil':       'RH',
+    'Holofoil':               'H',
+    'Unlimited Holofoil':     'H',
+    'Unlimited':              'N',
+    # BUG FIX 2026-08-12 (Michael: "some prices are horribly wrong!!"): these
+    # two used to map to 'H'/'N' -- the same codes as the ordinary Unlimited
+    # print -- even though the site has its own dedicated 'FE' (1st Edition)
+    # variant code (see VARIANT_CHOICES, orders/admin.py). 1st Edition WotC-
+    # era cards are routinely worth several times their Unlimited
+    # counterpart, so a 1st Edition product row was either being skipped
+    # entirely (no (pid, 'FE') key in the map) or, worse, silently
+    # overwritten with the far cheaper Unlimited print's price via the
+    # ambiguous-pid fallback below. Now maps to its own code so it only
+    # ever matches an actual 'FE' product row.
+    '1st Edition Holofoil':   'FE',
+    '1st Edition':            'FE',
 }
 
 class Command(BaseCommand):
@@ -49,20 +82,21 @@ class Command(BaseCommand):
         self.stdout.write("Loading products from DB...")
         all_products = PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True)
         pid_variant_map = {}
-        pid_map = {}  # fallback: productId only
+        pid_counts = {}   # how many DB products share this pid (any variant)
+        pid_map = {}      # fallback target: the one product, ONLY when pid_counts == 1
         for p in all_products:
             key = (p.tcgcsv_product_id, p.variant_override or 'N')
             pid_variant_map[key] = p
-            # fallback for cards with no variant
-            if p.tcgcsv_product_id not in pid_map:
-                pid_map[p.tcgcsv_product_id] = p
+            pid_counts[p.tcgcsv_product_id] = pid_counts.get(p.tcgcsv_product_id, 0) + 1
+            pid_map[p.tcgcsv_product_id] = p
         self.stdout.write(f"  {len(pid_variant_map):,} products loaded")
 
         def round_up_10c(zar):
             # Round UP to nearest R0.10
             return (Decimal(str(zar)) * 10).to_integral_value(rounding=ROUND_UP) / 10
 
-        updated = skipped = no_match = 0
+        updated = skipped = no_match = ambiguous = suspicious = 0
+        suspicious_examples = []
         to_update = []
 
         for i, g in enumerate(groups, 1):
@@ -87,13 +121,36 @@ class Command(BaseCommand):
                 tcg_variant = row.get("subTypeName") or row.get("printing") or "Normal"
                 db_variant = VARIANT_MAP.get(tcg_variant, 'N')
 
-                # Try exact (productId, variant) match first, fallback to productId only
-                p = pid_variant_map.get((pid, db_variant)) or pid_map.get(pid)
+                # Try exact (productId, variant) match first. Only fall back
+                # to "the product with this pid" when that pid is UNIQUE in
+                # our DB (pid_counts == 1) -- BUG FIX 2026-08-12: previously
+                # this fell back whenever there were multiple DB rows for
+                # the same pid too (e.g. a card's N/H/RH prints sharing one
+                # base TCGCSV productId, a documented TCGCSV pattern -- see
+                # Gloom N/RH both carrying pid 662164), silently picking
+                # whichever row the DB query happened to load last and
+                # writing that ONE card's price onto a DIFFERENT print. Now
+                # that ambiguous case is skipped and counted instead of
+                # guessed.
+                p = pid_variant_map.get((pid, db_variant))
+                if p is None:
+                    if pid_counts.get(pid) == 1:
+                        p = pid_map.get(pid)
+                    else:
+                        ambiguous += 1
+                        continue
                 if p is None:
                     no_match += 1
                     continue
 
-                usd = row.get("midPrice") or row.get("marketPrice") or row.get("lowPrice")
+                # BUG FIX 2026-08-12: marketPrice is TCGPlayer's own smoothed
+                # reference price; midPrice is just a low/high-derived stat
+                # that a single outlier "reserve"/troll listing can drag
+                # well above the real going rate (confirmed live: one card
+                # showed midPrice 20%+ above marketPrice with nothing else
+                # unusual about it). midPrice now only used when marketPrice
+                # is missing, not preferred over it.
+                usd = row.get("marketPrice") or row.get("midPrice") or row.get("lowPrice")
                 if not usd or float(usd) <= 0:
                     continue
 
@@ -101,6 +158,20 @@ class Command(BaseCommand):
                 if p.price == new_price:
                     skipped += 1
                     continue
+
+                # Sanity clamp -- see MAX_JUMP_RATIO above. p.price == 0
+                # means this product has never had a real price yet, so any
+                # first price is allowed through uncapped.
+                if p.price and p.price > 0:
+                    ratio = new_price / p.price if p.price else None
+                    if ratio and (ratio > MAX_JUMP_RATIO or ratio < (1 / MAX_JUMP_RATIO)):
+                        suspicious += 1
+                        if len(suspicious_examples) < 25:
+                            suspicious_examples.append(
+                                f"    {p.sku or p.id} ({p.name}, {p.variant_override or 'N'}): "
+                                f"R{p.price} -> R{new_price} (TCGCSV pid {pid})"
+                            )
+                        continue
 
                 p.price = new_price
                 to_update.append(p)
@@ -118,4 +189,12 @@ class Command(BaseCommand):
             with transaction.atomic():
                 PokemonProduct.objects.bulk_update(to_update, ["price"])
 
-        self.stdout.write(f"Done. Updated={updated:,} Skipped={skipped:,} No match={no_match:,}")
+        self.stdout.write(
+            f"Done. Updated={updated:,} Skipped(no change)={skipped:,} "
+            f"No match={no_match:,} Ambiguous pid (skipped)={ambiguous:,} "
+            f"Suspicious jump (skipped)={suspicious:,}"
+        )
+        if suspicious_examples:
+            self.stdout.write("Suspicious jumps skipped -- check these manually:")
+            for line in suspicious_examples:
+                self.stdout.write(line)
