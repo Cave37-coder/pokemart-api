@@ -519,14 +519,27 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         email_url = reverse('admin:manual-invoice-email', args=[obj.pk])
         pull_sheet_url = reverse('admin:manual-invoice-pull-sheet', args=[obj.pk])
         email_confirm_target = obj.customer_email or 'this customer (no email on file)'
+        # Edit Items (2026-08-18) -- Michael: "adjusting a manual invoice...
+        # add or remove items, ideally in the new invoice screen, but only
+        # while order is 'Created' status". Only rendered while that's true;
+        # pos_edit_view itself also refuses to serve the screen otherwise,
+        # so this button hiding is a convenience, not the actual enforcement.
+        edit_items_button = ''
+        if obj.status == 'created':
+            edit_items_url = reverse('admin:manual-invoice-pos-edit', args=[obj.pk])
+            edit_items_button = format_html(
+                '<a href="{}" target="_blank" style="background:#6a1b9a;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">✏️ Edit Items</a>',
+                edit_items_url
+            )
         return format_html(
             '''<div style="display:flex;gap:6px;flex-wrap:wrap;white-space:nowrap">
+                {}
                 <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">🖨 Pull Sheet</a>
                 <a href="{}" target="_blank" style="background:#1a1a24;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;border:1px solid #555;display:inline-block">📄 Print / View</a>
                 <a href="{}" target="_blank" style="background:#ff6b35;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">⬇ PDF</a>
                 <a href="{}" onclick="return confirm('Email this invoice to {}? This will send a real email.')" style="background:#2e7d32;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;display:inline-block">✉️ Email</a>
             </div>''',
-            pull_sheet_url, print_url, pdf_url, email_url, email_confirm_target
+            edit_items_button, pull_sheet_url, print_url, pdf_url, email_url, email_confirm_target
         )
     invoice_button.short_description = 'Invoice'
 
@@ -545,6 +558,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             path('<int:pk>/manual-invoice-pdf/', self.admin_site.admin_view(self.pdf_invoice_view), name='manual-invoice-pdf'),
             path('<int:pk>/manual-invoice-email/', self.admin_site.admin_view(self.email_invoice_view), name='manual-invoice-email'),
             path('<int:pk>/manual-invoice-pull-sheet/', self.admin_site.admin_view(self.pull_sheet_view), name='manual-invoice-pull-sheet'),
+            path('<int:pk>/manual-invoice-pos-edit/', self.admin_site.admin_view(self.pos_edit_view), name='manual-invoice-pos-edit'),
             path('pos/', self.admin_site.admin_view(self.pos_view), name='manual-invoice-pos'),
             path('pos/search/', self.admin_site.admin_view(self.pos_search_view), name='manual-invoice-pos-search'),
             path('pos/customers/', self.admin_site.admin_view(self.pos_customer_search_view), name='manual-invoice-pos-customer-search'),
@@ -625,6 +639,63 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         html = build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES, customer_search_url, ManualInvoice.PAYMENT_METHOD_CHOICES)
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
+    def pos_edit_view(self, request, pk):
+        """Reopens the same POS screen pre-loaded with an existing invoice's
+        customer/payment/cart so items can be added or removed (2026-08-18,
+        Michael: "adjusting a manual invoice... add or remove items, ideally
+        in the new invoice screen, but only while order is 'Created'
+        status"). The status gate is enforced HERE (server-side, on the page
+        load itself) as well as again in pos_save_view on submit -- not just
+        by invoice_button hiding the link, since the URL is still guessable/
+        bookmarkable."""
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        invoice = get_object_or_404(ManualInvoice, pk=pk)
+        if invoice.status != 'created':
+            messages.error(
+                request,
+                f"{invoice.invoice_number} can only have items added/removed while its status "
+                f"is Created (currently {invoice.get_status_display()})."
+            )
+            return redirect(reverse('admin:orders_manualinvoice_change', args=[pk]))
+
+        csrf_token = get_token(request)
+        search_url = reverse('admin:manual-invoice-pos-search')
+        sets_url = reverse('sets-list')
+        save_url = reverse('admin:manual-invoice-pos-save')
+        customer_search_url = reverse('admin:manual-invoice-pos-customer-search')
+        cancel_url = reverse('admin:orders_manualinvoice_change', args=[pk])
+        initial_data = {
+            'invoice_id': invoice.id,
+            'invoice_number': invoice.invoice_number,
+            'customer_user_id': invoice.user_id,
+            'customer_name': invoice.customer_name,
+            'customer_username': invoice.user.username if invoice.user_id else '',
+            'customer_email': invoice.customer_email,
+            'customer_phone': invoice.customer_phone,
+            'delivery_note': invoice.delivery_note,
+            'shipping_cost': str(invoice.shipping_cost),
+            'discount_percent': str(invoice.discount_percent),
+            'payment_method': invoice.payment_method,
+            'items': [
+                {
+                    'product_id': it.product_id,
+                    'description': it.description,
+                    'set_name': it.set_name,
+                    'card_number': it.card_number,
+                    'variant': it.variant,
+                    'quantity': it.quantity,
+                    'unit_price': str(it.unit_price) if it.unit_price is not None else '0',
+                }
+                for it in invoice.items.select_related('product').all()
+            ],
+        }
+        html = build_pos_html(
+            csrf_token, search_url, sets_url, save_url, cancel_url, VARIANT_CHOICES,
+            customer_search_url, ManualInvoice.PAYMENT_METHOD_CHOICES, initial_data=initial_data
+        )
+        return HttpResponse(html, content_type='text/html; charset=utf-8')
+
     def pos_search_view(self, request):
         """Two modes, both hit the same endpoint:
         - Free-text search (term only): the original name/sku/set lookup,
@@ -683,8 +754,6 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         return JsonResponse({'results': results})
 
     def pos_save_view(self, request):
-        if not self.has_add_permission(request):
-            raise PermissionDenied
         if request.method != 'POST':
             return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
 
@@ -692,6 +761,27 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             payload = json.loads(request.body)
         except (json.JSONDecodeError, TypeError):
             return JsonResponse({'success': False, 'error': 'Invalid request body'}, status=400)
+
+        # Edit mode (2026-08-18) -- Michael: "adjusting a manual invoice...
+        # add or remove items, ideally in the new invoice screen, but only
+        # while order is 'Created' status". invoice_id present means the POS
+        # screen was opened via pos_edit_view against an existing invoice;
+        # re-checked here (not just trusted from the page load) since this
+        # is the actual write path.
+        edit_invoice = None
+        invoice_id = payload.get('invoice_id')
+        if invoice_id:
+            if not self.has_change_permission(request):
+                raise PermissionDenied
+            edit_invoice = get_object_or_404(ManualInvoice, pk=invoice_id)
+            if edit_invoice.status != 'created':
+                return JsonResponse({
+                    'success': False,
+                    'error': f"{edit_invoice.invoice_number} can only have items added/removed while "
+                             f"its status is Created (currently {edit_invoice.get_status_display()})."
+                }, status=400)
+        elif not self.has_add_permission(request):
+            raise PermissionDenied
 
         customer_name = (payload.get('customer_name') or '').strip()
         items = payload.get('items') or []
@@ -741,18 +831,38 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         email_result = {}
 
         with transaction.atomic():
-            invoice = ManualInvoice.objects.create(
-                user=linked_user,
-                customer_name=customer_name,
-                customer_email=(payload.get('customer_email') or '').strip(),
-                customer_phone=(payload.get('customer_phone') or '').strip(),
-                delivery_note=(payload.get('delivery_note') or '').strip(),
-                shipping_cost=shipping_cost,
-                discount_percent=discount_percent,
-                payment_received=bool(payload.get('payment_received')),
-                payment_method=payment_method,
-                created_by=request.user,
-            )
+            if edit_invoice is not None:
+                invoice = edit_invoice
+                invoice.user = linked_user
+                invoice.customer_name = customer_name
+                invoice.customer_email = (payload.get('customer_email') or '').strip()
+                invoice.customer_phone = (payload.get('customer_phone') or '').strip()
+                invoice.delivery_note = (payload.get('delivery_note') or '').strip()
+                invoice.shipping_cost = shipping_cost
+                invoice.discount_percent = discount_percent
+                invoice.payment_received = bool(payload.get('payment_received'))
+                invoice.payment_method = payment_method
+                invoice.save()
+                # Simplest correct way to reconcile a full add/remove/re-quantity
+                # edit: wipe the old line items and rebuild from the submitted
+                # cart. ManualInvoiceItem's post_delete signal restores stock
+                # for each one removed here, and its save() below re-deducts
+                # for each one recreated -- same signal-driven bookkeeping the
+                # plain create path already relies on, so nothing double-counts.
+                invoice.items.all().delete()
+            else:
+                invoice = ManualInvoice.objects.create(
+                    user=linked_user,
+                    customer_name=customer_name,
+                    customer_email=(payload.get('customer_email') or '').strip(),
+                    customer_phone=(payload.get('customer_phone') or '').strip(),
+                    delivery_note=(payload.get('delivery_note') or '').strip(),
+                    shipping_cost=shipping_cost,
+                    discount_percent=discount_percent,
+                    payment_received=bool(payload.get('payment_received')),
+                    payment_method=payment_method,
+                    created_by=request.user,
+                )
 
             for item in items:
                 product = None
@@ -781,22 +891,30 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                     unit_price=unit_price,
                 )
 
-            def _fire_confirmation_email():
-                ok, detail = _send_manual_invoice_email(invoice)
-                email_result['sent'] = ok
-                email_result['detail'] = detail
-                # The JSON response's email_sent/email_detail fields (below)
-                # weren't actually being read anywhere in the POS screen's
-                # JS -- it just redirects on success and never looked at
-                # them, so a failed send was invisible. Queuing a proper
-                # Django admin message here means it shows as a banner on
-                # the invoice's change page the moment the redirect lands,
-                # same place the manual Email button's result already shows.
-                if ok:
-                    messages.success(request, f"{invoice.invoice_number} {detail}")
-                else:
-                    messages.error(request, f"{invoice.invoice_number}: {detail}")
-            transaction.on_commit(_fire_confirmation_email)
+            # Confirmation email only fires for a brand-new invoice -- an
+            # items edit shouldn't re-send the "your invoice was created"
+            # email to the customer every time a card gets added/removed.
+            # The manual Email button on the invoice page still covers
+            # deliberate re-sends after an edit.
+            if edit_invoice is None:
+                def _fire_confirmation_email():
+                    ok, detail = _send_manual_invoice_email(invoice)
+                    email_result['sent'] = ok
+                    email_result['detail'] = detail
+                    # The JSON response's email_sent/email_detail fields (below)
+                    # weren't actually being read anywhere in the POS screen's
+                    # JS -- it just redirects on success and never looked at
+                    # them, so a failed send was invisible. Queuing a proper
+                    # Django admin message here means it shows as a banner on
+                    # the invoice's change page the moment the redirect lands,
+                    # same place the manual Email button's result already shows.
+                    if ok:
+                        messages.success(request, f"{invoice.invoice_number} {detail}")
+                    else:
+                        messages.error(request, f"{invoice.invoice_number}: {detail}")
+                transaction.on_commit(_fire_confirmation_email)
+            else:
+                messages.success(request, f"{invoice.invoice_number} updated.")
 
         return JsonResponse({
             'success': True,

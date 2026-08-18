@@ -10,8 +10,10 @@ since the JS below is full of literal { } that would otherwise collide
 with Python string formatting.
 """
 
+import json
+
 POS_HTML = """<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>New Manual Invoice - PokeBulk SA</title>
+<html><head><meta charset="utf-8"><title>__SCREEN_TITLE__ - PokeBulk SA</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #12121A; color: #eee; height: 100vh; overflow: hidden; }
@@ -119,7 +121,7 @@ POS_HTML = """<!DOCTYPE html>
         <img src="https://pokebulk.co.za/pokebulk-logo.png" alt="PokeBulk SA" class="pos-logo-img" onerror="this.style.display='none'">
         <div class="pos-brand-text">
           <div class="pos-brand-name">Poke<span class="pos-brand-accent">Bulk</span> SA</div>
-          <div class="pos-brand-sub">New Manual Invoice</div>
+          <div class="pos-brand-sub">__SCREEN_TITLE__</div>
         </div>
       </div>
       <a href="__CANCEL_URL__">Cancel &amp; back to list</a>
@@ -182,7 +184,7 @@ POS_HTML = """<!DOCTYPE html>
         __PAYMENT_METHOD_OPTIONS__
       </select>
     </div>
-    <button id="save-btn">Save Invoice</button>
+    <button id="save-btn">__SAVE_BTN_LABEL__</button>
     <div id="save-error"></div>
   </div>
 </div>
@@ -192,6 +194,14 @@ const SETS_URL = "__SETS_URL__";
 const SAVE_URL = "__SAVE_URL__";
 const CSRF_TOKEN = "__CSRF_TOKEN__";
 const CUSTOMER_SEARCH_URL = "__CUSTOMER_SEARCH_URL__";
+// Edit mode (2026-08-18) -- Michael: "adjusting a manual invoice... add or
+// remove items, ideally in the new invoice screen, but only while order is
+// 'Created' status". Empty object {} when this is a plain new-invoice
+// screen; populated with the existing invoice + its items when opened via
+// pos_edit_view (which already refused to serve this page at all unless
+// the invoice's status is still 'created' -- see that view for the real
+// enforcement; this is just what drives the prefill below).
+const INITIAL_DATA = __INITIAL_DATA_JSON__;
 
 let cart = [];
 let searchTimeout = null;
@@ -558,6 +568,39 @@ document.getElementById('unlink-customer-btn').addEventListener('click', () => {
   linkedBadgeEl.style.display = 'none';
 });
 
+const IS_EDIT = !!(INITIAL_DATA && INITIAL_DATA.invoice_id);
+const SAVE_LABEL = IS_EDIT ? 'Update Invoice' : 'Save Invoice';
+
+function applyInitialData() {
+  if (!IS_EDIT) return;
+  if (INITIAL_DATA.customer_user_id) {
+    linkCustomer({
+      id: INITIAL_DATA.customer_user_id,
+      name: INITIAL_DATA.customer_name || '',
+      username: INITIAL_DATA.customer_username || '',
+      email: INITIAL_DATA.customer_email || '',
+      phone: INITIAL_DATA.customer_phone || '',
+    });
+  } else {
+    nameInput.value = INITIAL_DATA.customer_name || '';
+    emailInput.value = INITIAL_DATA.customer_email || '';
+    phoneInput.value = INITIAL_DATA.customer_phone || '';
+  }
+  document.getElementById('delivery-note').value = INITIAL_DATA.delivery_note || '';
+  shippingInput.value = INITIAL_DATA.shipping_cost || '0';
+  discountInput.value = INITIAL_DATA.discount_percent || '0';
+  document.getElementById('payment-method').value = INITIAL_DATA.payment_method || '';
+  cart = (INITIAL_DATA.items || []).map(it => ({
+    product_id: it.product_id || null,
+    description: it.description || '',
+    set_name: it.set_name || '',
+    card_number: it.card_number || '',
+    variant: it.variant || '',
+    quantity: it.quantity || 1,
+    unit_price: parseFloat(it.unit_price) || 0,
+  }));
+}
+
 document.getElementById('save-btn').addEventListener('click', async () => {
   saveErrorEl.textContent = '';
   const customerName = document.getElementById('customer-name').value.trim();
@@ -576,10 +619,11 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     payment_received: !!document.getElementById('payment-method').value,
     items: cart
   };
+  if (IS_EDIT) payload.invoice_id = INITIAL_DATA.invoice_id;
 
   const saveBtn = document.getElementById('save-btn');
   saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  saveBtn.textContent = IS_EDIT ? 'Updating...' : 'Saving...';
 
   try {
     const res = await fetch(SAVE_URL, {
@@ -593,21 +637,22 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     } else {
       saveErrorEl.textContent = data.error || 'Could not save invoice.';
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save Invoice';
+      saveBtn.textContent = SAVE_LABEL;
     }
   } catch (e) {
     saveErrorEl.textContent = 'Network error saving invoice.';
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Invoice';
+    saveBtn.textContent = SAVE_LABEL;
   }
 });
 
+applyInitialData();
 renderCart();
 </script>
 </body></html>"""
 
 
-def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices, customer_search_url, payment_method_choices=()):
+def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, variant_choices, customer_search_url, payment_method_choices=(), initial_data=None):
     """variant_choices: iterable of (code, label) tuples -- pass the same
     VARIANT_CHOICES used by manage_set_view.py so the POS filter can never
     drift out of sync with the codes actually stored on products.
@@ -620,13 +665,24 @@ def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, varia
     ManualInvoice.PAYMENT_METHOD_CHOICES so the dropdown can never drift out
     of sync with what the model/save view actually accept. Replaces the old
     "EFT payment already confirmed" checkbox, which never even matched a
-    field pos_save_view read (it silently did nothing)."""
+    field pos_save_view read (it silently did nothing).
+
+    initial_data (2026-08-18, Michael: "adjusting a manual invoice... add or
+    remove items, ideally in the new invoice screen, but only while order is
+    'Created' status") -- None/omitted for the plain new-invoice screen. Pass
+    a dict (see ManualInvoiceAdmin.pos_edit_view) to reopen this same screen
+    pre-loaded with an existing invoice's customer/payment/cart, switching
+    the Save button into update mode. json.dumps escaped against premature
+    </script> termination since customer-entered text (name/email/notes)
+    ends up embedded here verbatim."""
     variant_options = ''.join(
         f'<option value="{code}">{label}</option>' for code, label in variant_choices
     )
     payment_method_options = ''.join(
         f'<option value="{code}">{label}</option>' for code, label in payment_method_choices
     )
+    initial_data_json = json.dumps(initial_data or {}).replace('</', '<\\/')
+    screen_title = f"Edit {initial_data['invoice_number']}" if initial_data else "New Manual Invoice"
 
     html = POS_HTML
     html = html.replace("__CSRF_TOKEN__", csrf_token)
@@ -637,4 +693,7 @@ def build_pos_html(csrf_token, search_url, sets_url, save_url, cancel_url, varia
     html = html.replace("__VARIANT_OPTIONS__", variant_options)
     html = html.replace("__CUSTOMER_SEARCH_URL__", customer_search_url)
     html = html.replace("__PAYMENT_METHOD_OPTIONS__", payment_method_options)
+    html = html.replace("__INITIAL_DATA_JSON__", initial_data_json)
+    html = html.replace("__SCREEN_TITLE__", screen_title)
+    html = html.replace("__SAVE_BTN_LABEL__", "Update Invoice" if initial_data else "Save Invoice")
     return html
