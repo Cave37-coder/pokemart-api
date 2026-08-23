@@ -148,8 +148,22 @@ class CartAddView(APIView):
             product = PokemonProduct.objects.get(id=product_id, is_active=True)
         except PokemonProduct.DoesNotExist:
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
-        if product.stock < quantity:
+
+        # BUG FIX 2026-08-18 (Sarfraz via WhatsApp: "First it said
+        # insufficient stock on dunsparce, then it says insufficient stock
+        # on petrel... when I remove and add them again it shows sufficient
+        # stock"). This used to check product.stock against just the
+        # incoming `quantity` param, ignoring whatever was already in the
+        # cart -- so clicking Buy twice on a 1-in-stock card (e.g. once from
+        # Checklist Grid view, once from List view, or just a double-click)
+        # passed both times, silently leaving quantity=2 against stock=1.
+        # Checkout then correctly rejected it, but with a confusing error
+        # that only "fixed itself" once the item was removed and re-added
+        # fresh. Now checks against what the cart quantity would BECOME.
+        existing_qty = CartItem.objects.filter(cart=cart, product=product).values_list('quantity', flat=True).first() or 0
+        if product.stock < existing_qty + quantity:
             return Response({'error': 'Insufficient stock'}, status=status.HTTP_400_BAD_REQUEST)
+
         item, created = CartItem.objects.get_or_create(cart=cart, product=product)
         if not created:
             item.quantity += quantity

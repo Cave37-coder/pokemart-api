@@ -334,10 +334,41 @@ class OrderTrackingAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at']
 
 
+class CartItemInline(admin.TabularInline):
+    """2026-08-18 -- Sarfraz's stuck cart ("insufficient stock... but when I
+    remove and add them again it shows sufficient stock") was the
+    CartAddView bug (fixed in views.py: it checked incoming quantity against
+    stock, not existing-cart-quantity + incoming against stock, so repeat
+    Adds on a low-stock card could push cart quantity above real stock).
+    That fix stops it happening again, but doesn't repair a cart already
+    stuck in that state -- previously there was no way to even SEE a
+    customer's cart contents from admin, let alone trim a quantity back
+    down without asking them to redo their whole order by hand."""
+    model = CartItem
+    extra = 0
+    fields = ['product', 'quantity', 'stock_hint']
+    readonly_fields = ['stock_hint']
+    autocomplete_fields = ['product']
+
+    def stock_hint(self, obj):
+        if not obj.pk or not obj.product_id:
+            return '-'
+        short = obj.quantity > obj.product.stock
+        color = '#c62828' if short else '#2e7d32'
+        return format_html('<span style="color:{}">Live stock: {}</span>', color, obj.product.stock)
+    stock_hint.short_description = 'Stock check'
+
+
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ['user', 'created_at', 'updated_at']
+    list_display = ['user', 'item_count_display', 'created_at', 'updated_at']
     readonly_fields = ['created_at', 'updated_at']
+    search_fields = ['user__username', 'user__email']
+    inlines = [CartItemInline]
+
+    def item_count_display(self, obj):
+        return obj.items.count()
+    item_count_display.short_description = 'Items'
 
 
 # =============================================================================
