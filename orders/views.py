@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from products.models import PokemonProduct
 from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, community_discount_percent
+from .banking import EFT_BANKING_DETAILS_HTML
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
     OrderStatusUpdateSerializer, AdminOrderListSerializer,
@@ -873,7 +874,7 @@ def _build_invoice_html(order, show_controls=True):
         delivery_detail = ', '.join(p for p in parts if p) or '-'
 
     waybill_row = f'<tr><td style="color:#555;padding:1px 0;font-size:11px">Waybill</td><td style="padding:1px 0;font-size:11px;font-weight:bold">{order.waybill_number}</td></tr>' if order.waybill_number else ''
-    eft_notice = '<div style="background:#f5f5f5;border-radius:6px;padding:6px 14px;margin-bottom:10px;font-size:11px;color:#333"><strong>Banking details:</strong> Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current &nbsp;|&nbsp; Branch: 198765 &nbsp;|&nbsp; Acc: 1301474037</div>' if order.payment_method in ['eft', 'coc'] else ''
+    eft_notice = f'<div style="background:#f5f5f5;border-radius:6px;padding:6px 14px;margin-bottom:10px;font-size:11px;color:#333"><strong>Banking details:</strong> {EFT_BANKING_DETAILS_HTML}</div>' if order.payment_method in ['eft', 'coc'] else ''
 
     invoice_note_block = ''
     if order.invoice_note:

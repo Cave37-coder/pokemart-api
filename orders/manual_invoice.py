@@ -10,6 +10,8 @@ Requires: pip install xhtml2pdf --break-system-packages
 Add "xhtml2pdf" to requirements.txt before deploying to Railway.
 """
 
+from .banking import EFT_BANKING_DETAILS_HTML
+
 VARIANT_LABEL_FULL = {
     'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
     'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
@@ -102,7 +104,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
 </table>
 
 <table style="background:#f5f5f5;border-radius:6px;padding:8px 14px;margin-bottom:12px">
-  <tr><td style="padding:6px 10px;font-size:11px;color:#333"><strong>Payment:</strong> EFT / Bank Transfer only &nbsp;|&nbsp; Poke Bulk SA (Pty) Ltd &nbsp;|&nbsp; Nedbank Current &nbsp;|&nbsp; Branch: 198765 &nbsp;|&nbsp; Acc: 1301474037</td></tr>
+  <tr><td style="padding:6px 10px;font-size:11px;color:#333"><strong>Payment:</strong> EFT / Bank Transfer only &nbsp;|&nbsp; {EFT_BANKING_DETAILS_HTML}</td></tr>
 </table>
 
 <table style="margin-bottom:14px">
@@ -184,23 +186,47 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
     def get_set_key(item):
         return item.set_name or 'Other / Unlisted'
 
-    sorted_items = sorted(items, key=lambda i: (get_set_key(i), i.card_number or '', i.description or ''))
+    def get_card_number_sort_key(item):
+        # card_number is stored as a plain string ("3", "10", "17") -- sorting
+        # on that directly is lexicographic, so "10" and "17" sort before "3".
+        # Extract the leading digits and sort on the int so 003 < 010 < 017,
+        # same order the zero-padded display shows. Falls back to the raw
+        # string (after any non-digit cards) if there's nothing numeric.
+        raw = (item.card_number or '').strip()
+        digits = ''
+        for ch in raw:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        if digits:
+            return (0, int(digits), raw)
+        return (1, 0, raw)
+
+    sorted_items = sorted(items, key=lambda i: (get_set_key(i), get_card_number_sort_key(i), i.description or ''))
+
+    def get_set_code(item):
+        if item.product and item.product.card_set:
+            return item.product.card_set.code
+        return ''
 
     sets_html = ''
     for set_name, group in groupby(sorted_items, key=get_set_key):
         cards = list(group)
         line_count = len(cards)
         total_qty = sum(item.quantity for item in cards)
+        set_code = next((c for c in (get_set_code(item) for item in cards) if c), '')
+        set_label = f'{set_name} [{set_code}]' if set_code else set_name
         rows = ''
         for i, item in enumerate(cards, 1):
-            num = item.card_number or '--'
+            num = str(item.card_number).zfill(3) if item.card_number else '--'
             name = item.description or (item.product.name if item.product else 'Item')
             var_code = item.variant or 'N'
             var_label = VARIANT_LABEL_FULL.get(var_code, var_code or 'Unknown')
             var_style = VARIANT_COLORS.get(var_code, '#e8e8e8;color:#333')
             unit_price = float(item.unit_price or 0)
             rows += f'''<tr>
-              <td>{i}</td><td>#{num}</td><td>{name}</td>
+              <td>{i}</td><td>{num}</td><td>{name}</td>
               <td><span style="background:{var_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span></td>
               <td>{item.quantity}</td><td>R {unit_price:.2f}</td>
               <td style="font-size:13px">[ ]</td>
@@ -212,7 +238,7 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
             set_count_label = f'{total_qty} card{"s" if total_qty != 1 else ""}'
 
         sets_html += f'''<div style="margin-bottom:6px">
-          <h3 style="font-size:13px;background:#f0f0f0;padding:3px 8px;border-left:3px solid #ff6b35;margin-bottom:2px">{set_name} ({set_count_label})</h3>
+          <h3 style="font-size:13px;background:#f0f0f0;padding:3px 8px;border-left:3px solid #ff6b35;margin-bottom:2px">{set_label} ({set_count_label})</h3>
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:#eee">
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">#</th>
