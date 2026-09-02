@@ -1297,8 +1297,8 @@ def _build_needed_pull_sheet_html(set_name, set_code, customer_name, customer_em
   <thead><tr><th width="30">#</th><th width="80">Card #</th><th>Card Name</th><th width="140">Variant</th><th width="40">Done</th></tr></thead>
   <tbody>{rows_html}</tbody>
 </table>
-<div style="margin-top:16px;border-top:1px solid #ccc;padding-top:8px;font-size:10px;color:#666">
-  Poke Bulk SA (Pty) Ltd · Reg. No: 2024/615040/07 · Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park · enquiries@pokebulk.co.za
+<div style="margin-top:16px;border-top:1px solid #ccc;padding-top:8px;font-size:10px;color:#666;text-align:center">
+  Proudly brought to you by Poke Bulk SA · <a href="https://www.pokebulk.co.za" style="color:#ff6b35;text-decoration:none">www.pokebulk.co.za</a> · enquiries@pokebulk.co.za
 </div>
 </body></html>'''
 
