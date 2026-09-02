@@ -1256,17 +1256,68 @@ def checklist_import(request):
     return Response({'imported': len(to_create)})
 
 
+def _build_needed_pull_sheet_html(set_name, set_code, customer_name, customer_email, rows):
+    """Same branded look as the staff order Pull Sheet / packing slip
+    (print_order above) and the frontend's buildPullSheetHtml() in
+    checklists/page.tsx -- kept in sync by hand, same as VARIANT_LABEL_FULL
+    already is between print_order/_build_invoice_html in orders/views.py.
+    2026-09-02, Michael: "must it be changed to pdf to match My Pull
+    Sheets?" -- this is the version that goes out in the email itself
+    (email clients render HTML, not a print dialog), the frontend's version
+    (buildPullSheetHtml() in checklists/page.tsx) is what opens in a new
+    tab, landscape, split into 2-3 columns, for the customer to print/save
+    as a PDF. This one stays a single-column table -- flexbox columns
+    render unreliably across email clients (Outlook/Gmail in particular),
+    and landscape/multi-column only matters when something is being
+    printed, not read in an inbox."""
+    from django.utils.html import escape
+    from django.utils import timezone
+
+    rows_html = ''.join(
+        f'<tr><td>{i}</td><td>{escape(num)}</td><td>{escape(name)}</td><td>{escape(variant)}</td><td style="font-size:13px">[ ]</td></tr>'
+        for i, (num, name, variant) in enumerate(rows, 1)
+    )
+    generated = timezone.now().strftime('%d %b %Y %H:%M')
+    email_line = f' ({escape(customer_email)})' if customer_email else ''
+    return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Needed List — {escape(set_name)} - PokeBulk SA</title>
+<style>* {{ margin:0;padding:0;box-sizing:border-box }} body {{ font-family:Arial,sans-serif;font-size:12px;color:#000;padding:14px;line-height:1.2 }} table {{ border-collapse:collapse;width:100% }} table td, table th {{ padding:4px 8px;border-bottom:1px solid #eee;font-size:11px }} th {{ background:#f0f0f0;text-align:left;font-size:10px }}</style>
+</head><body>
+<div style="display:flex;justify-content:space-between;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:8px">
+  <div>
+    <h1 style="font-size:20px;margin-bottom:4px">PokeBulk SA — Needed List</h1>
+    <div style="font-size:10px;color:#ff6b35;font-weight:bold;letter-spacing:.5px">pokebulk.co.za</div>
+    <div style="font-size:12px;color:#444;margin-top:2px">{escape(set_name)} [{escape(set_code)}] · {len(rows)} card{'s' if len(rows) != 1 else ''} needed</div>
+    <div style="font-size:12px;color:#444">Customer: <strong>{escape(customer_name)}</strong>{email_line}</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:12px;color:#444">Generated {generated}</div>
+  </div>
+</div>
+<table>
+  <thead><tr><th width="30">#</th><th width="80">Card #</th><th>Card Name</th><th width="140">Variant</th><th width="40">Done</th></tr></thead>
+  <tbody>{rows_html}</tbody>
+</table>
+<div style="margin-top:16px;border-top:1px solid #ccc;padding-top:8px;font-size:10px;color:#666">
+  Poke Bulk SA (Pty) Ltd · Reg. No: 2024/615040/07 · Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park · enquiries@pokebulk.co.za
+</div>
+</body></html>'''
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def checklist_email_pull_list(request):
     """Emails a customer's "needed" pull list for one set to Poke Bulk's
     decklists inbox (2026-09-02, Michael: Checklists CSV export -- "List of
     what is needed, follow my pull list format, no images just Card # full
-    name and variant - add option to email to Poke Bulk"). The frontend
-    already has the full card/variant/checked data client-side and builds
-    the row list itself (same VARIANT_LABEL_FULL naming as the pull sheet /
-    invoice in orders/views.py), so this view just formats it as a CSV
-    attachment and sends it -- no DB lookups needed.
+    name and variant - add option to email to Poke Bulk", then: "must it be
+    changed to pdf to match My Pull Sheets? the csv gives no customer
+    details, no context of what set?"). The email body is the same branded
+    pull sheet HTML the frontend opens in a new tab (_build_needed_pull_sheet_html
+    above), with the CSV still attached for anyone who wants the raw data.
+    The frontend already has the full card/variant/checked data client-side
+    and builds the row list itself (same VARIANT_LABEL_FULL naming as the
+    pull sheet / invoice in orders/views.py), so this view just formats it
+    -- no DB lookups needed.
 
     Body: {"card_set": "ASC", "set_name": "Ascended Heroes",
            "rows": [{"num": "001/217", "name": "...", "variant": "Reverse Holo"}, ...]}
@@ -1276,6 +1327,7 @@ def checklist_email_pull_list(request):
     import re as _re
     import logging as _logging
     from django.core.mail import EmailMultiAlternatives
+    from django.utils.html import strip_tags
 
     card_set = (request.data.get('card_set') or '').strip()
     set_name = (request.data.get('set_name') or card_set).strip()
@@ -1300,23 +1352,21 @@ def checklist_email_pull_list(request):
     csv_content = '\ufeff' + buf.getvalue()  # BOM so Excel handles accented names
 
     customer_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+    customer_email = request.user.email or ''
+    html = _build_needed_pull_sheet_html(set_name, card_set, customer_name, customer_email, rows)
     subject = f'Pull List — {set_name} ({card_set}) — {customer_name} ({len(rows)} needed)'
-    body = (
-        f"Needed pull list for {set_name} ({card_set}).\n"
-        f"Customer: {customer_name} ({request.user.email or 'no email on file'})\n"
-        f"Cards needed: {len(rows)}\n\n"
-        "CSV attached (Card #, Name, Variant)."
-    )
+    text_body = strip_tags(html)
 
     email_kwargs = {
         'subject': subject,
-        'body': body,
+        'body': text_body,
         'to': ['decklists@pokebulk.co.za'],
         'bcc': ['enquiries@pokebulk.co.za'],
     }
-    if request.user.email:
-        email_kwargs['reply_to'] = [request.user.email]
+    if customer_email:
+        email_kwargs['reply_to'] = [customer_email]
     email = EmailMultiAlternatives(**email_kwargs)
+    email.attach_alternative(html, 'text/html')
     safe_set_code = _re.sub(r'[^A-Za-z0-9_-]+', '', card_set) or 'set'
     email.attach(f'pull-list-{safe_set_code}-{request.user.username}.csv', csv_content, 'text/csv')
 
