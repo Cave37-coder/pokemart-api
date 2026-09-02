@@ -24,6 +24,7 @@
 #     never set a display name still shouldn't leak their real username.
 
 import logging
+from collections import defaultdict
 from decimal import Decimal
 
 from django.conf import settings
@@ -204,6 +205,64 @@ def _best_completions_for_user(user):
     ]
 
 
+def _in_progress_sets_bulk(users, per_user_limit=6):
+    """For a whole page of users at once: sets each one has SOME checklist
+    progress in but hasn't Master/Complete-Set finished yet -- "what
+    they're currently building" (2026-09-02, Michael: "put the sets the
+    people are building on their profile, so people can find common
+    ground to become friends too"). One query per table for the whole
+    page rather than one per user (N+1), since this runs once per Browse
+    Trainers page load. Cheap owned/total approximation (distinct card
+    NUMBERS touched, not the full per-variant tier math
+    compute_user_set_completion does) -- good enough for a glanceable
+    progress chip, not meant to replace the exact tier breakdown
+    checklist_completions above already gives on a single profile."""
+    user_ids = [u.id for u in users]
+    if not user_ids:
+        return {}
+
+    completed = defaultdict(set)
+    for uid, card_set in SetCompletionEvent.objects.filter(
+        user_id__in=user_ids, tier__in=('master_set', 'complete_set')
+    ).values_list('user_id', 'card_set'):
+        completed[uid].add(card_set)
+
+    touched = defaultdict(lambda: defaultdict(set))  # uid -> set_code -> {card numbers}
+    for uid, card_set, card_key in ChecklistEntry.objects.filter(
+        user_id__in=user_ids
+    ).values_list('user_id', 'card_set', 'card_key'):
+        touched[uid][card_set].add(card_key.split('_')[0])
+
+    all_codes = {code for per_user in touched.values() for code in per_user}
+    sets_by_code = {s.code: s for s in CardSet.objects.filter(code__in=all_codes)}
+
+    result = {}
+    for uid in user_ids:
+        rows = []
+        for code, numbers in touched.get(uid, {}).items():
+            if code in completed.get(uid, set()):
+                continue
+            s = sets_by_code.get(code)
+            if not s or not s.total_cards:
+                continue
+            rows.append({
+                "set_code": code,
+                "set_name": s.name,
+                "owned": len(numbers),
+                "total": s.total_cards,
+                "pct": round(len(numbers) / s.total_cards * 100),
+            })
+        rows.sort(key=lambda r: -r['pct'])
+        result[uid] = rows[:per_user_limit]
+    return result
+
+
+def _in_progress_sets_for_user(user, limit=8):
+    """Single-user convenience wrapper around _in_progress_sets_bulk, for
+    the individual profile page."""
+    return _in_progress_sets_bulk([user], per_user_limit=limit).get(user.id, [])
+
+
 def _visible_profile_or_404(user_id, viewer_id=None):
     """The one gate every public-profile-reading endpoint uses. A profile is
     visible if EITHER: (a) opted into general public browsing
@@ -295,6 +354,12 @@ def public_profile(request, user_id):
         # leaderboard/Wall of Honour's own opt-in, independent of everything
         # else on this page.
         "checklist_completions": _best_completions_for_user(user) if user.checklist_public else [],
+        # 2026-09-02, Michael: "put the sets the people are building on
+        # their profile, so people can find common ground to become
+        # friends too" -- same checklist_public gate as the tier summary
+        # above, just showing in-progress sets instead of only finished
+        # ones.
+        "in_progress_sets": _in_progress_sets_for_user(user) if user.checklist_public else [],
         "is_friend": is_friend,
     }
 
@@ -354,6 +419,14 @@ def community_browse(request):
         # already-named rows above get matched by a given search term.
         qs = qs.filter(Q(public_display_name__icontains=q) | Q(username__icontains=q))
     qs = qs.order_by('-species_count')[:60]
+    users_page = list(qs)
+    # 2026-09-02, Michael: "put the sets the people are building on their
+    # profile, so people can find common ground to become friends too" --
+    # only computed for users who also opted checklist_public on (same
+    # gate the single-profile endpoint uses), everyone else just gets [].
+    building_by_user = _in_progress_sets_bulk(
+        [u for u in users_page if u.checklist_public], per_user_limit=3
+    )
 
     return Response({
         "profiles": [
@@ -361,8 +434,9 @@ def community_browse(request):
                 **_public_card(u, request),
                 "species_collected": u.species_count,
                 "wishlist_count": u.wishlist_count,
+                "building": building_by_user.get(u.id, []),
             }
-            for u in qs
+            for u in users_page
         ]
     })
 
@@ -380,6 +454,16 @@ def most_wanted(request):
     isn't something anyone browsing Community can actually act on -- same
     double opt-in check (community_profile_public AND a real display name)
     every other public-profile-gated view already uses.
+
+    2026-09-02, Michael: "The most wanted list has no interaction! ... you
+    don't know who it is wanting the card and i have no way to notify the
+    person that i can help" -- now also returns each card's actual public
+    wishers (id/display_name/avatar/messaging_enabled, same shape every
+    other "who is this" list on this page uses), capped at 12 per card, so
+    the frontend can show WHO to reach out to instead of just a number.
+    Not a new privacy exposure -- every wisher returned here already has a
+    public profile and is independently discoverable via Browse Trainers ->
+    their profile -> wishlist tab; this just saves the extra clicks.
     GET /api/community/most-wanted/?limit=20"""
     try:
         limit = min(int(request.GET.get('limit', 20)), 100)
@@ -396,10 +480,24 @@ def most_wanted(request):
         .filter(wanted_by__gt=0)
         .order_by('-wanted_by')[:limit]
     )
+    products = list(qs)
+    wishers_by_product = {}
+    for p in products:
+        wishers = list(
+            p.wishlisted_by.filter(community_profile_public=True)
+            .exclude(public_display_name='')
+            .order_by('-id')[:12]
+        )
+        wishers_by_product[p.id] = [_public_card(u, request) for u in wishers]
+
     return Response({
         "most_wanted": [
-            {"wanted_by": p.wanted_by, **PokemonProductSerializer(p, context={'request': request}).data}
-            for p in qs
+            {
+                "wanted_by": p.wanted_by,
+                "wishers": wishers_by_product.get(p.id, []),
+                **PokemonProductSerializer(p, context={'request': request}).data,
+            }
+            for p in products
         ]
     })
 

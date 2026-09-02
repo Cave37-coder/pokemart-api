@@ -2,9 +2,13 @@
 send_feature_update_email.py
 
 One-off "what's new on PokeBulk SA" email -- explains the Community system
-in full, plus the September 2026 Checklists upgrades (Michael, 2026-09-02:
+in full (including the "Most Wanted reach-out" and "what people are
+building" interactivity added 2026-09-02), the Pokédex browse-by-species
+feature, and the September 2026 Checklists upgrades (Michael, 2026-09-02:
 "can we do an email to all users... I just want this on to go out to hook
-more people into the community!").
+more people into the community!" -- followed up same day: "the letter we
+need to add the pokedex features too and explain the new adjustments to
+community too!").
 
 SAFE BY DEFAULT: with no flags, this sends exactly ONE email -- to
 Michael's own account -- so the real design/copy can be eyeballed in an
@@ -39,7 +43,7 @@ from django.utils.html import strip_tags
 logger = logging.getLogger(__name__)
 
 TEST_RECIPIENT_EMAIL = "pokebulk77@gmail.com"
-SUBJECT = "What's new on PokeBulk SA: meet the Community + faster Checklists"
+SUBJECT = "What's new on PokeBulk SA: Community, Pokédex & faster Checklists"
 
 FOOTER_LEGAL = (
     "Poke Bulk SA (Pty) Ltd &middot; Reg. No: 2024/615040/07 &middot; "
@@ -67,8 +71,9 @@ def _build_email_html(display_name, site_url, unsubscribe_url):
 <tr><td style="padding:16px 32px 0">
   <p style="font-size:16px;color:#1a1a2e;margin:0 0 12px">Hey {display_name}! 👋</p>
   <p style="font-size:14px;color:#444;line-height:1.6;margin:0 0 4px">
-    We've shipped two things on the site worth knowing about: a proper <strong>Community</strong> for trainers to
-    connect and trade, and a big upgrade to <strong>Checklists</strong>. Here's what's new.
+    We've shipped a few things on the site worth knowing about: a proper <strong>Community</strong> for trainers to
+    connect and trade, a <strong>Pok&eacute;dex</strong> to browse the catalog by Pok&eacute;mon, and a big upgrade
+    to <strong>Checklists</strong>. Here's what's new.
   </p>
 </td></tr>
 
@@ -86,7 +91,11 @@ def _build_email_html(display_name, site_url, unsubscribe_url):
           It also switches on a <strong>free 5% discount on every order</strong>, automatically, for as long as it's on.</li>
         <li><strong>Browse Trainers</strong> &mdash; search and look through everyone else's public profile.</li>
         <li><strong>Most Wanted</strong> &mdash; a live, site-wide list of the cards the community wants most right now
-          (only counted from public profiles, so it's real, actionable demand).</li>
+          (only counted from public profiles, so it's real, actionable demand). Tap a card to see exactly who's
+          after it and reach out to them directly if you can help &mdash; no more wondering who posted it.</li>
+        <li><strong>What people are building</strong> &mdash; Trainer Profiles now show the sets someone's
+          currently working on, not just the ones they've finished, so you can spot common ground and start a
+          conversation.</li>
         <li><strong>Friends</strong> &mdash; add someone as a friend and you both unlock a lot more than the public
           profile shows: your <em>full</em> Pok&eacute;dex (every card you've caught) and your <em>full</em> Checklist
           (exactly what you have and what you still need, set by set) &mdash; shared privately, just between the two of you.</li>
@@ -96,6 +105,25 @@ def _build_email_html(display_name, site_url, unsubscribe_url):
           report a message to us, and your collection's Rand value is never shown to anyone, ever.</li>
       </ul>
       <a href="{site_url}/community" style="display:inline-block;background:#ff6b35;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 20px;border-radius:6px;margin-top:4px">Visit Community &rarr;</a>
+    </td></tr>
+  </table>
+</td></tr>
+
+<tr><td style="padding:16px 32px 4px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2fbf5;border:1px solid #cdeedd;border-radius:10px">
+    <tr><td style="padding:20px 22px">
+      <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:8px">🔍 Browse by Pok&eacute;mon (Pok&eacute;dex)</div>
+      <p style="font-size:13px;color:#444;line-height:1.6;margin:0 0 10px">
+        Not sure which set to search? Browse the whole catalog by Pok&eacute;mon instead &mdash; every generation,
+        every species. Pick one and see every card of it we carry, across every set, in one place.
+      </p>
+      <ul style="font-size:13px;color:#444;line-height:1.7;margin:0 0 10px;padding-left:18px">
+        <li>Search by species across all generations, sets and eras at once.</li>
+        <li>See every print and variant we carry of a Pok&eacute;mon, so you can compare and pick.</li>
+        <li>Add a friend on Community and your <em>full</em> caught Pok&eacute;dex shows on your profile &mdash;
+          every species you own, with the actual card art.</li>
+      </ul>
+      <a href="{site_url}/pokedex" style="display:inline-block;background:#2ea86e;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 20px;border-radius:6px;margin-top:4px">Open Pok&eacute;dex &rarr;</a>
     </td></tr>
   </table>
 </td></tr>
