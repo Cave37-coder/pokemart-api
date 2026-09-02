@@ -372,6 +372,52 @@ def wishlist_toggle(request):
     return Response({'on_wishlist': True})
 
 
+# ── Site update email unsubscribe (2026-09-02) ──────────────────────────────
+# Plain server-rendered link (not a JSON API call) so it works straight from
+# an email client with one click, no frontend page/JS required. Michael:
+# "add a script to send out a mail on 20th of each month... Yes, add a
+# simple opt-out" -- token is a signed {"uid": ...} payload (django.core.
+# signing, same trusted-token idea as default_token_generator above, just
+# stateless/non-expiring-by-default here since there's no "used once"
+# requirement) rather than a stored per-user token column, so no extra
+# migration/table just for this.
+from django.core import signing
+from django.http import HttpResponse
+
+UNSUBSCRIBE_SALT = 'pokebulk-update-emails-unsubscribe'
+
+
+def make_unsubscribe_token(user):
+    return signing.dumps({'uid': user.id}, salt=UNSUBSCRIBE_SALT)
+
+
+def _unsubscribe_page(heading, body):
+    return HttpResponse(f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>{heading} - PokeBulk SA</title>
+<style>body {{ font-family:Arial,sans-serif;background:#0e0e16;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center }}
+.box {{ max-width:420px }} h1 {{ color:#ff6b35;font-size:22px }} a {{ color:#ff6b35 }}</style>
+</head><body><div class="box"><h1>{heading}</h1><p>{body}</p><p><a href="https://www.pokebulk.co.za">www.pokebulk.co.za</a></p></div></body></html>''')
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def unsubscribe_updates(request, token):
+    """GET /api/auth/unsubscribe/<token>/ -- one-click link from the bottom
+    of every site update email."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    try:
+        data = signing.loads(token, salt=UNSUBSCRIBE_SALT, max_age=60 * 60 * 24 * 400)
+    except signing.BadSignature:
+        return _unsubscribe_page("Link expired or invalid", "This unsubscribe link is no longer valid. If you still want to stop these emails, reply to any update email and let us know.")
+    try:
+        user = User.objects.get(pk=data['uid'])
+    except User.DoesNotExist:
+        return _unsubscribe_page("Already unsubscribed", "This account no longer exists.")
+    user.update_emails_opt_out = True
+    user.save(update_fields=['update_emails_opt_out'])
+    return _unsubscribe_page("You're unsubscribed", "You won't get any more site update / new-set announcement emails from PokeBulk SA. Order and account emails aren't affected.")
+
+
 # ── Staff: customer checklist lookup (2026-08-12) ───────────────────────────
 # Michael: "I also want access to customers checklists, so that i can check
 # what they need!" -- distinct from community/views.py's public_profile,

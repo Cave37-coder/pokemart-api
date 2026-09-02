@@ -82,5 +82,19 @@ class User(AbstractUser):
         help_text="Opt-in: allow other customers to send this customer direct messages / trade requests."
     )
 
+    # -- Site update emails (2026-09-02) -------------------------------------
+    # Michael: "add a script to send out a mail on 20th of each month...
+    # I just want this on to go out to hook more people into the
+    # community!" -- opt-OUT (default False = everyone gets them) rather
+    # than opt-in, since this is a small, infrequent "what's new" email, not
+    # ongoing marketing; every send includes an unsubscribe link that flips
+    # this. Separate from every other notification on the site (order
+    # emails, password reset, DM notifications) which are all transactional
+    # and never gated by this flag.
+    update_emails_opt_out = models.BooleanField(
+        default=False,
+        help_text="Opt-out: don't send this customer occasional site update / new-set announcement emails. Doesn't affect order or account emails."
+    )
+
     def __str__(self):
         return self.username

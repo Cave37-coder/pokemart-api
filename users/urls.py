@@ -14,4 +14,5 @@ urlpatterns = [
     path("password-reset/confirm/", views.PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("change-password/", views.ChangePasswordView.as_view(), name="change-password"),
     path("admin/customers/", views.admin_customer_search, name="admin-customer-search"),
+    path("unsubscribe/<str:token>/", views.unsubscribe_updates, name="unsubscribe-updates"),
 ]

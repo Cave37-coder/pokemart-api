@@ -33,6 +33,16 @@ class CardSet(models.Model):
     checklist_xlsx = models.FileField(upload_to='checklists/', blank=True, null=True)
     tcgio_code = models.CharField(max_length=20, blank=True, default='', help_text='pokemontcg.io API set code e.g. swsh1. Used for API lookups only, never in filenames or paths.')
     bulba_code = models.CharField(max_length=20, blank=True, default='', help_text='Official Bulbapedia set abbreviation e.g. SSH')
+    # 2026-09-02, Michael: monthly site-update email -- lets the monthly
+    # digest command auto-detect "sets added this month" from real data
+    # (when this row was created on PokeBulk) rather than release_date,
+    # which is the card set's real-world TCG release date and would surface
+    # decades-old sets during a bulk catalog backfill. auto_now_add so every
+    # future set gets this for free with zero extra work; existing sets all
+    # backfill to NULL (see the migration), which is fine -- they're
+    # already live/already announced, the monthly digest only cares about
+    # sets added AFTER this ships.
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
