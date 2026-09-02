@@ -1256,6 +1256,79 @@ def checklist_import(request):
     return Response({'imported': len(to_create)})
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def checklist_email_pull_list(request):
+    """Emails a customer's "needed" pull list for one set to Poke Bulk's
+    decklists inbox (2026-09-02, Michael: Checklists CSV export -- "List of
+    what is needed, follow my pull list format, no images just Card # full
+    name and variant - add option to email to Poke Bulk"). The frontend
+    already has the full card/variant/checked data client-side and builds
+    the row list itself (same VARIANT_LABEL_FULL naming as the pull sheet /
+    invoice in orders/views.py), so this view just formats it as a CSV
+    attachment and sends it -- no DB lookups needed.
+
+    Body: {"card_set": "ASC", "set_name": "Ascended Heroes",
+           "rows": [{"num": "001/217", "name": "...", "variant": "Reverse Holo"}, ...]}
+    """
+    import csv
+    import io as _io
+    import re as _re
+    import logging as _logging
+    from django.core.mail import EmailMultiAlternatives
+
+    card_set = (request.data.get('card_set') or '').strip()
+    set_name = (request.data.get('set_name') or card_set).strip()
+    raw_rows = request.data.get('rows') or []
+
+    if not card_set or not raw_rows:
+        return Response({'error': 'card_set and rows are required'}, status=400)
+    if not isinstance(raw_rows, list) or len(raw_rows) > 2000:
+        return Response({'error': 'rows must be a list (max 2000)'}, status=400)
+
+    rows = [
+        (str(r.get('num', ''))[:50], str(r.get('name', ''))[:200], str(r.get('variant', ''))[:50])
+        for r in raw_rows if isinstance(r, dict)
+    ]
+    if not rows:
+        return Response({'error': 'rows are required'}, status=400)
+
+    buf = _io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(['Card #', 'Name', 'Variant'])
+    writer.writerows(rows)
+    csv_content = '\ufeff' + buf.getvalue()  # BOM so Excel handles accented names
+
+    customer_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+    subject = f'Pull List — {set_name} ({card_set}) — {customer_name} ({len(rows)} needed)'
+    body = (
+        f"Needed pull list for {set_name} ({card_set}).\n"
+        f"Customer: {customer_name} ({request.user.email or 'no email on file'})\n"
+        f"Cards needed: {len(rows)}\n\n"
+        "CSV attached (Card #, Name, Variant)."
+    )
+
+    email_kwargs = {
+        'subject': subject,
+        'body': body,
+        'to': ['decklists@pokebulk.co.za'],
+        'bcc': ['enquiries@pokebulk.co.za'],
+    }
+    if request.user.email:
+        email_kwargs['reply_to'] = [request.user.email]
+    email = EmailMultiAlternatives(**email_kwargs)
+    safe_set_code = _re.sub(r'[^A-Za-z0-9_-]+', '', card_set) or 'set'
+    email.attach(f'pull-list-{safe_set_code}-{request.user.username}.csv', csv_content, 'text/csv')
+
+    try:
+        email.send(fail_silently=False)
+    except Exception as e:
+        _logging.getLogger(__name__).exception("Failed to email pull list for %s (user %s)", card_set, request.user.id)
+        return Response({'error': f'Failed to send email: {e}'}, status=502)
+
+    return Response({'sent': True, 'to': 'decklists@pokebulk.co.za', 'count': len(rows)})
+
+
 # --- Pokedex collection (separate from Checklists) -------------------------
 # Michael, 2026-08-02: "I want to be able to select the card or Variant of
 # Card, add to a separate PokeDex collection, not tie in into Checklist,
