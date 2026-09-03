@@ -409,7 +409,15 @@ class SiteAnnouncement(models.Model):
         PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements",
         help_text="Optional -- link this to a specific product so the email can point straight at it.",
     )
-    link_url = models.URLField(max_length=500, blank=True, help_text="Optional link if this isn't about one specific product (e.g. the Community page).")
+    # 2026-09-03, Michael: "dropdown for which set" -- optional alternative
+    # to `product` above for restocks that are about a whole set rather
+    # than one specific product. `product`, if set, still wins for the
+    # email link (see send_monthly_update_email.py).
+    card_set = models.ForeignKey(
+        CardSet, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements",
+        help_text="Optional -- which set this is about, if not a specific product. Used for the email link when no product is linked.",
+    )
+    link_url = models.URLField(max_length=500, blank=True, help_text="Optional link if this isn't about one specific product or set (e.g. the Community page).")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

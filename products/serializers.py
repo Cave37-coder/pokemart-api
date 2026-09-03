@@ -22,12 +22,16 @@ class CardSetSerializer(serializers.ModelSerializer):
 class SiteAnnouncementSerializer(serializers.ModelSerializer):
     kind_display = serializers.CharField(source='get_kind_display', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True, default='')
+    card_set = serializers.SlugRelatedField(
+        slug_field='code', queryset=CardSet.objects.all(), required=False, allow_null=True,
+    )
+    card_set_name = serializers.CharField(source='card_set.name', read_only=True, default='')
 
     class Meta:
         model = SiteAnnouncement
         fields = [
             'id', 'kind', 'kind_display', 'title', 'body', 'date',
-            'product', 'product_name', 'link_url', 'created_at',
+            'product', 'product_name', 'card_set', 'card_set_name', 'link_url', 'created_at',
         ]
 
 

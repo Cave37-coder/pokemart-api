@@ -83,7 +83,7 @@ def _announcements_this_month():
     now = timezone.now()
     return list(
         SiteAnnouncement.objects.filter(date__year=now.year, date__month=now.month)
-        .select_related('product')
+        .select_related('product', 'card_set')
         .order_by('date')
     )
 
@@ -118,6 +118,8 @@ def _build_announcements_section(month_name, announcements, site_url):
         link = ''
         if a.product_id:
             link = f"{site_url}/products/{a.product_id}"
+        elif a.card_set_id:
+            link = f"{site_url}/cards?card_set={a.card_set.code}"
         elif a.link_url:
             link = a.link_url
         link_html = f'<a href="{link}" style="color:#2f9e5c;font-size:12px;font-weight:700;text-decoration:none">View &rarr;</a>' if link else ''

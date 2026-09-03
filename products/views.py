@@ -116,7 +116,7 @@ class PokemonTypeViewSet(viewsets.ModelViewSet):
 # Unlike Category/PokemonType above, this is never publicly readable --
 # it's purely an internal tool for building the monthly digest email.
 class SiteAnnouncementViewSet(viewsets.ModelViewSet):
-    queryset = SiteAnnouncement.objects.select_related('product').order_by('-date', '-created_at')
+    queryset = SiteAnnouncement.objects.select_related('product', 'card_set').order_by('-date', '-created_at')
     serializer_class = SiteAnnouncementSerializer
     permission_classes = [IsAdminUser]
 
