@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.admin.views.autocomplete import AutocompleteJsonView
-from .models import PokemonProduct, Category, PokemonType, Era, CardSet, PokedexCollectionEntry
+from .models import PokemonProduct, Category, PokemonType, Era, CardSet, PokedexCollectionEntry, SiteAnnouncement
 
 
 # Michael, 2026-08-08: "yes r2 always for images, set in rules!" -- every
@@ -200,3 +200,15 @@ class PokedexCollectionEntryAdmin(admin.ModelAdmin):
     search_fields = ["user__username", "product__name"]
     autocomplete_fields = ["product"]
     raw_id_fields = ["user"]
+
+
+@admin.register(SiteAnnouncement)
+class SiteAnnouncementAdmin(admin.ModelAdmin):
+    # 2026-09-03, Michael: lets him log a restock or announcement, tagged
+    # with the date it counts toward -- send_monthly_update_email pulls
+    # whatever falls in the current month into the digest email.
+    list_display = ["title", "kind", "date", "product"]
+    list_filter = ["kind", "date"]
+    search_fields = ["title", "body"]
+    autocomplete_fields = ["product"]
+    date_hierarchy = "date"

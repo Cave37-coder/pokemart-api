@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Era(models.Model):
@@ -384,3 +385,35 @@ class PokedexCollectionEntry(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.product.name} (product #{self.product_id})"
+
+
+# -- Monthly update email: restocks & announcements (2026-09-03) -----------
+# Michael: "Can you build a simple addition to task that i can access that i
+# can add any rstock or announcement on a specific day, so when we run the
+# month scheduled task, we can use the info to build the email?" -- lets
+# Michael log a restock or general announcement from Django admin (no new
+# frontend needed), tagged with the date it counts toward. The monthly
+# digest command (send_monthly_update_email) pulls whatever falls in the
+# current month alongside the auto-detected new sets, so the email isn't
+# limited to just "sets added this month" anymore.
+class SiteAnnouncement(models.Model):
+    KIND_CHOICES = [
+        ("restock", "Restock"),
+        ("announcement", "Announcement"),
+    ]
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="announcement")
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True, help_text="Optional extra detail shown under the title in the email.")
+    date = models.DateField(default=timezone.localdate, help_text="Which month this counts toward in the monthly update email -- doesn't have to be today's date.")
+    product = models.ForeignKey(
+        PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True, related_name="announcements",
+        help_text="Optional -- link this to a specific product so the email can point straight at it.",
+    )
+    link_url = models.URLField(max_length=500, blank=True, help_text="Optional link if this isn't about one specific product (e.g. the Community page).")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"[{self.get_kind_display()}] {self.title} ({self.date})"

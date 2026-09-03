@@ -8,6 +8,11 @@ send out a mail on 20th of each month, just update on all added sets and
 site updates, I just want this on to go out to hook more people into the
 community!"
 
+Also pulls in any products.SiteAnnouncement rows (restocks / general
+announcements) whose `date` falls in the current month (added 2026-09-03).
+Michael logs those himself from Django admin -- Products > Site
+announcements -- no code change needed to add one.
+
 Deliberately auto-generated from real data only (no freeform monthly copy
 to remember to write) -- if nothing new was added this month, it SKIPS the
 send entirely rather than emailing an empty "nothing to report". That
@@ -70,7 +75,22 @@ def _new_sets_this_month():
     )
 
 
-def _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_sets):
+def _announcements_this_month():
+    """SiteAnnouncement rows (restocks/announcements) whose `date` -- the
+    field Michael sets in admin, not created_at -- falls in the current
+    calendar month."""
+    from products.models import SiteAnnouncement
+    now = timezone.now()
+    return list(
+        SiteAnnouncement.objects.filter(date__year=now.year, date__month=now.month)
+        .select_related('product')
+        .order_by('date')
+    )
+
+
+def _build_sets_section(month_name, new_sets, site_url):
+    if not new_sets:
+        return ''
     rows_html = ''
     for s in new_sets:
         era_name = s.era.name if s.era else ''
@@ -78,6 +98,49 @@ def _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_s
           <div style="font-size:14px;color:#1a1a2e;font-weight:700">{s.name} <span style="color:#999;font-weight:400">[{s.code}]</span></div>
           <div style="font-size:12px;color:#888">{era_name}{' &middot; ' if era_name else ''}{s.total_cards} cards</div>
         </td></tr>'''
+    return f'''<tr><td style="padding:20px 32px 4px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7f2;border:1px solid #ffddc7;border-radius:10px">
+    <tr><td style="padding:18px 22px">
+      <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:6px">🆕 New sets added in {month_name}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
+      <a href="{site_url}/checklists" style="display:inline-block;background:#5468ff;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 20px;border-radius:6px;margin-top:14px">Check off your collection &rarr;</a>
+    </td></tr>
+  </table>
+</td></tr>'''
+
+
+def _build_announcements_section(month_name, announcements, site_url):
+    if not announcements:
+        return ''
+    rows_html = ''
+    for a in announcements:
+        label = 'Restock' if a.kind == 'restock' else 'Announcement'
+        link = ''
+        if a.product_id:
+            link = f"{site_url}/products/{a.product_id}"
+        elif a.link_url:
+            link = a.link_url
+        link_html = f'<a href="{link}" style="color:#2f9e5c;font-size:12px;font-weight:700;text-decoration:none">View &rarr;</a>' if link else ''
+        body_html = f'<div style="font-size:12px;color:#888;margin-top:2px">{a.body}</div>' if a.body else ''
+        extra_html = f'<div style="margin-top:6px">{link_html}</div>' if link_html else ''
+        rows_html += f'''<tr><td style="padding:10px 0;border-bottom:1px solid #e3f5ea">
+          <div style="font-size:14px;color:#1a1a2e;font-weight:700">[{label}] {a.title}</div>
+          {body_html}
+          {extra_html}
+        </td></tr>'''
+    return f'''<tr><td style="padding:20px 32px 4px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2fbf5;border:1px solid #cdeedd;border-radius:10px">
+    <tr><td style="padding:18px 22px">
+      <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:6px">📣 Restocks &amp; announcements in {month_name}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
+    </td></tr>
+  </table>
+</td></tr>'''
+
+
+def _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_sets, announcements):
+    sets_section = _build_sets_section(month_name, new_sets, site_url)
+    announcements_section = _build_announcements_section(month_name, announcements, site_url)
 
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -101,15 +164,7 @@ def _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_s
   </p>
 </td></tr>
 
-<tr><td style="padding:20px 32px 4px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7f2;border:1px solid #ffddc7;border-radius:10px">
-    <tr><td style="padding:18px 22px">
-      <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:6px">🆕 New sets added in {month_name}</div>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
-      <a href="{site_url}/checklists" style="display:inline-block;background:#5468ff;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 20px;border-radius:6px;margin-top:14px">Check off your collection &rarr;</a>
-    </td></tr>
-  </table>
-</td></tr>
+{sets_section}{announcements_section}
 
 <tr><td style="padding:20px 32px 8px">
   <p style="font-size:13px;color:#444;line-height:1.6;margin:0">
@@ -150,17 +205,21 @@ class Command(BaseCommand):
         api_url = getattr(settings, 'API_URL', 'https://pokemart-api-production.up.railway.app')
 
         new_sets = _new_sets_this_month()
+        announcements = _announcements_this_month()
         month_name = calendar.month_name[timezone.now().month]
 
-        if not new_sets:
+        if not new_sets and not announcements:
             self.stdout.write(self.style.WARNING(
-                f"No new sets found for {month_name} (CardSet.created_at) -- skipping, nothing sent."
+                f"Nothing found for {month_name} (no new CardSets, no SiteAnnouncements) -- skipping, nothing sent."
             ))
             return
 
         self.stdout.write(f"Found {len(new_sets)} new set(s) for {month_name}:")
         for s in new_sets:
             self.stdout.write(f"  - {s.name} [{s.code}]")
+        self.stdout.write(f"Found {len(announcements)} announcement(s)/restock(s) for {month_name}:")
+        for a in announcements:
+            self.stdout.write(f"  - [{a.kind}] {a.title} ({a.date})")
 
         if not live:
             self.stdout.write(self.style.WARNING(
@@ -188,7 +247,7 @@ class Command(BaseCommand):
             display_name = (user.first_name or user.username or 'Trainer').strip()
             token = make_unsubscribe_token(user)
             unsubscribe_url = f"{api_url}/api/auth/unsubscribe/{token}/"
-            html = _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_sets)
+            html = _build_email_html(display_name, site_url, unsubscribe_url, month_name, new_sets, announcements)
             text_body = strip_tags(html)
             email = EmailMultiAlternatives(
                 subject=SUBJECT_TEMPLATE.format(month_name=month_name),
