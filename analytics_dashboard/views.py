@@ -20,5 +20,7 @@ def dashboard_summary(request):
         "daily_visits": services.get_daily_visits(days=days),
         "conversion": services.get_conversion_summary(days=days),
         "funnel": services.get_funnel(days=days),
+        "top_pages": services.get_top_pages(days=days),
+        "section_engagement": services.get_section_engagement(days=days),
     }
     return Response(data)

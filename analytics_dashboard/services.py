@@ -136,18 +136,86 @@ def get_funnel(days: int = 30) -> list[dict]:
         if evt_name in counts:
             counts[evt_name] = int(row.metric_values[0].value)
 
+    first_count = counts[event_names[0]] or None
     results = []
-    prev_count = None
     for name in event_names:
         count = counts[name]
-        pct_of_previous = 100.0
-        if prev_count is not None and prev_count > 0:
-            pct_of_previous = round((count / prev_count) * 100, 1)
+        pct_of_top = round((count / first_count) * 100, 1) if first_count else 0.0
         results.append({
             "step": step_labels[name],
             "users": count,
-            "pct_of_previous": pct_of_previous,
+            "pct_of_top": pct_of_top,
         })
-        prev_count = count
 
+    return results
+
+
+def get_top_pages(days: int = 30, limit: int = 15) -> list[dict]:
+    """
+    Michael, 2026-09-03: "show entries to all pages" -- GA4's stable API has
+    no direct per-page "entrances" metric (that was a Universal Analytics
+    concept, retired with it), so page views + unique visitors, ranked, is
+    the closest honest equivalent and answers the same underlying question:
+    which pages people actually reach on the site.
+    """
+    client = _get_client()
+    request = RunReportRequest(
+        property=f"properties/{PROPERTY_ID}",
+        dimensions=[Dimension(name="pagePath")],
+        metrics=[Metric(name="screenPageViews"), Metric(name="activeUsers")],
+        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+        order_bys=[{"metric": {"metric_name": "screenPageViews"}, "desc": True}],
+        limit=limit,
+    )
+    response = client.run_report(request)
+    return [
+        {
+            "path": row.dimension_values[0].value,
+            "views": int(row.metric_values[0].value),
+            "users": int(row.metric_values[1].value),
+        }
+        for row in response.rows
+    ]
+
+
+def get_section_engagement(days: int = 30) -> list[dict]:
+    """
+    Michael, 2026-09-03: "see if the people are interacting with the
+    community and checklists" -- those pages don't fire any dedicated GA4
+    events (only the e-commerce funnel does -- see src/lib/analytics.ts on
+    the frontend), so page views/sessions/unique visitors to their URLs is
+    the honest signal available without adding new event tracking. One
+    targeted query per section, rather than one combined query split up in
+    Python, so users/sessions are each GA4's own true unique count for that
+    section -- not a sum across pages that could double-count someone who
+    viewed more than one page in the same section.
+    """
+    client = _get_client()
+    sections = [("Community", "/community"), ("Checklists", "/checklists")]
+    results = []
+    for label, prefix in sections:
+        request = RunReportRequest(
+            property=f"properties/{PROPERTY_ID}",
+            metrics=[Metric(name="screenPageViews"), Metric(name="sessions"), Metric(name="activeUsers")],
+            date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+            dimension_filter=FilterExpression(
+                filter=Filter(
+                    field_name="pagePath",
+                    string_filter=Filter.StringFilter(
+                        match_type=Filter.StringFilter.MatchType.BEGINS_WITH, value=prefix,
+                    ),
+                )
+            ),
+        )
+        response = client.run_report(request)
+        if response.rows:
+            row = response.rows[0]
+            results.append({
+                "section": label,
+                "views": int(row.metric_values[0].value),
+                "sessions": int(row.metric_values[1].value),
+                "users": int(row.metric_values[2].value),
+            })
+        else:
+            results.append({"section": label, "views": 0, "sessions": 0, "users": 0})
     return results

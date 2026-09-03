@@ -29,8 +29,10 @@ def dashboard_page(request):
         daily_visits = services.get_daily_visits(days=days)
         conversion = services.get_conversion_summary(days=days)
         funnel = services.get_funnel(days=days)
+        top_pages = services.get_top_pages(days=days)
+        section_engagement = services.get_section_engagement(days=days)
     except Exception as e:
-        daily_visits, conversion, funnel = [], {}, []
+        daily_visits, conversion, funnel, top_pages, section_engagement = [], {}, [], [], []
         error = str(e)
 
     daily_visits_json = json.dumps(daily_visits)
@@ -67,17 +69,68 @@ def dashboard_page(request):
 
     funnel_rows = ""
     for step in funnel:
-        pct = step.get("pct_of_previous", 100)
+        pct = step.get("pct_of_top", 100)
+        bar_width = min(pct, 100)
         bar_color = "#ff6b35" if pct >= 50 else ("#f59e0b" if pct >= 25 else "#dc2626")
+        pct_label = "" if step == funnel[0] else f"({pct}% of View Card)"
         funnel_rows += f'''<div style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
                 <span style="color:#fff;font-weight:600">{step.get('step')}</span>
-                <span style="color:#888">{step.get('users', 0):,} users {"(" + str(pct) + "% of previous)" if step != funnel[0] else ""}</span>
+                <span style="color:#888">{step.get('users', 0):,} users {pct_label}</span>
             </div>
             <div style="background:#12121a;border-radius:6px;height:10px;overflow:hidden">
-                <div style="background:{bar_color};height:100%;width:{pct}%;border-radius:6px"></div>
+                <div style="background:{bar_color};height:100%;width:{bar_width}%;border-radius:6px"></div>
             </div>
         </div>'''
+
+    # Michael, 2026-09-03: "the site analytics don't add up" -- explains why
+    # a step can show more than 100% of View Card, rather than hiding it.
+    funnel_note = ""
+    if funnel:
+        funnel_note = '''<div style="color:#666;font-size:11px;margin-top:6px">
+            Each step counts everyone who did that action anywhere in the period, not one strict path through the site --
+            a step can occasionally sit close to (or, rarely, above) 100% if returning visitors reach checkout with items
+            already in their cart from an earlier visit, without viewing a card again in this window.
+        </div>'''
+
+    top_pages_rows = ""
+    for p in top_pages:
+        top_pages_rows += f'''<tr style="border-bottom:1px solid #22222e">
+            <td style="padding:8px;color:#ccc;font-family:monospace;font-size:12px">{p.get('path')}</td>
+            <td style="padding:8px;color:#fff;text-align:right">{p.get('views', 0):,}</td>
+            <td style="padding:8px;color:#888;text-align:right">{p.get('users', 0):,}</td>
+        </tr>'''
+
+    top_pages_table = f'''<div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;margin-bottom:24px">
+        <h2 style="font-size:15px;margin:0 0 4px;color:#a0a0b0">Top Pages</h2>
+        <div style="color:#555;font-size:11px;margin-bottom:14px">Which pages people actually reach, ranked by views -- the closest stable-API equivalent to "page entrances".</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="text-align:left;color:#888;border-bottom:1px solid #2a2a3a">
+                <th style="padding:6px 8px">Page</th>
+                <th style="padding:6px 8px;text-align:right">Views</th>
+                <th style="padding:6px 8px;text-align:right">Visitors</th>
+            </tr></thead>
+            <tbody>{top_pages_rows if top_pages_rows else '<tr><td colspan="3" style="padding:12px;color:#666">No page data for this period.</td></tr>'}</tbody>
+        </table>
+        </div>
+    </div>'''
+
+    section_cards = ""
+    for s in section_engagement:
+        section_cards += f'''<div style="background:#12121a;border:1px solid #2a2a3a;border-radius:10px;padding:16px;flex:1;min-width:200px">
+            <div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:10px">{s.get('section')}</div>
+            <div style="display:flex;gap:18px">
+                <div><div style="color:#888;font-size:10px;text-transform:uppercase">Views</div><div style="color:#fff;font-size:18px;font-weight:700">{s.get('views', 0):,}</div></div>
+                <div><div style="color:#888;font-size:10px;text-transform:uppercase">Sessions</div><div style="color:#fff;font-size:18px;font-weight:700">{s.get('sessions', 0):,}</div></div>
+                <div><div style="color:#888;font-size:10px;text-transform:uppercase">Visitors</div><div style="color:#fff;font-size:18px;font-weight:700">{s.get('users', 0):,}</div></div>
+            </div>
+        </div>'''
+
+    section_engagement_block = f'''<div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;margin-bottom:24px">
+        <h2 style="font-size:15px;margin:0 0 14px;color:#a0a0b0">Community &amp; Checklists Engagement</h2>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">{section_cards if section_cards else '<div style="color:#666;font-size:13px">No data for this period.</div>'}</div>
+    </div>'''
 
     html = f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Site Analytics - PokeBulk SA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -115,7 +168,11 @@ a {{ color:#ff6b35 }}
   <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;margin-bottom:24px">
     <h2 style="font-size:15px;margin:0 0 16px;color:#a0a0b0">Funnel: Where People Drop Off</h2>
     {funnel_rows if funnel else '<div style="color:#666;font-size:13px">No funnel data available for this period.</div>'}
+    {funnel_note}
   </div>
+
+  {top_pages_table}
+  {section_engagement_block}
 
   <div style="color:#555;font-size:11px;text-align:center;margin-top:20px">
     Data reflects ad-blocker-affected client-side tracking -- treat as directional, not exact. Compare conversion rate against a rough e-commerce benchmark of ~2.5-3%.
