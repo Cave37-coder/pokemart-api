@@ -3,8 +3,8 @@ from django.db.models import Case, When, IntegerField, Value, Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
-from .models import PokemonProduct, Category, PokemonType
-from .serializers import PokemonProductSerializer, CategorySerializer, PokemonTypeSerializer
+from .models import PokemonProduct, Category, PokemonType, SiteAnnouncement
+from .serializers import PokemonProductSerializer, CategorySerializer, PokemonTypeSerializer, SiteAnnouncementSerializer
 
 
 class PokemonProductFilter(django_filters.FilterSet):
@@ -108,6 +108,17 @@ class PokemonTypeViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticatedOrReadOnly()]
+
+
+# 2026-09-03, Michael: "add it to staff section of the site, like you did
+# with the Orders" -- staff-only CRUD (list/create/update/delete) for
+# restocks/announcements, feeding the new /staff/announcements dashboard.
+# Unlike Category/PokemonType above, this is never publicly readable --
+# it's purely an internal tool for building the monthly digest email.
+class SiteAnnouncementViewSet(viewsets.ModelViewSet):
+    queryset = SiteAnnouncement.objects.select_related('product').order_by('-date', '-created_at')
+    serializer_class = SiteAnnouncementSerializer
+    permission_classes = [IsAdminUser]
 
 
 from collections import defaultdict

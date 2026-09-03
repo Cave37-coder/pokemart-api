@@ -3,7 +3,7 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet
+from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet, SiteAnnouncementViewSet
 from . import views
 from .views_lookup import card_lookup, card_search
 
@@ -11,6 +11,8 @@ router = DefaultRouter()
 router.register(r"products", PokemonProductViewSet, basename="product")
 router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"pokemon-types", PokemonTypeViewSet, basename="pokemon-type")
+# 2026-09-03: staff-only, feeds /staff/announcements -- see SiteAnnouncementViewSet.
+router.register(r"admin/announcements", SiteAnnouncementViewSet, basename="site-announcement")
 
 urlpatterns = [
     path("", include(router.urls)),

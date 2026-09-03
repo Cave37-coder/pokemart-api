@@ -93,6 +93,18 @@ def _send_status_update_email(order):
             f"    Status: {status_label}\n\n"
         )
 
+        # Michael, 2026-09-03: "add a note to orders, that will appear on
+        # the update emails ... beside adding the waybill to the email" --
+        # same stashed _tracking_note attribute the signal above already
+        # reads to build this status change's OrderTracking row, so
+        # whatever note staff typed for THIS update (not an older one)
+        # shows up here too. Blank/unset (e.g. a status change made
+        # directly through Django admin, which never stashes this) simply
+        # adds nothing.
+        note = getattr(order, '_tracking_note', '') or ''
+        if note:
+            text_body += f"    Note: {note}\n\n"
+
         # Michael, 2026-08-12: include whatever waybill/tracking info is on
         # file on EVERY status-update email once it's been added to the
         # order, not just on the 'booked'/'collected' statuses -- so the

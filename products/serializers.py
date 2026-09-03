@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PokemonProduct, Category, PokemonType, Era, CardSet
+from .models import PokemonProduct, Category, PokemonType, Era, CardSet, SiteAnnouncement
 
 
 class EraSerializer(serializers.ModelSerializer):
@@ -14,6 +14,21 @@ class CardSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardSet
         fields = ["id", "code", "name", "era", "symbol_url", "logo_url", "total_cards", "release_date"]
+
+
+# 2026-09-03, Michael: "add it to staff section of the site, like you did
+# with the Orders" -- feeds the new staff Announcements dashboard so
+# restocks/announcements can be logged without going through Django admin.
+class SiteAnnouncementSerializer(serializers.ModelSerializer):
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True, default='')
+
+    class Meta:
+        model = SiteAnnouncement
+        fields = [
+            'id', 'kind', 'kind_display', 'title', 'body', 'date',
+            'product', 'product_name', 'link_url', 'created_at',
+        ]
 
 
 class PokemonTypeSerializer(serializers.ModelSerializer):
@@ -51,7 +66,7 @@ class PokemonProductSerializer(serializers.ModelSerializer):
             "id", "name", "name_japanese", "description", "flavour_text",
             "category", "category_id", "card_set", "card_set_id",
             "pokemon_types", "pokemon_type_ids",
-            "rarity", "pokedex_number", "card_number", "number", "variant_override",
+            "rarity", "pokedex_number", "pokedex_number_2", "card_number", "number", "variant_override",
             "variant_sort", "condition",
             "supertype", "card_subtypes", "hp", "artist",
             "weakness_type", "weakness_value",
