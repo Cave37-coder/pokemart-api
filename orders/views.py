@@ -514,6 +514,11 @@ class AdminManualInvoiceListView(generics.ListAPIView):
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
+        else:
+            # 2026-09-04: same default as AdminOrderListView -- open
+            # invoices only (hide Complete/Cancelled) unless a status is
+            # explicitly requested.
+            qs = qs.exclude(status__in=['cancelled', 'complete'])
 
         payment_filter = self.request.query_params.get('payment_received')
         if payment_filter in ('true', 'false'):

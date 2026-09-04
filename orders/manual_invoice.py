@@ -53,7 +53,7 @@ def build_manual_invoice_html(invoice, show_controls=True):
     invoice_date = invoice.created_at.strftime('%d-%m-%Y')
 
     delivery_block = invoice.delivery_note.replace('\n', '<br>') if invoice.delivery_note else '-'
-    METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card'}
+    METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card (Payfast)', 'trade': 'Trade-In'}
     if invoice.payment_received:
         method_label = METHOD_LABELS.get(invoice.payment_method, '')
         payment_status = f'{method_label} Received' if method_label else 'Payment Received'

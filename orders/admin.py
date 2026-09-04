@@ -499,8 +499,9 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
     # STATUS_COLOR dict since the two status sets don't line up 1:1
     # (Manual Invoice has no courier/booking stages of its own).
     MANUAL_INVOICE_STATUS_COLORS = {
-        'created': '#546e7a', 'payment_confirmed': '#1565c0',
-        'packed': '#6a1b9a', 'complete': '#1b5e20', 'cancelled': '#757575',
+        'created': '#546e7a', 'pending_eft': '#e65100', 'printed': '#0288d1',
+        'packed': '#6a1b9a', 'ready': '#00acc1', 'payment_confirmed': '#1565c0',
+        'complete': '#1b5e20', 'cancelled': '#757575',
     }
 
     def status_badge(self, obj):

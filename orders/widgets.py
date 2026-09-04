@@ -30,7 +30,7 @@ class StatusStepperWidget(forms.Select):
     STEPS = [
         ('pending',   'Order Received'),
         ('printed',   'Order Printed'),
-        ('packed',    'Order Packed'),
+        ('packed',    'Order Preparing'),
         ('booked',    'Courier Booking'),
         ('ready',     'Ready for Collection'),
         ('collected', 'Courier Collected'),

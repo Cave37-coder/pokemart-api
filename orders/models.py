@@ -85,7 +85,7 @@ class Order(models.Model):
         ("pending",         "Order Received"),
         ("pending_eft",     "Awaiting EFT Payment"),
         ("printed",         "Order Printed"),
-        ("packed",          "Order Packed"),
+        ("packed",          "Order Preparing"),
         ("booked",          "Courier Booking"),
         ("ready",           "Ready for Collection"),
         ("collected",       "Courier Collected"),
@@ -319,9 +319,19 @@ class ManualInvoice(models.Model):
     # collection doesn't mean it's been paid for yet. The values themselves
     # ('packed'/'payment_confirmed') are unchanged, only the ORDER staff
     # move through them and the save() auto-sync below.
+    # 2026-09-04, Michael: "structure manual invoicing the same as normal
+    # order -- give me the statuses so we can decide which to apply" --
+    # added Awaiting EFT Payment / Order Printed / Ready for Collection to
+    # mirror Order's own pipeline (courier-only steps like Courier Booking/
+    # Courier Collected still don't apply -- Manual Invoice has no courier
+    # leg of its own). 'packed' relabelled Packed -> Preparing to match
+    # Order's own Packed -> Preparing rename, same underlying code value.
     STATUS_CHOICES = [
         ('created', 'Created'),
-        ('packed', 'Packed'),
+        ('pending_eft', 'Awaiting EFT Payment'),
+        ('printed', 'Order Printed'),
+        ('packed', 'Preparing'),
+        ('ready', 'Ready for Collection'),
         ('payment_confirmed', 'Payment Confirmed'),
         ('complete', 'Complete'),
         ('cancelled', 'Cancelled'),
@@ -346,11 +356,14 @@ class ManualInvoice(models.Model):
     # to settle an invoice instead of real money changing hands. Short code
     # ('trade' not 'trade_credit') to fit the existing max_length=10 without
     # a column-size migration.
+    # 2026-09-04, Michael: reordered + relabelled to Cash / EFT / Card
+    # (Payfast) / Trade-In -- "Card" here is the in-person Payfast card
+    # machine, same processor as online checkout, hence the label.
     PAYMENT_METHOD_CHOICES = [
-        ('eft', 'EFT'),
         ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('trade', 'Trade/Credit'),
+        ('eft', 'EFT'),
+        ('card', 'Card (Payfast)'),
+        ('trade', 'Trade-In'),
     ]
 
     # Single yes/no plus a single method -- not independent tick boxes.
