@@ -96,5 +96,21 @@ class User(AbstractUser):
         help_text="Opt-out: don't send this customer occasional site update / new-set announcement emails. Doesn't affect order or account emails."
     )
 
+    # -- Staff "who's active" tracking (2026-09-04) ---------------------
+    # Michael: "put the full list there in chronological order of when
+    # they last were on the site... give a weekly breakdown, so we can see
+    # who are regulars and who have fallen away." Django's own last_login
+    # is never actually touched by this site (LoginView issues JWTs
+    # directly, never calls Django's own login() / the update_last_login
+    # signal) so it's useless as a "last seen" signal -- this is a fresh
+    # field, updated by UpdateLastSeenMiddleware on every authenticated
+    # request (throttled -- see that file), not just at login. That means
+    # it reflects genuine browsing while logged in, not only "logged in
+    # again today".
+    last_seen = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Last time this customer was active on the site while logged in (updated automatically, not editable here)."
+    )
+
     def __str__(self):
         return self.username

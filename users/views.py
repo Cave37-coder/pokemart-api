@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    ChangePasswordSerializer,
+    ChangePasswordSerializer, AdminUserListSerializer,
 )
 
 
@@ -428,7 +428,7 @@ def unsubscribe_updates(request, token):
 # privacy gates. Feeds the /staff/checklists page's customer search box.
 from rest_framework.permissions import IsAdminUser
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 
 
 @api_view(['GET'])
@@ -462,3 +462,52 @@ def admin_customer_search(request):
         'last_name': u.last_name,
         'checklist_count': u.checklist_count,
     } for u in qs])
+
+
+# ── Staff: full user list + temp password reset (2026-09-04) ───────────────
+# Michael: "add to staff page, 'User' page, where we can change their
+# password temporarily to say 'Pokebulk' so if they can't access their
+# account we can just do a simple temp password to help! ... put the full
+# list there in chronological order of when they last were on the site ...
+# give a weekly breakdown ... so we can see who are regulars and who have
+# fallen away." Deliberately unpaginated (pagination_class = None) -- the
+# frontend needs the WHOLE list at once to bucket it into weeks correctly,
+# a page-by-page view can't do that.
+class AdminUserListView(generics.ListAPIView):
+    serializer_class = AdminUserListSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = None
+
+    def get_queryset(self):
+        User = get_user_model()
+        # nulls_last: customers who have NEVER been seen since this field
+        # was added (last_seen still NULL) sort to the bottom rather than
+        # the top, so the most recently-active customers lead the list.
+        return User.objects.order_by(F('last_seen').desc(nulls_last=True), '-date_joined')
+
+
+class AdminUserResetPasswordView(APIView):
+    '''POST /api/auth/admin/users/<id>/reset-password/ -- staff-only. Sets
+    the customer's password to a known temporary value so staff can talk a
+    locked-out customer through logging back in over the phone/WhatsApp,
+    then tell them to change it from Profile once they're in. Deliberately
+    no email sent -- staff are already in direct contact with the customer
+    when this gets used.'''
+    permission_classes = [IsAdminUser]
+
+    TEMP_PASSWORD = 'Pokebulk'
+
+    def post(self, request, pk):
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.set_password(self.TEMP_PASSWORD)
+        user.save(update_fields=['password'])
+        logger.info(
+            "Temp password set for user_id=%s (username=%s) by staff user_id=%s",
+            user.pk, user.username, request.user.pk,
+        )
+        return Response({'detail': f'Password reset to a temporary password for {user.username}.'})

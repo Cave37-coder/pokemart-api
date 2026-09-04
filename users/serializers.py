@@ -79,6 +79,17 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     new_password = serializers.CharField(min_length=8)
 
 
+# Michael, 2026-09-04: feeds the staff Users page -- full customer list
+# with enough to sort/bucket by last-seen and to show who's who.
+class AdminUserListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'email',
+            'date_joined', 'last_seen', 'is_staff', 'is_superuser',
+        ]
+
+
 # Michael, 2026-08-07: "add to Profile that you can change password" --
 # separate from the logged-out PasswordReset* flow above (which needs an
 # email link because the customer can't authenticate at all). This is for
