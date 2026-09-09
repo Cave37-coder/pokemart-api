@@ -182,7 +182,7 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
-        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX'}
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -255,6 +255,7 @@ def stock_entry(request):
             'MBP': '#6610f2;color:#fff',
             'CC':  '#17a2b8;color:#fff',
             'TT':  '#ff6b35;color:#fff',
+            'HR-EX': '#c026d3;color:#fff',
         }
 
         rows = ''
@@ -515,7 +516,7 @@ def stock_print(request):
         .order_by('card_number', 'variant_sort')
         .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
-    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT'}
+    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX'}
     for c in cards:
         vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -526,7 +527,7 @@ def stock_print(request):
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
         'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
-        'CC': 'Code Card', 'TT': 'Trick or Trade',
+        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Double Rare EX',
     }
 
     from itertools import groupby as igroup
@@ -1660,6 +1661,7 @@ VARIANT_LABEL_FULL = {
     'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
     'CC': 'Code Card', 'TT': 'Trick or Trade',
     'ESH': 'Energy Symbol Holo',
+    'HR-EX': 'Double Rare EX',
 }
 
 
