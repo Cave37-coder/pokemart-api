@@ -35,7 +35,14 @@ VARIANT_CHOICES = [
     ('LB', 'Love Ball'),
     ('QB', 'Quick Ball'),
     ('DB', 'Dusk Ball'),
-    ('HR-EX', 'Double Rare EX'),
+    ('HR-EX', 'Illustration Rare'),
+    ('EX', 'Double Rare'),
+    ('GX', 'GX'),
+    ('V', 'V'),
+    ('VMAX', 'VMAX'),
+    ('VSTAR', 'VSTAR'),
+    ('RR', 'Rainbow Rare'),
+    ('RAD', 'Radiant'),
 ]
 from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
 from .manual_invoice import build_manual_invoice_html, build_manual_invoice_pull_sheet_html, html_to_pdf

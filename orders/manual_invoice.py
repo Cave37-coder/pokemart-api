@@ -18,7 +18,9 @@ VARIANT_LABEL_FULL = {
     'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
     'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
     'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
-    'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Double Rare EX',
+    'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
+    'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
+    'RR': 'Rainbow Rare', 'RAD': 'Radiant',
 }
 
 

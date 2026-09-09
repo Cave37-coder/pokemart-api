@@ -182,7 +182,7 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
-        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX'}
+        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD'}
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -256,6 +256,13 @@ def stock_entry(request):
             'CC':  '#17a2b8;color:#fff',
             'TT':  '#ff6b35;color:#fff',
             'HR-EX': '#c026d3;color:#fff',
+            'EX':    '#ca8a04;color:#fff',
+            'GX':    '#2563eb;color:#fff',
+            'V':     '#111827;color:#fff',
+            'VMAX':  '#e11d48;color:#fff',
+            'VSTAR': '#facc15;color:#422006',
+            'RR':    '#db2777;color:#fff',
+            'RAD':   '#b45309;color:#fff',
         }
 
         rows = ''
@@ -516,7 +523,7 @@ def stock_print(request):
         .order_by('card_number', 'variant_sort')
         .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
-    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX'}
+    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD'}
     for c in cards:
         vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -527,7 +534,9 @@ def stock_print(request):
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
         'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
-        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Double Rare EX',
+        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
+        'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
+        'RR': 'Rainbow Rare', 'RAD': 'Radiant',
     }
 
     from itertools import groupby as igroup
@@ -1661,7 +1670,9 @@ VARIANT_LABEL_FULL = {
     'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
     'CC': 'Code Card', 'TT': 'Trick or Trade',
     'ESH': 'Energy Symbol Holo',
-    'HR-EX': 'Double Rare EX',
+    'HR-EX': 'Illustration Rare',
+    'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
+    'RR': 'Rainbow Rare', 'RAD': 'Radiant',
 }
 
 

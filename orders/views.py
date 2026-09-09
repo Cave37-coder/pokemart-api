@@ -658,7 +658,9 @@ def print_order(request, order_id):
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
         'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
-        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Double Rare EX',
+        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
+        'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
+        'RR': 'Rainbow Rare', 'RAD': 'Radiant',
     }
 
     order = get_object_or_404(Order, id=order_id)
@@ -714,6 +716,9 @@ def print_order(request, order_id):
                 'PBP': '#fce4ec;color:#ad1457', 'MBP': '#ede7f6;color:#5e35b1',
                 'CC': '#f5f5f5;color:#616161', 'TT': '#fce4ec;color:#880e4f',
                 'HR-EX': '#fbcfe8;color:#831843',
+                'EX': '#fef3c7;color:#92400e', 'GX': '#dbeafe;color:#1e40af', 'V': '#e5e7eb;color:#1f2937',
+                'VMAX': '#ffe4e6;color:#9f1239', 'VSTAR': '#fef9c3;color:#854d0e',
+                'RR': '#fce7f3;color:#9d174d', 'RAD': '#fed7aa;color:#7c2d12',
             }
             var_style = var_colors.get(var_code, '#e8e8e8;color:#333')
             variant_cell = f'<div style="display:flex;gap:3px;align-items:center;white-space:nowrap"><span style="background:{var_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span>'
@@ -813,7 +818,9 @@ def _build_invoice_html(order, show_controls=True):
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
         'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
-        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Double Rare EX',
+        'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
+        'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
+        'RR': 'Rainbow Rare', 'RAD': 'Radiant',
     }
     items = list(order.items.select_related(
         'product', 'product__card_set', 'product__card_set__era'
