@@ -128,7 +128,7 @@ def dashboard_page(request):
         </div>'''
 
     section_engagement_block = f'''<div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:12px;padding:20px;margin-bottom:24px">
-        <h2 style="font-size:15px;margin:0 0 14px;color:#a0a0b0">Community &amp; Checklists Engagement</h2>
+        <h2 style="font-size:15px;margin:0 0 14px;color:#a0a0b0">Community &amp; My Collection Engagement</h2>
         <div style="display:flex;gap:14px;flex-wrap:wrap">{section_cards if section_cards else '<div style="color:#666;font-size:13px">No data for this period.</div>'}</div>
     </div>'''
 

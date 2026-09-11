@@ -191,7 +191,7 @@ def get_section_engagement(days: int = 30) -> list[dict]:
     viewed more than one page in the same section.
     """
     client = _get_client()
-    sections = [("Community", "/community"), ("Checklists", "/checklists")]
+    sections = [("Community", "/community"), ("My Collection", "/checklists")]
     results = []
     for label, prefix in sections:
         request = RunReportRequest(
