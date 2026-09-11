@@ -37,6 +37,12 @@ urlpatterns = [
     path("checklists/my-completions/", views.checklist_my_completions, name="checklist-my-completions"),
     path("checklists/leaderboard/", views.checklist_leaderboard, name="checklist-leaderboard"),
     path("checklists/wall-of-honour/", views.checklist_wall_of_honour, name="checklist-wall-of-honour"),
+    # 2026-09-11: Bundle Opportunities -- stock-based tier-completion scanner,
+    # feeds the new /staff/bundles page (JWT-authed, NOT Django admin/session
+    # auth -- see products/views.py's Bundle Opportunities section).
+    path("admin/bundle-opportunities/scan/", views.bundle_opportunities_scan, name="bundle-opportunities-scan"),
+    path("admin/bundle-opportunities/accept/", views.bundle_opportunities_accept, name="bundle-opportunities-accept"),
+    path("admin/bundle-opportunities/accepted/", views.bundle_opportunities_accepted, name="bundle-opportunities-accepted"),
     path("pokedex/toggle/", views.pokedex_toggle, name="pokedex-toggle"),
     path("pokedex/my-collection/", views.pokedex_my_collection, name="pokedex-my-collection"),
     path("manage/", views.manage_set, name="manage-set"),

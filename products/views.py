@@ -1158,9 +1158,10 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from decimal import Decimal
-from .models import ChecklistEntry, SetCompletionEvent, PokedexCollectionEntry
+from .models import ChecklistEntry, SetCompletionEvent, PokedexCollectionEntry, BundleOpportunity
 from .completion import (
-    is_set_eligible, compute_user_set_completion, TIER_LABELS, TIER_ORDER,
+    is_set_eligible, compute_user_set_completion, compute_set_completion,
+    get_set_stock_keys, get_tier_pull_list, TIER_LABELS, TIER_ORDER,
 )
 
 
@@ -1981,4 +1982,119 @@ window.addEventListener('DOMContentLoaded', function() {{
 </body></html>'''
 
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+# -- Bundle Opportunities: stock-based tier-completion scanner (2026-09-11) -
+# Michael: "I want to have the checklist import to bundles, where it can go
+# through the stock and then tell me when i can create bundles of any one
+# of the set variants from the sets (must be 90% complete) before it shows.
+# When i accept it gives me a print out of the cards available so i can put
+# it up on the site." Design confirmed via AskUserQuestion, same date:
+# stock counts as "available" the moment stock > 0 (no minimum quantity);
+# lives here as a JWT-authed staff API (consumed by the new
+# /staff/bundles React page, NOT Django admin -- Michael's explicit
+# non-default pick); accepting an opportunity is permanent, even if stock
+# later drops back below 90% (see BundleOpportunity's own docstring in
+# models.py). This does not create or manage bundle PRODUCTS itself --
+# Michael still lists the actual bundle for sale via his existing
+# bundle_stock_entry admin tool above, using the printout this produces.
+BUNDLE_OPPORTUNITY_THRESHOLD_PCT = 90
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def bundle_opportunities_scan(request):
+    """
+    Scores every eligible CardSet's CURRENT STOCK against the same tier
+    ladder a customer's checklist is scored against (products/completion.py),
+    using get_set_stock_keys() as the "owned" set in place of a real
+    ChecklistEntry set. Returns every (set, tier) combination currently at
+    >= 90% by stock, excluding anything already accepted (a permanent
+    BundleOpportunity row already exists for it).
+
+    Not a queue/cache -- every call re-scans live stock from scratch. With
+    ~190 sets in the catalog that's a few hundred small queries; fine for a
+    staff page opened occasionally, not something to poll on a timer.
+    """
+    already_accepted = set(BundleOpportunity.objects.values_list('card_set', 'tier'))
+
+    opportunities = []
+    for card_set in CardSet.objects.select_related('era').all():
+        if not is_set_eligible(card_set):
+            continue
+        stock_keys = get_set_stock_keys(card_set)
+        if not stock_keys:
+            continue  # nothing in stock at all for this set -- skip without even scoring
+        result = compute_set_completion(card_set, stock_keys)
+        for tier_key, data in result['tiers'].items():
+            if (card_set.code, tier_key) in already_accepted:
+                continue
+            if data['required'] and data['pct'] >= BUNDLE_OPPORTUNITY_THRESHOLD_PCT:
+                opportunities.append({
+                    'card_set_code': card_set.code,
+                    'card_set_name': card_set.name,
+                    'era': card_set.era.name if card_set.era else '',
+                    'tier': tier_key,
+                    'tier_label': TIER_LABELS.get(tier_key, tier_key),
+                    'owned': data['owned'],
+                    'required': data['required'],
+                    'pct': data['pct'],
+                })
+
+    opportunities.sort(key=lambda o: (-o['pct'], o['card_set_code']))
+    return Response({'threshold_pct': BUNDLE_OPPORTUNITY_THRESHOLD_PCT, 'opportunities': opportunities})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def bundle_opportunities_accept(request):
+    """
+    Body: {"card_set": "PBL", "tier": "master_set"}. Marks this (set, tier)
+    opportunity permanently accepted (get_or_create -- accepting twice is a
+    no-op, not an error) and returns the concrete in-stock pull list for it
+    (get_tier_pull_list()) so Michael can physically pull those cards and
+    list the bundle via bundle_stock_entry.
+    """
+    card_set_code = (request.data.get('card_set') or '').strip()
+    tier = (request.data.get('tier') or '').strip()
+    if not card_set_code or not tier:
+        return Response({'error': 'card_set and tier are required'}, status=400)
+    if tier not in dict(BundleOpportunity.TIER_CHOICES):
+        return Response({'error': f'Unknown tier {tier!r}'}, status=400)
+
+    try:
+        card_set = CardSet.objects.get(code=card_set_code)
+    except CardSet.DoesNotExist:
+        return Response({'error': f'No CardSet found with code {card_set_code!r}'}, status=404)
+
+    BundleOpportunity.objects.get_or_create(
+        card_set=card_set_code, tier=tier, defaults={'accepted_by': request.user},
+    )
+
+    pull_list = get_tier_pull_list(card_set, tier)
+    return Response({
+        'card_set_code': card_set.code,
+        'card_set_name': card_set.name,
+        'tier': tier,
+        'tier_label': TIER_LABELS.get(tier, tier),
+        'cards': pull_list,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def bundle_opportunities_accepted(request):
+    """List of already-accepted opportunities, for a small history panel on
+    the staff page (who accepted what, when)."""
+    rows = BundleOpportunity.objects.select_related('accepted_by').order_by('-accepted_at')[:200]
+    return Response([
+        {
+            'card_set_code': r.card_set,
+            'tier': r.tier,
+            'tier_label': TIER_LABELS.get(r.tier, r.tier),
+            'accepted_at': r.accepted_at,
+            'accepted_by': r.accepted_by.username if r.accepted_by else None,
+        }
+        for r in rows
+    ])
 

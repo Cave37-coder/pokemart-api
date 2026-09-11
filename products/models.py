@@ -437,3 +437,64 @@ class SiteAnnouncement(models.Model):
 
     def __str__(self):
         return f"[{self.get_kind_display()}] {self.title} ({self.date})"
+
+
+# -- Bundle Opportunities: stock-based tier-completion scanner (2026-09-11) -
+# Michael: "I want to have the checklist import to bundles, where it can go
+# through the stock and then tell me when i can create bundles of any one
+# of the set variants from the sets (must be 90% complete) before it shows.
+# When i accept it gives me a print out of the cards available so i can put
+# it up on the site." This is a STAFF tool, separate from the customer-
+# facing Checklist -- it scores each CardSet's own IN-STOCK products
+# against the exact same tier ladder (products/completion.py) that a
+# customer's checklist is scored against, using
+# products.completion.get_set_stock_keys() as the "owned" set instead of a
+# real ChecklistEntry set. Feeds Michael's EXISTING `bundle_stock_entry`
+# admin tool (category='bundles' PokemonProduct rows) -- this model doesn't
+# create or manage bundle products itself, it only tracks which (set, tier)
+# opportunities Michael has already acted on so the scan doesn't keep
+# re-surfacing them.
+#
+# One row = Michael clicked Accept on one (set, tier) opportunity. Created
+# only by the accept endpoint, never by the scan itself (a qualifying
+# opportunity that hasn't been accepted yet has NO row here -- the scan
+# computes those live from stock on every request, it isn't a queue). Once
+# accepted, permanent -- confirmed via AskUserQuestion, 2026-09-11: "Yes,
+# mark it done (Recommended)" -- even if stock later drops back below the
+# threshold, this stays marked so it never reappears.
+#
+# card_set is a plain CardSet.code string (not an FK), matching
+# ChecklistEntry/SetCompletionEvent's own convention -- see
+# SetCompletionEvent's docstring for why (survives a catalog resync).
+#
+# tier choices intentionally include "full_master", unlike
+# SetCompletionEvent.TIER_CHOICES (that omission is pre-existing/unrelated
+# to this feature, not touched here) -- Bundle Opportunities scans every
+# rung of the real ladder including the top one.
+class BundleOpportunity(models.Model):
+    TIER_CHOICES = [
+        ("broke_base", "Broke Base"),
+        ("base_set", "Base Set"),
+        ("special_set_base", "Special Set Base"),
+        ("master_set", "Master Set"),
+        ("full_master", "Full Master"),
+        ("complete_set", "Complete Set"),
+    ]
+    card_set = models.CharField(max_length=20, help_text="CardSet.code, e.g. 'PBL', 'TT22'")
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="bundle_opportunities_accepted"
+    )
+    accepted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["card_set", "tier"], name="unique_bundle_opportunity"),
+        ]
+        indexes = [
+            models.Index(fields=["card_set", "tier"]),
+        ]
+        ordering = ["-accepted_at"]
+
+    def __str__(self):
+        return f"{self.card_set} -- {self.get_tier_display()} (accepted {self.accepted_at:%Y-%m-%d})"

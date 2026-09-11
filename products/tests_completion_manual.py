@@ -13,6 +13,12 @@ compute_set_completion = ns['compute_set_completion']
 # Captured now, before Test 4 monkeypatches ns['get_set_card_map'] -- Test 5
 # needs the REAL implementation, not a stubbed-out one.
 real_get_set_card_map = ns['get_set_card_map']
+# Same reason -- Test 8 exercises the real Bundle Opportunities stock
+# helpers, which call get_set_card_map internally (get_tier_pull_list does)
+# or share its grouping core (get_set_stock_keys), so both need capturing
+# before later tests replace ns['get_set_card_map'] with a stub.
+real_get_set_stock_keys = ns['get_set_stock_keys']
+real_get_tier_pull_list = ns['get_tier_pull_list']
 
 class FakeEra:
     def __init__(self, name): self.name = name
@@ -168,9 +174,9 @@ class FakeManager:
 
 
 tt22_rows = [
-    {"id": 404513, "card_number": 103, "variant_override": "TT", "number": "103/189", "name": "Nickit", "rarity": "common"},
-    {"id": 404504, "card_number": 103, "variant_override": "TT", "number": "103/189", "name": "Ariados", "rarity": "common"},  # clashes with Nickit
-    {"id": 404489, "card_number": 56, "variant_override": "TT", "number": "056/172", "name": "Mewtwo", "rarity": "common"},   # no clash
+    {"id": 404513, "card_number": 103, "variant_override": "TT", "number": "103/189", "name": "Nickit", "rarity": "common", "stock": 0, "price": "5.00"},
+    {"id": 404504, "card_number": 103, "variant_override": "TT", "number": "103/189", "name": "Ariados", "rarity": "common", "stock": 3, "price": "5.00"},  # clashes with Nickit
+    {"id": 404489, "card_number": 56, "variant_override": "TT", "number": "056/172", "name": "Mewtwo", "rarity": "common", "stock": 0, "price": "5.00"},   # no clash
 ]
 class FakePokemonProduct:
     pass
@@ -260,6 +266,51 @@ print(result7)
 assert result7['mode'] == 'simple'
 assert result7['tiers']['complete_set']['required'] == 28
 assert result7['tiers']['complete_set']['owned'] == len(checked7)
+print("PASS\n")
+
+# ── Test 8: NEW -- Bundle Opportunities stock helpers (2026-09-11), reusing
+# the TT22 Nickit/Ariados/Mewtwo fixture from Test 5 (same collision case,
+# now with stock set: Ariados=3 in stock, Nickit=0, Mewtwo=0). Confirms
+# get_set_stock_keys() only ever returns keys for in-stock rows, using the
+# SAME disambiguated keys get_set_card_map() produces (so a stock key can
+# actually be found in checked_keys by compute_set_completion), and that
+# get_tier_pull_list() returns exactly the in-stock row for a simple set's
+# one tier, with the price/stock/product_id carried through for the
+# printout.
+stock_keys = real_get_set_stock_keys(tt22_set_real)
+print("TEST 8a: get_set_stock_keys() -- TT22 collision, only Ariados in stock")
+print(stock_keys)
+assert stock_keys == {"103/189-404504_TT"}, stock_keys  # Ariados' disambiguated key, stock=3
+print("PASS\n")
+
+# get_tier_pull_list() calls get_set_card_map() by name at call time (module
+# globals are resolved dynamically, not at capture time) -- Tests 6/7 left
+# ns['get_set_card_map'] pointed at their own stubs, so it must be restored
+# to the real implementation before this call (and stays restored for 8c).
+ns['get_set_card_map'] = real_get_set_card_map
+pull_list = real_get_tier_pull_list(tt22_set_real, "complete_set")
+print("TEST 8b: get_tier_pull_list() -- TT22 simple-set pull list")
+print(pull_list)
+assert len(pull_list) == 1, pull_list
+assert pull_list[0]["name"] == "Ariados"
+assert pull_list[0]["stock"] == 3
+assert pull_list[0]["variant"] == "TT"
+assert pull_list[0]["product_id"] == 404504
+print("PASS\n")
+
+# Cross-check: compute_set_completion() using get_set_stock_keys() as the
+# "checked_keys" (exactly how the Bundle Opportunities scanner uses it)
+# scores this fixture correctly against the REAL get_set_card_map, not a
+# stub -- this is the actual code path products/bundles.py will run.
+# (ns['get_set_card_map'] is already restored to the real implementation,
+# from just above 8b.)
+stock_result = compute_set_completion(tt22_set_real, stock_keys)
+print("TEST 8c: compute_set_completion() scored against stock keys")
+print(stock_result)
+assert stock_result['mode'] == 'simple'
+assert stock_result['tiers']['complete_set']['owned'] == 1
+assert stock_result['tiers']['complete_set']['required'] == 3
+assert stock_result['tiers']['complete_set']['pct'] == 33
 print("PASS\n")
 
 print("ALL TESTS PASSED")

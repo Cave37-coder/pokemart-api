@@ -162,6 +162,56 @@ def _fallback_display_num(card_number: int, total_cards: int) -> str:
     return f"{str(card_number).zfill(3)}/{total_cards}"
 
 
+def _grouped_card_rows(card_set: CardSet):
+    """
+    Shared grouping/disambiguation core for get_set_card_map() and
+    get_set_stock_keys() -- extracted 2026-09-11 while building the Bundle
+    Opportunities stock scanner (Michael: "go through the stock and then
+    tell me when i can create bundles"), specifically so the two functions
+    can never drift out of sync the way sync_tcgcsv.py's and
+    rebuild_from_tcgcsv.py's separate RARITY_MAPs did earlier this session.
+
+    Yields (key, product_dict, variant) for every row that counts toward
+    any tier, applying the exact same display_num collision/disambiguation
+    rules documented on get_set_card_map() below -- read that docstring for
+    the full reasoning, it isn't repeated here.
+    """
+    products = (
+        PokemonProduct.objects
+        .filter(card_set=card_set, is_active=True)
+        .values("id", "card_number", "variant_override", "number", "name", "rarity", "stock", "price")
+    )
+    total_cards = card_set.total_cards or 0
+
+    rows_by_display_num = defaultdict(list)
+    for p in products:
+        variant = p["variant_override"] or "N"
+        if variant not in FULL_VARIANTS:
+            continue
+        raw_number = (p["number"] or "").strip()
+        if not raw_number and p["card_number"] is None:
+            continue  # nothing to key this row on at all
+        display_num = raw_number or _fallback_display_num(p["card_number"], total_cards)
+        rows_by_display_num[display_num].append((p, variant))
+
+    for display_num, rows in rows_by_display_num.items():
+        variant_counts = Counter(v for _, v in rows)
+        is_genuine_collision = any(c > 1 for c in variant_counts.values())
+
+        if not is_genuine_collision:
+            for p, variant in rows:
+                yield display_num, p, variant
+            continue
+
+        groups = defaultdict(list)
+        for p, variant in rows:
+            groups[p["name"]].append((p, variant))
+        for name, group_rows in groups.items():
+            key = display_num if len(groups) == 1 else f"{display_num}-{min(gp['id'] for gp, _ in group_rows)}"
+            for p, variant in group_rows:
+                yield key, p, variant
+
+
 def get_set_card_map(card_set: CardSet) -> dict:
     """
     {display_num: {"card_number": int, "variants": {variant_codes...}}} for
@@ -227,61 +277,104 @@ def get_set_card_map(card_set: CardSet) -> dict:
     # returned an EMPTY card_map for UFUC, meaning every tier on its
     # checklist page showed required=0 -- completely broken. Fixed: only
     # skip a row if it has NEITHER a usable `number` string NOR a
-    # card_number (see the `continue` below) -- a populated `number` alone
-    # is enough to build a display_num from, same as it always has been
-    # for every other set.
-    products = (
-        PokemonProduct.objects
-        .filter(card_set=card_set, is_active=True)
-        .values("id", "card_number", "variant_override", "number", "name", "rarity")
-    )
-    total_cards = card_set.total_cards or 0
-
-    # First pass: compute the raw display_num for every row and group by
-    # display_num alone.
-    rows_by_display_num = defaultdict(list)  # display_num -> [(product, variant), ...]
-    for p in products:
-        variant = p["variant_override"] or "N"
-        if variant not in FULL_VARIANTS:
-            continue
-        raw_number = (p["number"] or "").strip()
-        if not raw_number and p["card_number"] is None:
-            continue  # nothing to key this row on at all
-        display_num = raw_number or _fallback_display_num(p["card_number"], total_cards)
-        rows_by_display_num[display_num].append((p, variant))
-
+    # card_number -- a populated `number` alone is enough to build a
+    # display_num from, same as it always has been for every other set.
+    # (Grouping/disambiguation itself now lives in _grouped_card_rows()
+    # above, shared with get_set_stock_keys() -- see that function's
+    # docstring.)
     card_map = {}
-    for display_num, rows in rows_by_display_num.items():
-        variant_counts = Counter(v for _, v in rows)
-        is_genuine_collision = any(c > 1 for c in variant_counts.values())
-
-        if not is_genuine_collision:
-            # Ordinary case: one physical card, N different print variants
-            # -- merge into one entry regardless of each row's own name.
-            # rarity: every print variant of the same physical card shares
-            # the same rarity in practice (N/RH/H of one card are all e.g.
-            # "common") -- take it from the first row seen and keep it, so
-            # a single entry always has exactly one rarity for the
-            # core/chase tier split below.
-            entry = card_map.setdefault(display_num, {"card_number": rows[0][0]["card_number"], "variants": set(), "rarity": rows[0][0]["rarity"]})
-            for p, variant in rows:
-                entry["variants"].add(variant)
-            continue
-
-        # Genuine collision: the same variant_override appears more than
-        # once under this display_num, meaning two DIFFERENT physical
-        # cards happen to share a printed number. Split by product name,
-        # same approach as the v1 fix, stable suffix so every row of THIS
-        # card lands on the same key regardless of processing order.
-        groups = defaultdict(list)
-        for p, variant in rows:
-            groups[p["name"]].append((p, variant))
-        for name, group_rows in groups.items():
-            key = display_num if len(groups) == 1 else f"{display_num}-{min(p['id'] for p, _ in group_rows)}"
-            entry = card_map.setdefault(key, {"card_number": group_rows[0][0]["card_number"], "variants": set(), "rarity": group_rows[0][0]["rarity"]})
-            for p, variant in group_rows:
-                entry["variants"].add(variant)
+    for key, p, variant in _grouped_card_rows(card_set):
+        # rarity: every print variant of the same physical card shares the
+        # same rarity in practice (N/RH/H of one card are all e.g.
+        # "common") -- take it from the first row seen and keep it (via
+        # setdefault), so a single entry always has exactly one rarity for
+        # the core/chase tier split below.
+        entry = card_map.setdefault(key, {"card_number": p["card_number"], "variants": set(), "rarity": p["rarity"]})
+        entry["variants"].add(variant)
     return card_map
+
+
+def get_set_stock_keys(card_set: CardSet) -> set:
+    """
+    Every "{display_num}_{variant}" key -- same format as a ChecklistEntry's
+    card_key -- for a row in this set that is CURRENTLY IN STOCK
+    (stock > 0). Feeds straight into compute_set_completion() as a
+    stand-in for a customer's checked_keys, which is how the Bundle
+    Opportunities scanner (products/bundles.py) answers "if we scored our
+    own stock like a customer's checklist, which sets/tiers would already
+    be satisfied?" without duplicating any tier math.
+
+    Michael, 2026-09-11, confirmed via AskUserQuestion: a card counts as
+    "available" for this purpose the moment stock > 0 -- no minimum
+    quantity threshold.
+    """
+    return {
+        f"{key}_{variant}"
+        for key, p, variant in _grouped_card_rows(card_set)
+        if (p["stock"] or 0) > 0
+    }
+
+
+def get_tier_pull_list(card_set: CardSet, tier: str) -> list:
+    """
+    The concrete list of in-stock (card, variant) rows that count toward
+    `tier` for this set -- i.e. exactly what Michael needs to physically
+    pull to assemble a `tier` bundle for this set, generated for the
+    printout shown after he clicks Accept on a Bundle Opportunity.
+
+    Mirrors compute_set_completion()'s own per-tier scope rules (numbered
+    cards only for broke_base/base_set/special_set_base, numbered + that
+    era's chase rarity for master_set, everything for full_master/
+    complete_set) so the printout always matches what the scanner scored --
+    see that function and the module docstring for the tier definitions.
+
+    Returns a list of dicts sorted by card_number then variant:
+      {display_num, card_number, name, variant, rarity, stock, price, product_id}
+    """
+    card_map = get_set_card_map(card_set)
+    total_cards = card_set.total_cards or 0
+    if total_cards:
+        numbered = {k: v for k, v in card_map.items() if v["card_number"] is not None and v["card_number"] <= total_cards}
+    else:
+        numbered = card_map
+
+    if is_simple_set(card_map):
+        scope, variant_filter = card_map, FULL_VARIANTS
+    elif tier == "broke_base":
+        scope, variant_filter = numbered, BROKE_BASE_VARIANTS
+    elif tier == "base_set":
+        scope, variant_filter = numbered, BASE_SET_VARIANTS
+    elif tier == "special_set_base":
+        scope, variant_filter = numbered, SPECIAL_SET_BASE_VARIANTS
+    elif tier == "master_set":
+        scope = {k: v for k, v in card_map.items() if k in numbered or v.get("rarity") in MASTER_SET_CHASE_RARITIES}
+        variant_filter = MASTER_SET_VARIANTS
+    else:  # full_master / complete_set
+        scope, variant_filter = card_map, FULL_VARIANTS
+
+    eligible_keys = set()
+    for display_num, entry in scope.items():
+        for v in entry["variants"] & variant_filter:
+            eligible_keys.add(f"{display_num}_{v}")
+
+    rows = []
+    for key, p, variant in _grouped_card_rows(card_set):
+        if f"{key}_{variant}" not in eligible_keys:
+            continue
+        if (p["stock"] or 0) <= 0:
+            continue
+        rows.append({
+            "display_num": key,
+            "card_number": p["card_number"],
+            "name": p["name"],
+            "variant": variant,
+            "rarity": p["rarity"],
+            "stock": p["stock"],
+            "price": p["price"],
+            "product_id": p["id"],
+        })
+    rows.sort(key=lambda r: (r["card_number"] if r["card_number"] is not None else 9999, r["display_num"], r["variant"]))
+    return rows
 
 
 def is_simple_set(card_map: dict) -> bool:
