@@ -77,14 +77,46 @@ OTHER_TRACKED_VARIANTS = frozenset({"TT"})
 # _tier_progress below); a card with no separate plain RH print correctly
 # just won't require RH.
 PATTERN_VARIANTS = frozenset({"ESH"})
-FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PATTERN_VARIANTS  # Special Set Base + Master Set scope
+FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PATTERN_VARIANTS  # Full Master scope
+# Master Set's own variant scope -- same prints as Base Set/Special Set
+# Base (N/H/RH), but Michael, 2026-09-11 explicitly carved Pokeballs/
+# Masterballs back OUT of Master Set (they're still required for Special
+# Set Base, just not Master Set) in favour of Illustration Rares instead
+# -- see the rarity split below.
+MASTER_SET_VARIANTS = BASE_SET_VARIANTS
+SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS
 
-TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set"]
+# ── Rarity split (Michael, 2026-09-11) ──────────────────────────────────────
+# The ladder used to be entirely variant-code driven (N/H/RH/ball/etc) with
+# a numbered-vs-extra split based on card_number vs card_set.total_cards.
+# Michael's actual mental model is rarity-driven instead: "Broke Base /
+# Base Set / Special Set Base" only ever require the "normal" rarities
+# (Common through Ultra Rare/EX) -- Illustration Rares and anything rarer
+# never gate those three tiers, no matter what card_number they printed at.
+# Master Set is the first tier that requires Illustration Rares (in
+# exchange for NOT requiring Pokeball/Masterball variants -- see
+# MASTER_SET_VARIANTS above). Full Master requires everything.
+#
+# CORE_RARITIES are required from Broke Base upward. Everything else
+# (Illustration Rare, Special Illustration Rare, Hyper Rare, Mega Hyper
+# Rare, Mega Attack Rare, Secret Rare, Legendary, ACE SPEC, Gold Star,
+# Shining, and any future/unrecognised PokemonProduct.rarity value) is
+# treated as a chase pull -- required from Master Set onward, never before.
+# Matches PokemonProduct.RARITY_CHOICES in products/models.py.
+CORE_RARITIES = frozenset({"common", "uncommon", "rare", "holo_rare", "ultra_rare"})
+
+
+def _is_core_rarity(rarity: str) -> bool:
+    return rarity in CORE_RARITIES
+
+
+TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set", "full_master"]
 TIER_LABELS = {
     "broke_base": "Broke Base",
     "base_set": "Base Set",
     "special_set_base": "Special Set Base",
     "master_set": "Master Set",
+    "full_master": "Full Master",
     "complete_set": "Complete Set",
 }
 
@@ -162,7 +194,7 @@ def get_set_card_map(card_set: CardSet) -> dict:
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
         .exclude(card_number__isnull=True)
-        .values("id", "card_number", "variant_override", "number", "name")
+        .values("id", "card_number", "variant_override", "number", "name", "rarity")
     )
     total_cards = card_set.total_cards or 0
 
@@ -184,7 +216,12 @@ def get_set_card_map(card_set: CardSet) -> dict:
         if not is_genuine_collision:
             # Ordinary case: one physical card, N different print variants
             # -- merge into one entry regardless of each row's own name.
-            entry = card_map.setdefault(display_num, {"card_number": rows[0][0]["card_number"], "variants": set()})
+            # rarity: every print variant of the same physical card shares
+            # the same rarity in practice (N/RH/H of one card are all e.g.
+            # "common") -- take it from the first row seen and keep it, so
+            # a single entry always has exactly one rarity for the
+            # core/chase tier split below.
+            entry = card_map.setdefault(display_num, {"card_number": rows[0][0]["card_number"], "variants": set(), "rarity": rows[0][0]["rarity"]})
             for p, variant in rows:
                 entry["variants"].add(variant)
             continue
@@ -199,7 +236,7 @@ def get_set_card_map(card_set: CardSet) -> dict:
             groups[p["name"]].append((p, variant))
         for name, group_rows in groups.items():
             key = display_num if len(groups) == 1 else f"{display_num}-{min(p['id'] for p, _ in group_rows)}"
-            entry = card_map.setdefault(key, {"card_number": group_rows[0][0]["card_number"], "variants": set()})
+            entry = card_map.setdefault(key, {"card_number": group_rows[0][0]["card_number"], "variants": set(), "rarity": group_rows[0][0]["rarity"]})
             for p, variant in group_rows:
                 entry["variants"].add(variant)
     return card_map
@@ -212,14 +249,19 @@ def is_simple_set(card_map: dict) -> bool:
     return all(len(entry["variants"]) <= 1 for entry in card_map.values())
 
 
-def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set) -> dict:
+def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set, rarity_filter: frozenset | None = None) -> dict:
     """Shared scoring for one tier: only ever requires variants that
     actually exist for a card (never a phantom variant the set doesn't
     print), and 'any' vs 'all' semantics are handled per-tier by the caller
-    passing the right variant_filter/scope combination."""
+    passing the right variant_filter/scope combination. rarity_filter, when
+    given, restricts which cards count toward this tier at all (e.g.
+    CORE_RARITIES for Broke Base/Base Set/Special Set Base) -- None means
+    every rarity counts (Master Set/Full Master)."""
     required = 0
     owned = 0
     for display_num, entry in scope.items():
+        if rarity_filter is not None and entry.get("rarity") not in rarity_filter:
+            continue
         eligible = entry["variants"] & variant_filter
         if not eligible:
             continue
@@ -231,12 +273,14 @@ def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set) ->
     return {"owned": owned, "required": required, "pct": pct, "complete": required > 0 and owned == required}
 
 
-def _broke_base_progress(numbered: dict, checked_keys: set) -> dict:
+def _broke_base_progress(scope: dict, checked_keys: set, rarity_filter: frozenset) -> dict:
     """Different shape from the other tiers: one requirement per card
     (satisfied by ANY of its N/H prints), not one per variant."""
     required = 0
     owned = 0
-    for display_num, entry in numbered.items():
+    for display_num, entry in scope.items():
+        if entry.get("rarity") not in rarity_filter:
+            continue
         eligible = entry["variants"] & BROKE_BASE_VARIANTS
         if not eligible:
             continue
@@ -256,21 +300,17 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     Each tier is {"owned", "required", "pct", "complete"}.
     """
     card_map = get_set_card_map(card_set)
-    total_cards = card_set.total_cards or 0
-    if total_cards:
-        numbered = {k: v for k, v in card_map.items() if v["card_number"] <= total_cards}
-    else:
-        numbered = card_map  # total_cards not populated yet -- treat everything as numbered
 
     if is_simple_set(card_map):
         tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys)
         return {"mode": "simple", "tiers": {"complete_set": tier}}
 
     tiers = {
-        "broke_base": _broke_base_progress(numbered, checked_keys),
-        "base_set": _tier_progress(numbered, BASE_SET_VARIANTS, checked_keys),
-        "special_set_base": _tier_progress(numbered, FULL_VARIANTS, checked_keys),
-        "master_set": _tier_progress(card_map, FULL_VARIANTS, checked_keys),
+        "broke_base": _broke_base_progress(card_map, checked_keys, rarity_filter=CORE_RARITIES),
+        "base_set": _tier_progress(card_map, BASE_SET_VARIANTS, checked_keys, rarity_filter=CORE_RARITIES),
+        "special_set_base": _tier_progress(card_map, SPECIAL_SET_BASE_VARIANTS, checked_keys, rarity_filter=CORE_RARITIES),
+        "master_set": _tier_progress(card_map, MASTER_SET_VARIANTS, checked_keys, rarity_filter=None),
+        "full_master": _tier_progress(card_map, FULL_VARIANTS, checked_keys, rarity_filter=None),
     }
     return {"mode": "full", "tiers": tiers}
 
