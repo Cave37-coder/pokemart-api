@@ -467,7 +467,25 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             if usd is None:
                 no_price += 1
 
-            pb_id = f"{set_code}-{card_number}-{variant}"
+            # 2026-09-11, Michael: found while cleaning up Pitch Black -- this
+            # used to be f"{set_code}-{card_number}-{variant}" (e.g.
+            # "PBL-4-H"), which doesn't match the "TCGCSV-<productId>..."
+            # pattern every other row created through the normal catalog
+            # pipeline uses. generate_checklist_data.py's TCGCSV_PID_RE and
+            # the checklist page's own live Buy-button matching (see
+            # pokemart-frontend/src/app/checklists/page.tsx) both parse the
+            # TCGCSV product id straight out of pb_id -- a row created with
+            # the old format has a real tcgcsv_product_id on the model, but
+            # the checklist page can never find it, so Buy silently doesn't
+            # work. Confirmed this wasn't Pitch-Black-specific: sampled a
+            # few already-live sets (SSP, JTG, DRI) and found the same
+            # "{set}-{num}-H"-style pb_id scattered in each of them, so this
+            # was already happening whenever this script created a card
+            # TCGCSV didn't have full price coverage for yet -- not a new
+            # bug. This fix only changes cards created from now on; the
+            # rows already affected need a one-off pb_id backfill (not part
+            # of this file).
+            pb_id = f"TCGCSV-{pid}-{variant}"
 
             if (pid, variant) in existing:
                 # Update price and image on existing record
