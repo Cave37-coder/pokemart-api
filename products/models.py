@@ -74,6 +74,18 @@ class PokemonProduct(models.Model):
         ("rare", "Rare"),
         ("holo_rare", "Holo Rare"),
         ("ultra_rare", "Ultra Rare"),
+        # 2026-09-11, Michael: Pitch Black rarity cleanup -- TCGCSV's own
+        # vocabulary distinguishes "Double Rare" (a card's normal-numbered ex
+        # print, e.g. Lurantis ex 004/084) from "Ultra Rare" (that same
+        # Pokemon's separate full-art reprint beyond the set's numbered
+        # total, e.g. Lurantis ex 096/084) -- two different real-world
+        # rarities. Before this, RARITY_MAP collapsed both into "ultra_rare",
+        # which is exactly the "Lurantis EX exists twice under the same
+        # rarity" bug Michael flagged. Added as its own choice (Michael's
+        # explicit pick over reusing an existing bucket) so the two stay
+        # distinct everywhere -- not just Pitch Black, every MEG/SV-era set
+        # with ex cards has this same pair.
+        ("double_rare", "Double Rare"),
         ("illustration_rare", "Illustration Rare"),
         ("special_illustration_rare", "Special Illustration Rare"),
         ("hyper_rare", "Hyper Rare"),

@@ -40,7 +40,12 @@ RARITY_MAP = {
     "Rare Holo EX":              "ultra_rare",
     "Rare Holo GX":              "ultra_rare",
     "Ultra Rare":                "ultra_rare",
-    "Double Rare":               "ultra_rare",
+    # 2026-09-11: was "ultra_rare" -- collapsed onto the same bucket as the
+    # literal "Ultra Rare" string above, which is the root cause of the
+    # Pitch Black "Lurantis EX exists twice under ultra_rare" bug Michael
+    # found (a card's normal ex print vs its separate full-art reprint are
+    # different real-world rarities). Now has its own RARITY_CHOICES entry.
+    "Double Rare":               "double_rare",
     "Illustration Rare":         "illustration_rare",
     "Special Illustration Rare": "special_illustration_rare",
     "Hyper Rare":                "hyper_rare",
@@ -276,7 +281,14 @@ GROUP_CONFIG = {
     24451: ("MEP",     "B9", "Mega Evolution Promos",              "2024-05-01"),
     24461: ("MEE",     "B9", "Mega Evolution Energies",            "2024-05-01"),
     24655: ("CRI",     "B9", "Chaos Rising",                       "2026-05-22"),
-    24688: ("ME05",    "B9", "Pitch Black",                        "2026-07-01"),
+    # 2026-09-11: db_code corrected from "ME05" -> "PBL" -- the live
+    # production CardSet for this set is actually coded "PBL" (confirmed via
+    # /api/sets/), not "ME05". Left as "ME05" this would have caused any
+    # future run of this command against groupId 24688 to get_or_create a
+    # SECOND, duplicate CardSet ("ME05") instead of reusing "PBL", silently
+    # splitting Pitch Black's catalog. Found while building the TCGCSV
+    # rarity-sync command for Pitch Black -- see sync_rarities_from_tcgcsv.py.
+    24688: ("PBL",     "B9", "Pitch Black",                        "2026-07-01"),
     # ── Special & Promos (SP) ────────────────────────────────────────────
     1455:  ("PR-BEST", "SP", "Best of Game Promos",                "2003-01-01"),
     2155:  ("CCP",     "SP", "Countdown Calendar Promos",          "2017-12-01"),
