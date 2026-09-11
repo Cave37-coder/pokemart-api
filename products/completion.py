@@ -16,9 +16,11 @@
 #   3. Special Set Base - numbered cards only. Every one of {N, H, RH} PLUS
 #                          every Poke Ball variant that exists checked.
 #   4. Master Set       - numbered cards (N/H/RH, no Pokeballs/Masterballs
-#                          this time) PLUS every Illustration Rare/Special
-#                          Illustration Rare card living past the numbered
-#                          range.
+#                          this time) PLUS every unnumbered card in that
+#                          era's own top chase rarity (Illustration
+#                          Rare/Special Illustration Rare for SV/MEG,
+#                          Secret Rare for pre-SV eras, Mega Hyper/Attack
+#                          Rare for MEG) -- see MASTER_SET_CHASE_RARITIES.
 #   5. Full Master      - literally every card in the set, every rarity,
 #                          every variant, no restriction at all.
 #
@@ -100,14 +102,38 @@ SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS
 # the rest 089/088, 100/088 are unnumbered!" -- numbered/unnumbered is the
 # actual gate, not rarity.
 #
-# What DID change (same conversation): Master Set now ALSO pulls in the
-# Illustration Rare / Special Illustration Rare cards living past the
-# numbered range ("Master Set ... all illustration Rares"), in exchange
-# for dropping the Pokeball/Masterball requirement (MASTER_SET_VARIANTS
-# above). Everything else unnumbered and rarer still (Hyper Rare, Mega
-# Attack/Hyper Rare, Secret Rare, alt-art "ex" reprints re-tagged Ultra
-# Rare, etc) only ever counts toward Full Master ("all cards").
-MASTER_SET_CHASE_RARITIES = frozenset({"illustration_rare", "special_illustration_rare"})
+# What DID change (same conversation): Master Set now ALSO pulls in
+# whichever unnumbered chase-rarity cards are that SET's equivalent of
+# "Illustration Rare" ("Master Set ... all illustration Rares"), in
+# exchange for dropping the Pokeball/Masterball requirement
+# (MASTER_SET_VARIANTS above).
+#
+# Era research, 2026-09-11 (Michael: "deep dive the net... special
+# attention to all the era's"): "Illustration Rare"/"Special Illustration
+# Rare" is Scarlet & Violet-exclusive vocabulary (introduced March 2023)
+# -- it literally never appears on any pre-SV set, which would have left
+# Master Set silently collapsed into Special Set Base for every one of the
+# ~120 WotC-through-SWSH-era sets in the catalog. Live-data sampling found
+# the actual pre-SV equivalent: those eras tag their own unnumbered
+# past-the-print-run chase cards "secret_rare" instead (confirmed live on
+# XY-era Evolutions -- "Surfing Pikachu" 111/108 and "Here Comes Team
+# Rocket!" 113/108, both card_number > total_cards=108, rarity
+# "secret_rare"). Separately, Michael's own custom Mega Evolution era
+# (MEG) sets mint TWO of their own top-tier chase rarities beyond
+# Illustration Rare -- "mega_hyper_rare" and "mega_attack_rare" (e.g. Mega
+# Charizard Y ex 294/217 in Ascended Heroes, unnumbered, R11,813) -- which
+# were being wrongly excluded from Master Set the same way. Confirmed with
+# Michael, 2026-09-11: add all three.
+#
+# Everything else unnumbered and rarer still (Hyper Rare, re-tagged
+# alt-art "ex" reprints kept as Ultra Rare, ACE SPEC -- which is actually
+# always numbered so never hits this path anyway, etc) still only ever
+# counts toward Full Master ("all cards").
+MASTER_SET_CHASE_RARITIES = frozenset({
+    "illustration_rare", "special_illustration_rare",  # SV era + MEG era
+    "secret_rare",  # WotC through SWSH era (pre-SV) equivalent
+    "mega_hyper_rare", "mega_attack_rare",  # MEG era's own custom top tiers
+})
 
 
 TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set", "full_master"]
@@ -303,9 +329,9 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
         tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys)
         return {"mode": "simple", "tiers": {"complete_set": tier}}
 
-    # Master Set = numbered cards + specifically Illustration Rare/Special
-    # Illustration Rare cards living past the numbered range -- NOT every
-    # unnumbered card (Hyper Rare/Secret Rare/re-tagged alt-art "ex"
+    # Master Set = numbered cards + specifically that era's own top chase
+    # rarity living past the numbered range (see MASTER_SET_CHASE_RARITIES)
+    # -- NOT every unnumbered card (Hyper Rare/re-tagged alt-art "ex"
     # reprints etc stay Full Master-only). See the module note above.
     master_set_scope = {
         k: v for k, v in card_map.items()

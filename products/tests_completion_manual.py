@@ -188,4 +188,53 @@ assert real_card_map["103/189-404504"]["card_number"] == 103
 assert real_card_map["056/172"]["card_number"] == 56
 print("PASS\n")
 
+# ── Test 6: REGRESSION -- era-aware Master Set chase rarities (Michael,
+# 2026-09-11, after "deep dive the net" research). Illustration Rare is
+# SV/MEG-only vocabulary; pre-SV eras (WotC through SWSH) tag their own
+# unnumbered past-the-print-run chase cards "secret_rare" instead
+# (confirmed live on XY-era Evolutions: "Surfing Pikachu" 111/108,
+# rarity secret_rare). Michael's custom MEG-era sets also mint their own
+# top-tier "mega_hyper_rare"/"mega_attack_rare" cards beyond Illustration
+# Rare (e.g. Mega Charizard Y ex 294/217 in Ascended Heroes). All three
+# must now count toward Master Set, same as illustration_rare/
+# special_illustration_rare always did. A plain "ultra_rare" unnumbered
+# card (re-tagged alt-art reprint, not a named chase tier) must NOT.
+xy_set = FakeSet(total_cards=108, era_name="XY Era")
+xy_map = {}
+for n in range(1, 109):
+    xy_map[f"{str(n).zfill(3)}/108"] = entry(n, {"N", "H"}, rarity="common")
+xy_map["109/108"] = entry(109, {"N"}, rarity="secret_rare")     # like Surfing Pikachu
+xy_map["110/108"] = entry(110, {"N"}, rarity="ultra_rare")      # re-tagged alt-art, NOT a named chase tier
+ns['get_set_card_map'] = lambda cs: xy_map
+
+checked6 = {f"{str(n).zfill(3)}/108_N" for n in range(1, 109)}
+checked6 |= {f"{str(n).zfill(3)}/108_H" for n in range(1, 109)}
+checked6.add("109/108_N")
+result6 = compute_set_completion(xy_set, checked6)
+print("TEST 6a: XY-era secret_rare counts toward Master Set, ultra_rare doesn't")
+print(result6['tiers']['master_set'])
+assert result6['tiers']['master_set']['required'] == 108 * 2 + 1  # numbered N+H each, + the one secret_rare
+assert result6['tiers']['master_set']['complete'] is True  # owns all numbered N + the secret_rare
+assert result6['tiers']['full_master']['required'] == 108 * 2 + 2  # both unnumbered cards count here
+print("PASS\n")
+
+meg_set = FakeSet(total_cards=217, era_name="Mega Evolution Era")
+meg_map = {}
+for n in range(1, 218):
+    meg_map[f"{str(n).zfill(3)}/217"] = entry(n, {"N", "H"}, rarity="common")
+meg_map["294/217"] = entry(294, {"H"}, rarity="mega_hyper_rare")   # like Mega Charizard Y ex
+meg_map["265/217"] = entry(265, {"H"}, rarity="mega_attack_rare")  # like Mega Froslass ex
+ns['get_set_card_map'] = lambda cs: meg_map
+
+checked6b = {f"{str(n).zfill(3)}/217_N" for n in range(1, 218)}
+checked6b |= {f"{str(n).zfill(3)}/217_H" for n in range(1, 218)}
+checked6b.add("294/217_H")
+checked6b.add("265/217_H")
+result6b = compute_set_completion(meg_set, checked6b)
+print("TEST 6b: MEG-era mega_hyper_rare/mega_attack_rare count toward Master Set")
+print(result6b['tiers']['master_set'])
+assert result6b['tiers']['master_set']['required'] == 217 * 2 + 2
+assert result6b['tiers']['master_set']['complete'] is True
+print("PASS\n")
+
 print("ALL TESTS PASSED")
