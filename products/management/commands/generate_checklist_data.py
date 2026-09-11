@@ -89,6 +89,24 @@ ERA_DISPLAY_MAP = {
     "MEG": "Mega Evolution",
     "TOT": "Special - Trick or Trade",
     "PRIZE": "Special - Prize Pack",
+    # 2026-09-11: a past rebuild_from_tcgcsv.py run created a handful of
+    # promo/filler CardSets (Promos, POP series, McDonald's collections)
+    # under a second, coarser era-code scheme (B1-B8) instead of the
+    # fine-grained one above -- confirmed via generate_checklist_data's own
+    # unmapped-era check, and cross-checked live: the main numbered
+    # expansion sets (Neo Genesis, Evolutions, Prize Pack Series, Trick or
+    # Trade, etc) all still carry the correct fine-grained codes, so this
+    # only affects secondary sets. Mapped to the SAME display label as
+    # their fine-grained sibling era, since it's the same real-world era
+    # either way -- not attempting to fix the underlying Era FK split here.
+    "B1": "WotC Base",
+    "B2": "EX Era",
+    "B3": "Diamond & Pearl",
+    "B4": "Black & White",
+    "B5": "XY Era",
+    "B6": "Sun & Moon",
+    "B7": "Sword & Shield",
+    "B8": "Scarlet & Violet",
 }
 
 TCGCSV_PID_RE = re.compile(r"TCGCSV-(\d+)")
