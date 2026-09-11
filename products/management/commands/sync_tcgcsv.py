@@ -232,6 +232,18 @@ GROUP_CONFIG = {
     "ASC":      (24541, "Ascended Heroes",                     "B9"),
     "POR":      (24587, "Perfect Order",                       "B9"),
     "CRI":      (24655, "Chaos Rising",                        "B9"),
+    # 2026-09-11: Pitch Black was missing entirely -- this script couldn't
+    # sync it at all, which is why it had to be built/rescued by hand (see
+    # sync_rarities_from_tcgcsv.py). Added here, plus the next two MEG-era
+    # groups confirmed live on TCGCSV (tcgcsv.com/tcgplayer/3/groups) that
+    # were also missing. NOT added, flagged for Michael instead: groupId
+    # 24529 "Player Placement Trainer Promos" and 24584 "First Partner
+    # Collection 2026" -- both exist on TCGCSV but their era wasn't
+    # confirmed one way or the other, so guessing B9 risked mis-filing them.
+    "PBL":      (24688, "Pitch Black",                         "B9"),
+    "ME30":     (24722, "30th Celebration",                    "B9"),
+    "ME30CC":   (24837, "30th Celebration Classic Collection",  "B9"),
+    "ME06":     (24831, "Delta Reign",                         "B9"),
 }
 
 SUBTYPE_MAP = {
@@ -268,24 +280,64 @@ PTCGIO_IMAGE_SETS = {
     "SITTG": "swsh12tg",  # Silver Tempest Trainer Gallery
 }
 
+# 2026-09-11, Michael: "please fix sync_tcgcsv.py that is critical script
+# for all our info in api and site" -- this map had drifted from the one in
+# rebuild_from_tcgcsv.py (the two have never been a single source of truth)
+# and picked up real bugs along the way. Confirmed against live TCGCSV data
+# while cleaning up Pitch Black:
+#   - "Double Rare" was mapped to "ultra_rare" -- the same bucket as the
+#     literal "Ultra Rare" string, which is what caused a card's normal ex
+#     print and its separate full-art reprint (e.g. Lurantis ex 004/084 vs
+#     096/084) to collide under one rarity. double_rare is now its own
+#     PokemonProduct.RARITY_CHOICES entry -- see products/models.py.
+#   - "Shiny Rare"/"Shiny Ultra Rare"/"Rare Shiny"/"Rare Shiny GX" mapped to
+#     "shiny_rare"/"shiny_ultra_rare" -- NEITHER is a valid RARITY_CHOICES
+#     value. Since PokemonProduct.save() never calls full_clean(), this
+#     silently wrote an invalid rarity string into the DB instead of
+#     raising -- any card synced through these keys got a rarity no admin
+#     filter, tier check, or get_rarity_display() call would recognise.
+#     Remapped to "secret_rare", matching rebuild_from_tcgcsv.py.
+#   - "Mega Hyper Rare" mapped to "hyper_rare" and "Mega Attack Rare" mapped
+#     to "ultra_rare" -- both have their own RARITY_CHOICES entries
+#     (mega_hyper_rare / mega_attack_rare) that MASTER_SET_CHASE_RARITIES
+#     (products/completion.py) specifically checks for. Any MEG-era card
+#     synced through the old mapping would have silently never counted
+#     toward Master Set completion. This is the exact same bug caught on
+#     Pitch Black's Mega Darkrai EX 120/084.
+#   - "ACE SPEC Rare" mapped to "ultra_rare" instead of the dedicated
+#     "ace_spec" choice.
+#   - "Amazing Rare" / "Trainer Gallery Rare Holo" disagreed with
+#     rebuild_from_tcgcsv.py's mapping for the same TCGCSV strings --
+#     aligned to that file's values so the two scripts agree.
+#   - "Shiny Rare" / "Shiny Ultra Rare" were each listed twice with
+#     different (both wrong) values -- deduplicated.
+#
+# IMPORTANT, flagged separately to Michael: this fixes rarity going FORWARD
+# only. _sync_group()'s update path (further down) only refreshes price and
+# image_url on rows that already exist -- it has never touched rarity on an
+# existing row. Any set already synced under the old, buggy map keeps its
+# wrong rarities until it's re-synced with something like
+# sync_rarities_from_tcgcsv.py (which fetches live and corrects rarity on
+# existing rows) -- this fix alone does not retroactively repair anything.
 RARITY_MAP = {
     "Common": "common", "Uncommon": "uncommon", "Rare": "rare",
     "Holo Rare": "holo_rare", "Rare Holo": "holo_rare",
     "Rare Holo V": "holo_rare", "Rare Holo VMAX": "ultra_rare",
     "Rare Holo VSTAR": "ultra_rare", "Rare Holo EX": "ultra_rare",
     "Rare Holo GX": "ultra_rare", "Ultra Rare": "ultra_rare",
-    "Double Rare": "ultra_rare", "Illustration Rare": "illustration_rare",
+    "Double Rare": "double_rare", "Illustration Rare": "illustration_rare",
     "Special Illustration Rare": "special_illustration_rare",
-    "Hyper Rare": "hyper_rare", "Shiny Rare": "shiny_rare",
-    "Shiny Ultra Rare": "shiny_ultra_rare", "Rare Secret": "secret_rare",
+    "Hyper Rare": "hyper_rare",
+    "Shiny Rare": "secret_rare", "Shiny Ultra Rare": "secret_rare",
+    "Rare Secret": "secret_rare",
     "Rare Rainbow": "hyper_rare", "Rare Shining": "holo_rare",
-    "Rare Shiny": "shiny_rare", "Rare Shiny GX": "shiny_ultra_rare",
-    "Rare Prism Star": "ultra_rare", "Amazing Rare": "ultra_rare",
-    "Trainer Gallery Rare Holo": "holo_rare",
+    "Rare Shiny": "secret_rare", "Rare Shiny GX": "secret_rare",
+    "Rare Prism Star": "ultra_rare", "Amazing Rare": "holo_rare",
+    "Trainer Gallery Rare Holo": "ultra_rare",
     "Trainer Gallery Ultra Rare": "ultra_rare",
     "Trainer Gallery Secret Rare": "secret_rare",
-    "Classic Collection": "holo_rare", "ACE SPEC Rare": "ultra_rare",
-    "Mega Hyper Rare": "hyper_rare", "Mega Attack Rare": "ultra_rare", "Shiny Rare": "shiny_rare", "Shiny Ultra Rare": "shiny_ultra_rare",
+    "Classic Collection": "holo_rare", "ACE SPEC Rare": "ace_spec",
+    "Mega Hyper Rare": "mega_hyper_rare", "Mega Attack Rare": "mega_attack_rare",
 }
 
 

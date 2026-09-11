@@ -57,7 +57,11 @@ RARITY_MAP = {
     "Shiny Ultra Rare":          "secret_rare",
     "Radiant Rare":              "holo_rare",
     "Amazing Rare":              "holo_rare",
-    "Promo":                     "promo",
+    # 2026-09-11: was "promo" -- not a valid PokemonProduct.RARITY_CHOICES
+    # value (same invalid-choice bug just fixed in sync_tcgcsv.py). Dropped
+    # entirely so it falls through to RARITY_MAP.get(x, "common")'s safe
+    # default instead of writing a string no admin filter or tier check
+    # recognises.
     "Rare Secret":               "secret_rare",
     "Rare Rainbow":              "hyper_rare",
     "Rare Shiny":                "secret_rare",
@@ -289,6 +293,12 @@ GROUP_CONFIG = {
     # splitting Pitch Black's catalog. Found while building the TCGCSV
     # rarity-sync command for Pitch Black -- see sync_rarities_from_tcgcsv.py.
     24688: ("PBL",     "B9", "Pitch Black",                        "2026-07-01"),
+    # 2026-09-11: added while fixing sync_tcgcsv.py -- confirmed live on
+    # TCGCSV (tcgcsv.com/tcgplayer/3/groups), not yet released as of today.
+    # Kept in sync with sync_tcgcsv.py's GROUP_CONFIG -- same codes there.
+    24722: ("ME30",    "B9", "30th Celebration",                   "2026-09-16"),
+    24837: ("ME30CC",  "B9", "30th Celebration Classic Collection", "2026-09-16"),
+    24831: ("ME06",    "B9", "Delta Reign",                        "2026-11-06"),
     # ── Special & Promos (SP) ────────────────────────────────────────────
     1455:  ("PR-BEST", "SP", "Best of Game Promos",                "2003-01-01"),
     2155:  ("CCP",     "SP", "Countdown Calendar Promos",          "2017-12-01"),
