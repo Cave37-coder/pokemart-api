@@ -5,8 +5,8 @@
 # confirmed with Michael, 2026-07-30.
 #
 # ── The ladder ──────────────────────────────────────────────────────────────
-# Most sets get 4 tiers (a 5th, Grand Master, is deferred -- needs promo-card
-# research per set, same as the Prize Pack sourcing effort):
+# Most sets get 5 tiers (Michael, 2026-09-11 redesign -- was 4 + a deferred
+# "Grand Master" before this):
 #
 #   1. Broke Base       - numbered cards only (card_number <= total_cards).
 #                          At least one of {N, H} checked per card (whichever
@@ -15,10 +15,12 @@
 #                          exists for that card checked.
 #   3. Special Set Base - numbered cards only. Every one of {N, H, RH} PLUS
 #                          every Poke Ball variant that exists checked.
-#   4. Master Set       - same variant rule as Special Set Base, extended to
-#                          EVERY card in the set, including "extra"/secret
-#                          cards numbered above card_set.total_cards.
-#   5. Grand Master     - Master Set + Promos. NOT IMPLEMENTED YET.
+#   4. Master Set       - numbered cards (N/H/RH, no Pokeballs/Masterballs
+#                          this time) PLUS every Illustration Rare/Special
+#                          Illustration Rare card living past the numbered
+#                          range.
+#   5. Full Master      - literally every card in the set, every rarity,
+#                          every variant, no restriction at all.
 #
 # ── Simple sets ─────────────────────────────────────────────────────────────
 # Sets where no card has more than one checkable variant (most Trainer
@@ -86,28 +88,26 @@ FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PAT
 MASTER_SET_VARIANTS = BASE_SET_VARIANTS
 SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS
 
-# ── Rarity split (Michael, 2026-09-11) ──────────────────────────────────────
-# The ladder used to be entirely variant-code driven (N/H/RH/ball/etc) with
-# a numbered-vs-extra split based on card_number vs card_set.total_cards.
-# Michael's actual mental model is rarity-driven instead: "Broke Base /
-# Base Set / Special Set Base" only ever require the "normal" rarities
-# (Common through Ultra Rare/EX) -- Illustration Rares and anything rarer
-# never gate those three tiers, no matter what card_number they printed at.
-# Master Set is the first tier that requires Illustration Rares (in
-# exchange for NOT requiring Pokeball/Masterball variants -- see
-# MASTER_SET_VARIANTS above). Full Master requires everything.
+# ── Numbered scope + Illustration Rare split (Michael, 2026-09-11) ─────────
+# Broke Base/Base Set/Special Set Base stay exactly what they always were:
+# numbered cards only (card_number <= card_set.total_cards), whatever
+# rarity those numbered cards happen to be (Common through EX all live
+# inside the numbered range in practice -- confirmed against live data on
+# ME: Ascended Heroes and Perfect Order, both games where every card past
+# the numbered range is Illustration Rare or rarer, and every card inside
+# it isn't). Michael, 2026-09-11, after live-testing: "if you look at the
+# screenshot shows the Numbered cards, so cards under 088 are numbered,
+# the rest 089/088, 100/088 are unnumbered!" -- numbered/unnumbered is the
+# actual gate, not rarity.
 #
-# CORE_RARITIES are required from Broke Base upward. Everything else
-# (Illustration Rare, Special Illustration Rare, Hyper Rare, Mega Hyper
-# Rare, Mega Attack Rare, Secret Rare, Legendary, ACE SPEC, Gold Star,
-# Shining, and any future/unrecognised PokemonProduct.rarity value) is
-# treated as a chase pull -- required from Master Set onward, never before.
-# Matches PokemonProduct.RARITY_CHOICES in products/models.py.
-CORE_RARITIES = frozenset({"common", "uncommon", "rare", "holo_rare", "ultra_rare"})
-
-
-def _is_core_rarity(rarity: str) -> bool:
-    return rarity in CORE_RARITIES
+# What DID change (same conversation): Master Set now ALSO pulls in the
+# Illustration Rare / Special Illustration Rare cards living past the
+# numbered range ("Master Set ... all illustration Rares"), in exchange
+# for dropping the Pokeball/Masterball requirement (MASTER_SET_VARIANTS
+# above). Everything else unnumbered and rarer still (Hyper Rare, Mega
+# Attack/Hyper Rare, Secret Rare, alt-art "ex" reprints re-tagged Ultra
+# Rare, etc) only ever counts toward Full Master ("all cards").
+MASTER_SET_CHASE_RARITIES = frozenset({"illustration_rare", "special_illustration_rare"})
 
 
 TIER_ORDER = ["broke_base", "base_set", "special_set_base", "master_set", "full_master"]
@@ -249,19 +249,14 @@ def is_simple_set(card_map: dict) -> bool:
     return all(len(entry["variants"]) <= 1 for entry in card_map.values())
 
 
-def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set, rarity_filter: frozenset | None = None) -> dict:
+def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set) -> dict:
     """Shared scoring for one tier: only ever requires variants that
     actually exist for a card (never a phantom variant the set doesn't
     print), and 'any' vs 'all' semantics are handled per-tier by the caller
-    passing the right variant_filter/scope combination. rarity_filter, when
-    given, restricts which cards count toward this tier at all (e.g.
-    CORE_RARITIES for Broke Base/Base Set/Special Set Base) -- None means
-    every rarity counts (Master Set/Full Master)."""
+    passing the right variant_filter/scope combination."""
     required = 0
     owned = 0
     for display_num, entry in scope.items():
-        if rarity_filter is not None and entry.get("rarity") not in rarity_filter:
-            continue
         eligible = entry["variants"] & variant_filter
         if not eligible:
             continue
@@ -273,14 +268,12 @@ def _tier_progress(scope: dict, variant_filter: frozenset, checked_keys: set, ra
     return {"owned": owned, "required": required, "pct": pct, "complete": required > 0 and owned == required}
 
 
-def _broke_base_progress(scope: dict, checked_keys: set, rarity_filter: frozenset) -> dict:
+def _broke_base_progress(numbered: dict, checked_keys: set) -> dict:
     """Different shape from the other tiers: one requirement per card
     (satisfied by ANY of its N/H prints), not one per variant."""
     required = 0
     owned = 0
-    for display_num, entry in scope.items():
-        if entry.get("rarity") not in rarity_filter:
-            continue
+    for display_num, entry in numbered.items():
         eligible = entry["variants"] & BROKE_BASE_VARIANTS
         if not eligible:
             continue
@@ -300,17 +293,31 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     Each tier is {"owned", "required", "pct", "complete"}.
     """
     card_map = get_set_card_map(card_set)
+    total_cards = card_set.total_cards or 0
+    if total_cards:
+        numbered = {k: v for k, v in card_map.items() if v["card_number"] <= total_cards}
+    else:
+        numbered = card_map  # total_cards not populated yet -- treat everything as numbered
 
     if is_simple_set(card_map):
         tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys)
         return {"mode": "simple", "tiers": {"complete_set": tier}}
 
+    # Master Set = numbered cards + specifically Illustration Rare/Special
+    # Illustration Rare cards living past the numbered range -- NOT every
+    # unnumbered card (Hyper Rare/Secret Rare/re-tagged alt-art "ex"
+    # reprints etc stay Full Master-only). See the module note above.
+    master_set_scope = {
+        k: v for k, v in card_map.items()
+        if k in numbered or v.get("rarity") in MASTER_SET_CHASE_RARITIES
+    }
+
     tiers = {
-        "broke_base": _broke_base_progress(card_map, checked_keys, rarity_filter=CORE_RARITIES),
-        "base_set": _tier_progress(card_map, BASE_SET_VARIANTS, checked_keys, rarity_filter=CORE_RARITIES),
-        "special_set_base": _tier_progress(card_map, SPECIAL_SET_BASE_VARIANTS, checked_keys, rarity_filter=CORE_RARITIES),
-        "master_set": _tier_progress(card_map, MASTER_SET_VARIANTS, checked_keys, rarity_filter=None),
-        "full_master": _tier_progress(card_map, FULL_VARIANTS, checked_keys, rarity_filter=None),
+        "broke_base": _broke_base_progress(numbered, checked_keys),
+        "base_set": _tier_progress(numbered, BASE_SET_VARIANTS, checked_keys),
+        "special_set_base": _tier_progress(numbered, SPECIAL_SET_BASE_VARIANTS, checked_keys),
+        "master_set": _tier_progress(master_set_scope, MASTER_SET_VARIANTS, checked_keys),
+        "full_master": _tier_progress(card_map, FULL_VARIANTS, checked_keys),
     }
     return {"mode": "full", "tiers": tiers}
 

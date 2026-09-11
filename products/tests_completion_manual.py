@@ -25,35 +25,47 @@ class FakeSet:
 def entry(card_number, variants, rarity="common"):
     return {"card_number": card_number, "variants": set(variants), "rarity": rarity}
 
-# ── Test 1: ASC-style set. 217 "core rarity" numbered cards (each N + H,
-# rarity=common), plus 78 chase-rarity cards (218-295, N only,
-# rarity=illustration_rare) that should only ever gate Master
-# Set/Full Master -- never Broke Base/Base Set/Special Set Base, no matter
-# what card_number they printed at (Michael, 2026-09-11: the ladder is
-# rarity-driven, not card_number-range-driven). Keyed the normal
-# zero-padded way (no product.number override). User owns every N in the
-# core-rarity range only.
+# ── Test 1: ASC/POR-style set. 217 numbered cards (card_number <= 217,
+# each N + H, rarity=common -- rarity doesn't matter for the numbered
+# range, confirmed live: Common through EX all live inside it), plus 78
+# unnumbered cards (card_number 218-295) split into two chase buckets --
+# 218-250 tagged illustration_rare (Master Set requires these too, per
+# Michael, 2026-09-11: "Master Set ... all illustration Rares") and
+# 251-295 tagged ultra_rare (alt-art/secret reprints living past the
+# numbered range -- these only ever count for Full Master, NOT Master
+# Set: Michael, 2026-09-11, after live-testing: "cards under 088 are
+# numbered, the rest ... are unnumbered" -- numbered/unnumbered is the
+# real gate, rarity only narrows what Master Set additionally pulls in
+# from the unnumbered pool). User owns every N in the numbered range only.
 card_set = FakeSet(total_cards=217)
 card_map = {}
 for n in range(1, 218):
     card_map[f"{str(n).zfill(3)}/217"] = entry(n, {"N", "H"}, rarity="common")
-for n in range(218, 296):
+for n in range(218, 251):
     card_map[f"{str(n).zfill(3)}/217"] = entry(n, {"N"}, rarity="illustration_rare")
+for n in range(251, 296):
+    card_map[f"{str(n).zfill(3)}/217"] = entry(n, {"N"}, rarity="ultra_rare")
 ns['get_set_card_map'] = lambda cs: card_map
 
 checked = {f"{str(n).zfill(3)}/217_N" for n in range(1, 218)}
 result = compute_set_completion(card_set, checked)
-print("TEST 1: core-rarity N-only owned, no chase cards, no H/RH/balls")
+print("TEST 1: numbered N-only owned, no unnumbered cards, no H/RH/balls")
 print(result)
 assert result['mode'] == 'full'
 assert result['tiers']['broke_base']['complete'] is True
 assert result['tiers']['base_set']['complete'] is False
 assert result['tiers']['special_set_base']['complete'] is False
-# Chase-rarity cards (illustration_rare) never touch Broke Base/Base
-# Set/Special Set Base's required count -- only the 217 core-rarity cards do.
+# Unnumbered cards (whatever their rarity) never touch Broke Base/Base
+# Set/Special Set Base's required count -- only the 217 numbered cards do.
 assert result['tiers']['broke_base']['required'] == 217
 assert result['tiers']['base_set']['required'] == 217 * 2  # N + H each
+# Master Set pulls in the 33 illustration_rare unnumbered cards but NOT
+# the 45 ultra_rare ones -- required = 217 numbered (N+H each, no balls)
+# + 33 illustration_rare (N each).
+assert result['tiers']['master_set']['required'] == 217 * 2 + 33
 assert result['tiers']['master_set']['owned'] < result['tiers']['master_set']['required']
+# Full Master requires literally everything -- all 295 cards.
+assert result['tiers']['full_master']['required'] == 217 * 2 + 78
 assert result['tiers']['full_master']['owned'] < result['tiers']['full_master']['required']
 print("PASS\n")
 
@@ -61,8 +73,10 @@ print("PASS\n")
 card_map2 = {}
 for n in range(1, 218):
     card_map2[f"{str(n).zfill(3)}/217"] = entry(n, {"N", "H", "RH", "PB", "MB", "LB", "FB", "QB", "UB", "DB"}, rarity="common")
-for n in range(218, 296):
+for n in range(218, 251):
     card_map2[f"{str(n).zfill(3)}/217"] = entry(n, {"N"}, rarity="illustration_rare")
+for n in range(251, 296):
+    card_map2[f"{str(n).zfill(3)}/217"] = entry(n, {"N"}, rarity="ultra_rare")
 ns['get_set_card_map'] = lambda cs: card_map2
 
 checked2 = set()
@@ -78,10 +92,12 @@ for tier, data in result2['tiers'].items():
     print(f"  {tier}: {data}")
 assert all(t['complete'] for t in result2['tiers'].values())
 # Master Set explicitly excludes Pokeball/Masterball variants (Michael,
-# 2026-09-11) -- its required count for the core-rarity cards should only
-# be N/H/RH (3 each), not the full 10-variant set special_set_base counts.
-assert result2['tiers']['master_set']['required'] == 217 * 3 + 78  # N/H/RH * 217 core + N * 78 chase
-assert result2['tiers']['special_set_base']['required'] == 217 * 10  # core-rarity only, chase cards excluded
+# 2026-09-11) -- its required count for the numbered cards should only be
+# N/H/RH (3 each), not the full 10-variant special_set_base count, PLUS
+# only the 33 illustration_rare unnumbered cards (not all 78 unnumbered).
+assert result2['tiers']['master_set']['required'] == 217 * 3 + 33
+assert result2['tiers']['special_set_base']['required'] == 217 * 10  # numbered only, unnumbered cards excluded
+assert result2['tiers']['full_master']['required'] == 217 * 10 + 78  # everything, every rarity
 print("PASS\n")
 
 # ── Test 3: simple set (TG-style) -- every card has exactly one variant.
