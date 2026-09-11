@@ -237,4 +237,29 @@ assert result6b['tiers']['master_set']['required'] == 217 * 2 + 2
 assert result6b['tiers']['master_set']['complete'] is True
 print("PASS\n")
 
+# ── Test 7: REGRESSION -- the real UFUC bug (2026-09-11). Letter-numbered
+# cards (Unown Collection: "A/28".."Z/28", "!/28", "?/28") have no integer
+# card_number at all -- get_set_card_map() used to .exclude(card_number__
+# isnull=True), which silently dropped them entirely, leaving UFUC's
+# get_set_card_map() empty and every tier showing required=0. Fixed by
+# only skipping a row when it has NEITHER a usable `number` string NOR a
+# card_number. This is a simple set (one print per Unown), single H
+# variant each.
+ufuc_set = FakeSet(total_cards=28, era_name="EX Era")
+ufuc_map = {}
+for letter in ["!", "?"] + [chr(c) for c in range(ord("A"), ord("Z") + 1)]:
+    num = f"{letter}/28"
+    ufuc_map[num] = {"card_number": None, "variants": {"H"}, "rarity": "holo_rare"}
+ns['get_set_card_map'] = lambda cs: ufuc_map
+assert is_simple_set(ufuc_map) is True
+
+checked7 = {f"{letter}/28_H" for letter in ["!", "?"] + [chr(c) for c in range(ord("A"), ord("N") + 1)]}  # half owned
+result7 = compute_set_completion(ufuc_set, checked7)
+print("TEST 7: UFUC-style letter-numbered cards (card_number=None) don't crash and count correctly")
+print(result7)
+assert result7['mode'] == 'simple'
+assert result7['tiers']['complete_set']['required'] == 28
+assert result7['tiers']['complete_set']['owned'] == len(checked7)
+print("PASS\n")
+
 print("ALL TESTS PASSED")

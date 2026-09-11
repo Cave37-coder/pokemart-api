@@ -126,10 +126,14 @@ def build_set_cards(card_set: CardSet) -> list:
     using the same display_num + collision-disambiguation rules as
     get_set_card_map() in products/completion.py (see module note above),
     extended to also carry name/rarity/pid/price per variant."""
+    # See the matching 2026-09-11 fix + comment in get_set_card_map()
+    # (products/completion.py) -- letter-numbered cards (Unown Collection
+    # "A/28".."Z/28") have no integer card_number and must NOT be dropped
+    # just because of that; only skip a row with neither a usable `number`
+    # nor a card_number.
     products = (
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
-        .exclude(card_number__isnull=True)
         .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price")
     )
     total_cards = card_set.total_cards or 0
@@ -139,7 +143,10 @@ def build_set_cards(card_set: CardSet) -> list:
         variant = p["variant_override"] or "N"
         if variant not in FULL_VARIANTS:
             continue
-        display_num = (p["number"] or "").strip() or fallback_display_num(p["card_number"], total_cards)
+        raw_number = (p["number"] or "").strip()
+        if not raw_number and p["card_number"] is None:
+            continue
+        display_num = raw_number or fallback_display_num(p["card_number"], total_cards)
         rows_by_display_num[display_num].append((p, variant))
 
     entries = {}

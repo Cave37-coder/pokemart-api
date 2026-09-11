@@ -216,10 +216,23 @@ def get_set_card_map(card_set: CardSet) -> dict:
     different print variants and merge into one entry no matter how their
     product names happen to read.
     """
+    # BUG FIXED 2026-09-11 (caught while generating checklistData.ts for
+    # the newly-split UF/UFUC sets, see split_uf_unown_collection.py): this
+    # used to .exclude(card_number__isnull=True) -- meant to drop rows with
+    # nothing to key on, but it ALSO silently dropped every card whose
+    # number is genuinely non-numeric (Unown Collection's "A/28".."Z/28",
+    # "!/28", "?/28" -- Unown has no integer card_number at all, only a
+    # letter). Unown Collection is now its own CardSet (UFUC), so this
+    # wasn't just cosmetic: with the exclude in place, get_set_card_map()
+    # returned an EMPTY card_map for UFUC, meaning every tier on its
+    # checklist page showed required=0 -- completely broken. Fixed: only
+    # skip a row if it has NEITHER a usable `number` string NOR a
+    # card_number (see the `continue` below) -- a populated `number` alone
+    # is enough to build a display_num from, same as it always has been
+    # for every other set.
     products = (
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
-        .exclude(card_number__isnull=True)
         .values("id", "card_number", "variant_override", "number", "name", "rarity")
     )
     total_cards = card_set.total_cards or 0
@@ -231,7 +244,10 @@ def get_set_card_map(card_set: CardSet) -> dict:
         variant = p["variant_override"] or "N"
         if variant not in FULL_VARIANTS:
             continue
-        display_num = (p["number"] or "").strip() or _fallback_display_num(p["card_number"], total_cards)
+        raw_number = (p["number"] or "").strip()
+        if not raw_number and p["card_number"] is None:
+            continue  # nothing to key this row on at all
+        display_num = raw_number or _fallback_display_num(p["card_number"], total_cards)
         rows_by_display_num[display_num].append((p, variant))
 
     card_map = {}
@@ -321,7 +337,12 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     card_map = get_set_card_map(card_set)
     total_cards = card_set.total_cards or 0
     if total_cards:
-        numbered = {k: v for k, v in card_map.items() if v["card_number"] <= total_cards}
+        # card_number can be None for legitimately-numbered-but-non-integer
+        # cards (Unown Collection's letters, "A/28".."Z/28") -- these are
+        # never "numbered" in the card_number<=total_cards sense, so they
+        # fall through to unnumbered/chase-rarity handling like any other
+        # unnumbered card. See the get_set_card_map() note above.
+        numbered = {k: v for k, v in card_map.items() if v["card_number"] is not None and v["card_number"] <= total_cards}
     else:
         numbered = card_map  # total_cards not populated yet -- treat everything as numbered
 
