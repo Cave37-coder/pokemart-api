@@ -79,7 +79,8 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Found {len(to_move)} product(s) in {SOURCE_CODE} to move to {TARGET_CODE}:")
         for p in to_move[:10]:
-            self.stdout.write(f"  #{p.card_number:<4} {p.name:<30} number={p.number}")
+            card_num = str(p.card_number) if p.card_number is not None else "?"
+            self.stdout.write(f"  #{card_num:<4} {p.name:<30} number={p.number}")
         if len(to_move) > 10:
             self.stdout.write(f"  ... and {len(to_move) - 10} more")
 
