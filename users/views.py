@@ -492,7 +492,21 @@ class AdminUserResetPasswordView(APIView):
     locked-out customer through logging back in over the phone/WhatsApp,
     then tell them to change it from Profile once they're in. Deliberately
     no email sent -- staff are already in direct contact with the customer
-    when this gets used.'''
+    when this gets used.
+
+    BUG FIXED 2026-09-13 (Michael: "user can't sign in, even after i reset
+    their password!!!"): this view only ever reset the ONE account at `pk`
+    -- but PasswordResetConfirmView above already had to fix the exact same
+    underlying issue on 2026-08-08: 15 email addresses (30 accounts) in
+    production are shared by more than one registered username (duplicate
+    signups), so a reset minted/applied to only ONE of the duplicate
+    accounts leaves login broken under the customer's OTHER username on the
+    same email -- "reset says success, login still fails". That fix was
+    only ever applied to the self-service email-link flow; this staff temp-
+    password tool was added a month later (2026-09-04) and never got the
+    same treatment. Fixed the same way: propagate the temp password to
+    every OTHER active account sharing this user's email too.
+    '''
     permission_classes = [IsAdminUser]
 
     TEMP_PASSWORD = 'Pokebulk'
@@ -510,4 +524,21 @@ class AdminUserResetPasswordView(APIView):
             "Temp password set for user_id=%s (username=%s) by staff user_id=%s",
             user.pk, user.username, request.user.pk,
         )
+
+        sibling_usernames = []
+        if user.email:
+            siblings = User.objects.filter(email__iexact=user.email, is_active=True).exclude(pk=user.pk)
+            for sibling in siblings:
+                sibling.set_password(self.TEMP_PASSWORD)
+                sibling.save(update_fields=['password'])
+                sibling_usernames.append(sibling.username)
+                logger.info(
+                    "Temp password also propagated to duplicate-email sibling "
+                    "user_id=%s username=%s (reset was for user_id=%s username=%s) by staff user_id=%s",
+                    sibling.pk, sibling.username, user.pk, user.username, request.user.pk,
+                )
+
+        if sibling_usernames:
+            others = ', '.join(sibling_usernames)
+            return Response({'detail': f'Password reset to a temporary password for {user.username} (this email is also shared by: {others} -- reset there too, so try any of these usernames).'})
         return Response({'detail': f'Password reset to a temporary password for {user.username}.'})
