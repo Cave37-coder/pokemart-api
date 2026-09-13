@@ -50,11 +50,40 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
+    # 2026-09-13, Michael: "Can we add the email, not just Username for sign
+    # in" -- this field now accepts EITHER a username or an email address.
+    # Kept named `username` (not renamed to e.g. `identifier`) so the
+    # existing POST body contract doesn't change for anything already
+    # calling this endpoint.
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(**data)
+        identifier = data['username']
+        password = data['password']
+
+        if '@' in identifier:
+            # Email path. Can't just authenticate(email=...) -- Django's
+            # ModelBackend only ever checks USERNAME_FIELD (username), and
+            # more importantly an email here isn't guaranteed unique: 15+
+            # email addresses in production are already shared by more than
+            # one duplicate account (see PasswordResetConfirmView and
+            # AdminUserResetPasswordView above, both fixed for this same
+            # reason). We don't know upfront which duplicate username the
+            # given password actually belongs to, so try every active
+            # account sharing this email and authenticate for real (by its
+            # actual username) against whichever one the password matches.
+            # If none match, falls through to the exact same generic
+            # "Invalid credentials" a wrong username would give -- never
+            # reveals whether the email exists at all.
+            user = None
+            for candidate in User.objects.filter(email__iexact=identifier, is_active=True):
+                user = authenticate(username=candidate.username, password=password)
+                if user:
+                    break
+        else:
+            user = authenticate(username=identifier, password=password)
+
         if not user:
             raise serializers.ValidationError('Invalid credentials')
         if not user.is_active:
