@@ -133,6 +133,13 @@ MASTER_SET_CHASE_RARITIES = frozenset({
     "illustration_rare", "special_illustration_rare",  # SV era + MEG era
     "secret_rare",  # WotC through SWSH era (pre-SV) equivalent
     "mega_hyper_rare", "mega_attack_rare",  # MEG era's own custom top tiers
+    # 2026-09-16: 30th Celebration mints its own brand new top chase tier,
+    # "futuristic_rare" (Mewtwo ex / Mew ex only, unnumbered past the
+    # set's 128-card base run e.g. 157/154, 158/154) -- same shape as
+    # Illustration Rare/Secret Rare/Mega Hyper Rare above, so it needs to
+    # be here too or Master Set can never include the set's two most
+    # expensive cards. Mirrored in checklistData.ts's own copy of this list.
+    "futuristic_rare",
 })
 
 
