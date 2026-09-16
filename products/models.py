@@ -16,6 +16,14 @@ class Era(models.Model):
     # these himself via admin; the frontend falls back to the existing
     # coloured text pill for any era left blank.
     logo_url = models.URLField(max_length=500, blank=True)
+    # Michael, 2026-09-16: "the era symbols... so we can add them to the
+    # page for era selection" -- a small ICON per era (parallel to
+    # CardSet.symbol_url, which already distinguishes a set's small badge
+    # symbol from its full box-art logo_url above). The era home screen
+    # cards are compact, so a small icon reads better there than the wider
+    # wordmark logo -- frontend prefers symbol_url and falls back to
+    # logo_url, then the plain coloured text pill if both are blank.
+    symbol_url = models.URLField(max_length=500, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"

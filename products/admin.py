@@ -59,6 +59,46 @@ def upload_logos_to_r2(modeladmin, request, queryset):
 upload_logos_to_r2.short_description = "Upload logo(s) to R2 (re-host external URLs)"
 
 
+# 2026-09-16: same re-host action as upload_logos_to_r2 above, for the new
+# symbol_url field -- a handful of eras (Base/BW/EX/etc) had logo_url values
+# that were actually Bulbapedia wiki PAGE links (not direct image files),
+# which this same style of fetch-and-rehost would have silently saved as
+# broken/HTML "images". upload_era_images.py (repo root) is the preferred
+# path going forward -- it uploads straight from local files on Michael's
+# machine instead of re-fetching a pasted URL, so it can't repeat that
+# mistake -- but this action is kept for anyone who pastes a good direct
+# image URL straight into symbol_url via admin instead.
+def upload_symbols_to_r2(modeladmin, request, queryset):
+    import requests
+
+    s3 = _r2_client()
+    uploaded, skipped, failed = 0, 0, 0
+    for era in queryset:
+        if not era.symbol_url:
+            skipped += 1
+            continue
+        if era.symbol_url.startswith(R2_CDN):
+            skipped += 1
+            continue
+        try:
+            resp = requests.get(era.symbol_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            ext = "png" if ".png" in era.symbol_url.lower() else "jpg"
+            content_type = "image/png" if ext == "png" else "image/jpeg"
+            key = f"eras/symbols/{era.code}_symbol.{ext}"
+            s3.put_object(Bucket=R2_BUCKET, Key=key, Body=resp.content, ContentType=content_type)
+            era.symbol_url = f"{R2_CDN}/{key}"
+            era.save(update_fields=["symbol_url"])
+            uploaded += 1
+        except Exception as e:
+            failed += 1
+            modeladmin.message_user(request, f"{era.code}: failed to upload ({e})", level="error")
+    modeladmin.message_user(request, f"Uploaded {uploaded}, skipped {skipped} (blank or already on R2), failed {failed}.")
+
+
+upload_symbols_to_r2.short_description = "Upload symbol(s) to R2 (re-host external URLs)"
+
+
 # Michael, 2026-08-08: "can django give me place to drop in an image rather,
 # i have them downloaded?" -- `logo_file` here is deliberately NOT a real
 # model field/ImageField. Railway's filesystem is ephemeral (wiped on every
@@ -74,6 +114,13 @@ class EraAdminForm(forms.ModelForm):
         required=False,
         help_text="Upload an image file instead of pasting a URL -- it's uploaded to R2 automatically and Logo url below gets set/replaced.",
     )
+    # 2026-09-16: same drop-a-file widget as logo_file above, for the new
+    # symbol_url field (the small per-era icon shown on the My Collection
+    # era-selection cards).
+    symbol_file = forms.ImageField(
+        required=False,
+        help_text="Upload an image file instead of pasting a URL -- it's uploaded to R2 automatically and Symbol url below gets set/replaced.",
+    )
 
     class Meta:
         model = Era
@@ -83,10 +130,10 @@ class EraAdminForm(forms.ModelForm):
 @admin.register(Era)
 class EraAdmin(admin.ModelAdmin):
     form = EraAdminForm
-    list_display = ["code", "name", "logo_url"]
-    list_editable = ["logo_url"]
+    list_display = ["code", "name", "symbol_url", "logo_url"]
+    list_editable = ["symbol_url", "logo_url"]
     search_fields = ["code", "name"]
-    actions = [upload_logos_to_r2]
+    actions = [upload_logos_to_r2, upload_symbols_to_r2]
 
     def save_model(self, request, obj, form, change):
         uploaded = form.cleaned_data.get("logo_file")
@@ -97,8 +144,15 @@ class EraAdmin(admin.ModelAdmin):
             key = f"eras/logos/{obj.code}_logo.{ext}"
             s3.put_object(Bucket=R2_BUCKET, Key=key, Body=uploaded.read(), ContentType=content_type)
             obj.logo_url = f"{R2_CDN}/{key}"
+        symbol_uploaded = form.cleaned_data.get("symbol_file")
+        if symbol_uploaded:
+            s3 = _r2_client()
+            ext = "png" if symbol_uploaded.name.lower().endswith("png") else "jpg"
+            content_type = "image/png" if ext == "png" else "image/jpeg"
+            key = f"eras/symbols/{obj.code}_symbol.{ext}"
+            s3.put_object(Bucket=R2_BUCKET, Key=key, Body=symbol_uploaded.read(), ContentType=content_type)
+            obj.symbol_url = f"{R2_CDN}/{key}"
         super().save_model(request, obj, form, change)
-    actions = [upload_logos_to_r2]
 
 
 @admin.register(CardSet)

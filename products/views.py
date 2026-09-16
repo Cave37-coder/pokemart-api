@@ -937,7 +937,7 @@ def eras_list(request):
     logo_url is blank until Michael fills it in via admin, and the frontend
     falls back to the existing text pill for any era that's still blank."""
     eras = Era.objects.all().order_by('name')
-    data = [{'code': e.code, 'name': e.name, 'logo_url': e.logo_url or ''} for e in eras]
+    data = [{'code': e.code, 'name': e.name, 'logo_url': e.logo_url or '', 'symbol_url': e.symbol_url or ''} for e in eras]
     return JsonResponse({'results': data})
 
 
