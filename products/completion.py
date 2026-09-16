@@ -14,7 +14,10 @@
 #   2. Base Set         - numbered cards only. Every one of {N, H, RH} that
 #                          exists for that card checked.
 #   3. Special Set Base - numbered cards only. Every one of {N, H, RH} PLUS
-#                          every Poke Ball variant that exists checked.
+#                          every Poke Ball variant PLUS an Energy Symbol
+#                          Holo (ASC's own reverse-holo-style chase
+#                          parallel), wherever any of those exist for a
+#                          card, checked (added 2026-09-16).
 #   4. Master Set       - numbered cards (N/H/RH, no Pokeballs/Masterballs
 #                          this time) PLUS every unnumbered card in that
 #                          era's own top chase rarity (Illustration
@@ -88,7 +91,16 @@ FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PAT
 # Set Base, just not Master Set) in favour of Illustration Rares instead
 # -- see the rarity split below.
 MASTER_SET_VARIANTS = BASE_SET_VARIANTS
-SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS
+# Michael, 2026-09-16 (round 6): "Special Set - N&H, Rev Holo or Energy
+# Symbol, EX's..., Pokeball, Master ball" -- Special Set Base now also
+# requires a card's Energy Symbol Holo print (ASC's own reverse-holo-style
+# chase parallel, PATTERN_VARIANTS) wherever one exists, same as it already
+# requires Reverse Holo/Poke Ball/Master Ball. Previously PATTERN_VARIANTS
+# only ever gated Full Master -- this is a real completion-scope change,
+# not just a Select All UI change, so anyone who'd already "completed"
+# Special Set Base on a set with an Energy Symbol Holo print (ASC) without
+# owning that print will show as no longer 100% once this ships.
+SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | PATTERN_VARIANTS
 
 # ── Numbered scope + Illustration Rare split (Michael, 2026-09-11) ─────────
 # Broke Base/Base Set/Special Set Base stay exactly what they always were:
