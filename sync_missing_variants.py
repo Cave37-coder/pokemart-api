@@ -44,9 +44,18 @@ RARITY_MAP = {
     # for PRE/ASC/WHT/BLK (checked via Counter before building this).
     'common': 'common', 'uncommon': 'uncommon', 'rare': 'rare',
     'holo rare': 'holo_rare', 'rare holo': 'holo_rare',
-    'ultra rare': 'ultra_rare', 'double rare': 'ultra_rare',
+    # 2026-09-16 fix: 'double rare' used to collapse into 'ultra_rare' here
+    # too -- same bug as sync_bible_to_db.py, fixed there the same day.
+    # products/models.py has had a dedicated 'double_rare' choice since
+    # 2026-09-11 (added specifically so a card's normal ex print and its
+    # separate full-art secret-rare print aren't tagged identically).
+    'ultra rare': 'ultra_rare', 'double rare': 'double_rare',
     'illustration rare': 'illustration_rare',
     'special illustration rare': 'special_illustration_rare',
+    # New tiers from 30th Celebration (2026-09-16) -- added preemptively in
+    # case this script is ever pointed at that set. 'Pikachu Rare' is the 30
+    # chase-Pikachu cards; 'Futuristic Rare' is Mewtwo ex / Mew ex only.
+    'pikachu rare': 'pikachu_rare', 'futuristic rare': 'futuristic_rare',
     'hyper rare': 'hyper_rare', 'secret rare': 'secret_rare',
     'ace spec rare': 'ace_spec',
     'mega attack rare': 'mega_attack_rare',

@@ -96,6 +96,16 @@ class PokemonProduct(models.Model):
         ("ace_spec", "ACE SPEC"),
         ("gold_star", "Gold Star"),
         ("shining", "Shining"),
+        # 2026-09-16, 30th Celebration: two brand new tiers this set
+        # introduces. "Pikachu Rare" is the 30 unique chase-Pikachu cards
+        # (1 per pack); "Futuristic Rare" is a new top tier reserved for
+        # just Mewtwo ex / Mew ex, illustrated by YOSHIROTTEN. Added as
+        # their own choices rather than folding into an existing bucket,
+        # same reasoning as the double_rare split above -- these are
+        # visually and pricing-wise distinct tiers, not reprints of
+        # something already covered.
+        ("pikachu_rare", "Pikachu Rare"),
+        ("futuristic_rare", "Futuristic Rare"),
     ]
 
     VARIANT_CODES = {

@@ -50,9 +50,24 @@ RARITY_MAP = {
     "Rare Holo EX":                 "ultra_rare",
     "Rare Holo GX":                 "ultra_rare",
     "Ultra Rare":                   "ultra_rare",
-    "Double Rare":                  "ultra_rare",
+    # 2026-09-16 fix: this used to map to "ultra_rare", conflating it with a
+    # genuinely different rarity -- products/models.py already added a
+    # dedicated "double_rare" choice on 2026-09-11 for exactly this reason
+    # (the Lurantis ex bug Michael flagged: a card's normal-numbered ex
+    # print vs. its separate full-art secret-rare print are different
+    # rarities, not the same one twice). This map was never updated to
+    # match. Fixed here -- affects every MEG/SV-era set with ex cards,
+    # 30th Celebration included (it has a lot of these).
+    "Double Rare":                  "double_rare",
     "Illustration Rare":            "illustration_rare",
     "Special Illustration Rare":    "special_illustration_rare",
+    # 2026-09-16: new tiers introduced by 30th Celebration. "Pikachu Rare"
+    # is the 30 chase-Pikachu cards (1 per pack); "Futuristic Rare" is the
+    # brand new top tier reserved for Mewtwo ex / Mew ex only. Without these,
+    # RARITY_MAP.get(rarity_raw, 'common') would silently file both under
+    # "common" -- including the two most expensive cards in the set.
+    "Pikachu Rare":                 "pikachu_rare",
+    "Futuristic Rare":              "futuristic_rare",
     "Hyper Rare":                   "hyper_rare",
     "Shiny Rare":                   "shiny_rare",
     "Shiny Ultra Rare":             "shiny_ultra_rare",
