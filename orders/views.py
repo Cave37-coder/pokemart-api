@@ -178,12 +178,28 @@ class CartRemoveView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, item_id):
+        """
+        Michael, 2026-09-18: "the remove button can we change it to remove a
+        single card, not the full quantity, so if customer double clicks by
+        mistake and want to remove 1, not both" -- this used to delete the
+        WHOLE CartItem row in one click regardless of quantity, so removing
+        1 of 2 (e.g. an accidental double Add) wiped out both. Now
+        decrements by exactly one unit per click, only deleting the row
+        once quantity would drop to zero -- repeat clicks still empty the
+        line completely, just one card at a time instead of all at once.
+        """
         try:
             item = CartItem.objects.get(id=item_id, cart__user=request.user)
-            item.delete()
-            return Response({'detail': 'Item removed'})
         except CartItem.DoesNotExist:
             return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if item.quantity > 1:
+            item.quantity -= 1
+            item.save(update_fields=['quantity'])
+            return Response({'detail': 'One unit removed', 'quantity': item.quantity})
+
+        item.delete()
+        return Response({'detail': 'Item removed', 'quantity': 0})
 
 
 class CheckoutView(APIView):
