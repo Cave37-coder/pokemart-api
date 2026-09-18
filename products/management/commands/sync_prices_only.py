@@ -1,6 +1,6 @@
 import math, os, time, requests
 from decimal import Decimal, ROUND_UP
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
@@ -89,12 +89,26 @@ class Command(BaseCommand):
                 continue
         self.stdout.write(f"1 USD = R{rate}")
 
-        # Fetch all groups from TCGCSV
+        # Fetch all groups from TCGCSV. 2026-09-18 (Michael: "the price sync
+        # is not working on the site!!!") -- this used to have no try/except
+        # at all, so a hard failure here (TCGCSV down, network blocked,
+        # response shape changed) would crash with a raw traceback. That's
+        # actually FINE for a cron run (Railway marks it failed, visible in
+        # the run's logs) -- the real problem this run needs to guard
+        # against is the opposite: silently exiting 0 having done nothing,
+        # which looks identical to "ran fine, market didn't move" in
+        # Railway's run history. See the zero-rows check at the end.
         self.stdout.write("Fetching groups from TCGCSV...")
-        r = requests.get(f"{TCGCSV_BASE}/groups", headers=HEADERS, timeout=30)
-        groups = r.json()
+        try:
+            r = requests.get(f"{TCGCSV_BASE}/groups", headers=HEADERS, timeout=30)
+            r.raise_for_status()
+            groups = r.json()
+        except Exception as e:
+            raise CommandError(f"Could not fetch groups from TCGCSV ({TCGCSV_BASE}/groups): {e}")
         if isinstance(groups, dict):
             groups = groups.get("results", groups.get("data", []))
+        if not groups:
+            raise CommandError("TCGCSV returned zero groups -- treating as a failed run, not a no-op")
         self.stdout.write(f"  {len(groups)} groups found")
 
         # Build map: (tcgcsv_product_id, variant_override) -> product
@@ -117,18 +131,25 @@ class Command(BaseCommand):
         updated = skipped = no_match = ambiguous = suspicious = 0
         suspicious_examples = []
         to_update = []
+        group_fetch_failures = 0
+        total_rows_seen = 0
 
         for i, g in enumerate(groups, 1):
             gid = g.get("groupId") or g.get("id")
             try:
                 r = requests.get(f"{TCGCSV_BASE}/{gid}/prices", headers=HEADERS, timeout=30)
+                r.raise_for_status()
                 prices = r.json()
                 if isinstance(prices, dict):
                     prices = prices.get("results", prices.get("data", []))
                 if not isinstance(prices, list):
+                    group_fetch_failures += 1
                     continue
             except Exception:
+                group_fetch_failures += 1
                 continue
+
+            total_rows_seen += len(prices)
 
             for row in prices:
                 pid = row.get("productId")
@@ -219,9 +240,28 @@ class Command(BaseCommand):
         self.stdout.write(
             f"Done. Updated={updated:,} Skipped(no change)={skipped:,} "
             f"No match={no_match:,} Ambiguous pid (skipped)={ambiguous:,} "
-            f"Suspicious jump (skipped)={suspicious:,}"
+            f"Suspicious jump (skipped)={suspicious:,} "
+            f"Group fetch failures={group_fetch_failures:,}/{len(groups):,}"
         )
         if suspicious_examples:
             self.stdout.write("Suspicious jumps skipped -- check these manually:")
             for line in suspicious_examples:
                 self.stdout.write(line)
+
+        # Hard-fail instead of a silent no-op exit(0). 2026-09-18: this is
+        # the specific failure mode that let the sync sit broken and
+        # unnoticed before -- every group fetch failing (bad header, TCGCSV
+        # schema change, network egress issue from this Railway service
+        # specifically) still exits 0 and reports "Done" unless something
+        # here actually checks for it. A day with genuinely zero rows from
+        # every single group is not a plausible real outcome.
+        if total_rows_seen == 0:
+            raise CommandError(
+                f"Fetched 0 price rows across all {len(groups):,} groups "
+                f"({group_fetch_failures:,} group fetches failed) -- treating as a failed run"
+            )
+        if group_fetch_failures > len(groups) * 0.5:
+            self.stderr.write(self.style.WARNING(
+                f"WARNING: {group_fetch_failures:,}/{len(groups):,} group price fetches failed this run -- "
+                f"data is likely incomplete even though rows were updated"
+            ))

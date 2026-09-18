@@ -3,3 +3,13 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python manage.py sync_prices_only"
+# ROOT CAUSE (2026-09-18, Michael: "the price sync is not working on the
+# site!!!"): this file had a startCommand but no cronSchedule -- Railway's
+# config-as-code cron field lives here (deploy.cronSchedule), sibling to
+# startCommand. Without it, this service was never actually being told to
+# run daily -- it either sat stopped after one run or restarted in a loop,
+# but never on a schedule. Runs at 02:00 UTC = 04:00 SAST daily, an
+# off-hours window. Cron schedules are always evaluated in UTC by Railway
+# regardless of the service's own timezone.
+cronSchedule = "0 2 * * *"
+restartPolicyType = "never"
