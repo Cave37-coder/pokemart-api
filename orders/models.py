@@ -111,7 +111,12 @@ class Order(models.Model):
         ("pudo_medium", "Pudo Medium/Tins Kiosk"),
         ("pudo_door",   "Pudo Locker-to-Door"),
         ("pudo_door",   "Pudo Door-to-Door"),
-        ("postnet",     "Postnet-to-Postnet"),
+        # "postnet" removed 2026-09-18 per Michael -- no longer offered at
+        # checkout. Left OUT of choices going forward, but NOT scrubbed from
+        # any existing Order rows that already used it -- CharField choices
+        # aren't DB-enforced, so historical orders keep displaying correctly
+        # via get_shipping_method_display() (falls back to the raw stored
+        # value for a choice no longer listed).
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders")

@@ -230,9 +230,9 @@ class CheckoutView(APIView):
         # method selected but no locker name/address attached -- nothing to
         # actually book the courier against. Reject the order at checkout
         # instead of letting it through silently. Only the locker-to-*
-        # methods need pudo_locker_name/address -- pudo_door and postnet
-        # deliver to a street address instead (frontend's own needsLocker
-        # list), so those two are deliberately excluded here.
+        # methods need pudo_locker_name/address -- pudo_door delivers to a
+        # street address instead (frontend's own needsLocker list), so
+        # that one is deliberately excluded here.
         PUDO_LOCKER_METHODS = {'pudo_locker', 'pudo_kiosk', 'pudo_medium'}
         if shipping_method in PUDO_LOCKER_METHODS and (not pudo_locker_name or not pudo_locker_address):
             return Response(
