@@ -14,5 +14,6 @@ urlpatterns = [
     path("orders/admin/customer-summary/<int:user_id>/", views.AdminCustomerSalesSummaryView.as_view(), name="admin-customer-sales-summary"),
     path("print/order/<int:order_id>/", views.print_order, name="print-order"),
     path("print/invoice/<int:order_id>/", views.print_invoice, name="print-invoice"),
+    path("print/label/<int:order_id>/", views.print_shipping_label, name="print-label"),
     path("invoice/email/<int:order_id>/", views.email_invoice, name="email-order-invoice"),
 ]

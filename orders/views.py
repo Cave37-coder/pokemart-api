@@ -823,6 +823,75 @@ def print_order(request, order_id):
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
+@staff_member_required
+def print_shipping_label(request, order_id):
+    """A6 shipping/pickup label -- PokeBulk SA sender details up top, the
+    customer's delivery details large and centered below (or a LOCAL
+    COLLECTION callout for collection orders, matching the pattern already
+    used in print_order/_build_invoice_html). Meant to be printed directly
+    onto A6 label/card stock and stuck on the parcel, or used as a bag tag
+    for in-store collection."""
+    order = get_object_or_404(Order, id=order_id)
+    customer_name = f"{order.user.first_name} {order.user.last_name}".strip() or order.user.username
+    phone = getattr(order.user, 'phone_number', '') or ''
+
+    if order.delivery_method == 'collection':
+        to_heading = 'Local Collection'
+        address_html = 'Collecting in-store --<br>Unit 4, Sunkist Village, 11 Heliose Street,<br>Birchleigh North, Kempton Park'
+    elif order.pudo_locker_name:
+        to_heading = order.get_shipping_method_display()
+        address_html = f'{order.pudo_locker_name}<br>{order.pudo_locker_address or ""}'
+    else:
+        to_heading = order.get_shipping_method_display() or 'Ship To'
+        parts = [order.delivery_address_line1, order.delivery_address_line2,
+                 order.delivery_city, order.delivery_province, order.delivery_postal_code]
+        address_html = '<br>'.join(p for p in parts if p) or (order.customer_note or '-- no address provided --')
+
+    courier_line = ' &nbsp;|&nbsp; '.join(
+        p for p in [order.courier_name, order.waybill_number] if p
+    )
+    phone_html = f'<div class="to-phone">☎ {phone}</div>' if phone else ''
+
+    html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Shipping Label - Order #{order.id} - PokeBulk SA</title>
+<style>
+* {{ margin:0;padding:0;box-sizing:border-box }}
+html, body {{ height:100% }}
+body {{ font-family:Arial,sans-serif;color:#000;padding:6mm;line-height:1.25 }}
+@media print {{ .no-print {{ display:none }} @page {{ size:A6;margin:5mm }} }}
+.label {{ display:flex;flex-direction:column;min-height:100%; }}
+.from-block {{ border-bottom:1px dashed #999;padding-bottom:6px;margin-bottom:10px;font-size:9px;color:#444 }}
+.from-block strong {{ font-size:11px;color:#ff6b35 }}
+.to-heading {{ font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#888;font-weight:bold;margin-bottom:4px }}
+.to-name {{ font-size:22px;font-weight:bold;margin-bottom:6px;word-break:break-word }}
+.to-address {{ font-size:14px;line-height:1.45;color:#111 }}
+.to-phone {{ font-size:13px;margin-top:8px;color:#333;font-weight:bold }}
+.footer {{ margin-top:auto;border-top:1px solid #ccc;padding-top:6px;display:flex;justify-content:space-between;align-items:flex-end;font-size:9px;color:#555 }}
+</style>
+</head><body>
+<div class="no-print" style="margin-bottom:10px">
+  <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:14px;cursor:pointer">Print</button>
+  <button onclick="window.close()" style="margin-left:8px;padding:8px 20px;border-radius:6px;border:1px solid #ccc;cursor:pointer">Close</button>
+</div>
+<div class="label">
+  <div class="from-block">
+    <strong>Poke Bulk SA</strong> (Pty) Ltd<br>
+    Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park, 1618<br>
+    Tel: 074 488 6919 &nbsp;|&nbsp; enquiries@pokebulk.co.za
+  </div>
+  <div class="to-heading">{to_heading}</div>
+  <div class="to-name">{customer_name}</div>
+  <div class="to-address">{address_html}</div>
+  {phone_html}
+  <div class="footer">
+    <span>Order #{order.id}<br>{order.created_at.strftime("%d %b %Y")}</span>
+    <span style="text-align:right">{courier_line}</span>
+  </div>
+</div>
+</body></html>'''
+
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
+
 
 def _build_invoice_html(order, show_controls=True):
     """Builds the full invoice HTML for an order. Shared by the browser
