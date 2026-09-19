@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
@@ -53,7 +54,18 @@ def create_tracking_on_status_change(sender, instance, created, **kwargs):
         # the same: only actually send once the transaction has truly
         # committed -- if it rolls back, this callback is simply discarded
         # and no email goes out at all.
-        transaction.on_commit(lambda: _send_status_update_email(instance))
+        #
+        # 2026-09-19: also run it off-thread, not just deferred -- see the
+        # matching fix + comment on CheckoutView.post() in orders/views.py.
+        # transaction.on_commit's callback still executes synchronously
+        # in-request; this signal fires from Order.save() on EVERY status
+        # change (API status updates, the Django admin, and the PayFast ITN
+        # webhook itself flipping an order to 'pending' on payment). A slow
+        # MailerSend call here would just as easily have stalled any of
+        # those save() calls -- including PayFast's own webhook -- the same
+        # way it stalled checkout. Not deferring to a thread here would
+        # leave that same failure mode live on every other status change.
+        transaction.on_commit(lambda: threading.Thread(target=_send_status_update_email, args=(instance,), daemon=True).start())
 
 
 def _send_status_update_email(order):
@@ -167,7 +179,9 @@ def send_manual_invoice_status_email(sender, instance, created, **kwargs):
         return
     if not getattr(instance, '_status_just_changed', False):
         return
-    transaction.on_commit(lambda: _send_manual_invoice_status_email(instance))
+    # 2026-09-19: off-thread for the same reason as the Order status-update
+    # signal above -- see that comment.
+    transaction.on_commit(lambda: threading.Thread(target=_send_manual_invoice_status_email, args=(instance,), daemon=True).start())
 
 
 def _send_manual_invoice_status_email(invoice):
