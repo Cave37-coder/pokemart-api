@@ -1178,6 +1178,65 @@ def checklist_entries(request):
     return Response(grouped)
 
 
+import re
+_CHECKLIST_PID_RE = re.compile(r"TCGCSV-(\d+)")
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedOrReadOnly])
+def checklist_price_check(request):
+    """Lightweight bulk live-price lookup for the 'My Collection' pages
+    (2026-09-19, Michael: "we need to have the My Collection syncing" --
+    those pages used to read prices ONLY from the static, generated
+    checklistData.ts blob, which drifts stale between manual regenerations
+    -- see generate_checklist_data.py -- while Browse Cards always reads
+    live from this same DB and never goes stale). This endpoint lets the
+    frontend overlay CURRENT prices onto that static card/variant
+    structure at render time instead, without waiting on a regeneration.
+
+    Public and read-only (same visibility as prices already shown on
+    Browse Cards to anyone, logged in or not) -- IsAuthenticatedOrReadOnly
+    matches PokemonProductViewSet's own default.
+
+    Query param: ?sets=CODE1,CODE2,... (required, comma-separated
+    CardSet.code values) -- keeps the response scoped to whatever sets a
+    page is actually showing (one era's worth, or a single set) rather
+    than dumping every active product's price on every call.
+
+    Response shape: {"<pid>_<variant>": <price float>, ...} -- pid and the
+    key format deliberately mirror generate_checklist_data.py's own
+    variants[].pid derivation exactly (TCGCSV id extracted from pb_id via
+    the same "TCGCSV-(\\d+)" pattern, falling back to PokemonProduct.id
+    when pb_id doesn't match it) so every key in the static SETS blob's
+    variants has a matching entry here to overlay onto, with no separate
+    reconciliation step needed on the frontend.
+    """
+    codes = [c.strip() for c in (request.GET.get('sets') or '').split(',') if c.strip()]
+    if not codes:
+        return Response({'error': 'sets query param is required, e.g. ?sets=PBL,30C'}, status=400)
+
+    products = (
+        PokemonProduct.objects
+        .filter(card_set__code__in=codes, is_active=True)
+        .values('id', 'pb_id', 'variant_override', 'price')
+    )
+
+    prices = {}
+    for p in products:
+        match = _CHECKLIST_PID_RE.search(p['pb_id'] or '')
+        pid = int(match.group(1)) if match else p['id']
+        variant = p['variant_override'] or 'N'
+        price = float(p['price']) if p['price'] is not None else 0.0
+        # Same-pid collision (a card's N/H/RH sharing one TCGCSV catalog
+        # number, per pidToId's own note in checklists/page.tsx) can't
+        # happen here since variant is part of the key -- unlike pidToId,
+        # this never needs the "only when pid is unique" fallback because
+        # we're not resolving a specific DB row, just a display price.
+        prices[f'{pid}_{variant}'] = price
+
+    return Response(prices)
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def checklist_admin_customer(request, user_id):
