@@ -275,7 +275,13 @@ class OrderAdmin(admin.ModelAdmin):
     def discount_col(self, obj):
         if not obj.discount_amount:
             return '-'
-        return format_html('<span style="color:#2e7d32">-R {:.2f} ({:.0f}%)</span>', obj.discount_amount, obj.discount_percent)
+        # format_html() escapes every arg to a SafeString before applying
+        # the format string -- a numeric spec like {:.2f} then fails with
+        # "Unknown format code 'f' for object of type 'SafeString'" no
+        # matter what's passed in. Pre-format the numbers to plain strings
+        # first so format_html only ever sees {} placeholders. (2026-09-21,
+        # Michael: changelist crashed on any order with a discount.)
+        return format_html('<span style="color:#2e7d32">-R {} ({}%)</span>', f'{obj.discount_amount:.2f}', f'{obj.discount_percent:.0f}')
     discount_col.short_description = 'Discount'
 
     def shipping_col(self, obj):
@@ -313,7 +319,9 @@ class OrderAdmin(admin.ModelAdmin):
         mismatch = abs(total - stored) > 0.01
         color = '#ff4444' if mismatch else '#2e7d32'
         note = ' ⚠ differs from Total price' if mismatch else ''
-        return format_html('<strong style="color:{}">R {:.2f}</strong>{}', color, total, note)
+        # Same format_html()-can't-take-numeric-specs issue as discount_col
+        # above -- pre-format the total to a plain string first.
+        return format_html('<strong style="color:{}">R {}</strong>{}', color, f'{total:.2f}', note)
     invoice_total_display.short_description = 'Total (live)'
 
     def print_button(self, obj):
@@ -537,17 +545,20 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
     def totals_display(self, obj):
         if not obj.pk:
             return 'Save the invoice first, then add line items below.'
+        # Same format_html()-can't-take-numeric-specs issue as OrderAdmin's
+        # discount_col/invoice_total_display -- pre-format every number to
+        # a plain string before handing it to format_html.
         discount_line = ''
         if obj.discount_percent:
             discount_line = format_html(
-                '&nbsp;|&nbsp; Discount ({}%): <strong style="color:#2e7d32">-R {:.2f}</strong> ',
-                obj.discount_percent, obj.discount_amount
+                '&nbsp;|&nbsp; Discount ({}%): <strong style="color:#2e7d32">-R {}</strong> ',
+                f'{obj.discount_percent:.0f}', f'{obj.discount_amount:.2f}'
             )
         return format_html(
-            'Subtotal: <strong>R {:.2f}</strong> {}'
-            '&nbsp;|&nbsp; Shipping: <strong>R {:.2f}</strong> '
-            '&nbsp;|&nbsp; <span style="color:#ff6b35;font-weight:bold">TOTAL: R {:.2f}</span>',
-            obj.subtotal, discount_line, obj.shipping_cost or 0, obj.total
+            'Subtotal: <strong>R {}</strong> {}'
+            '&nbsp;|&nbsp; Shipping: <strong>R {}</strong> '
+            '&nbsp;|&nbsp; <span style="color:#ff6b35;font-weight:bold">TOTAL: R {}</span>',
+            f'{obj.subtotal:.2f}', discount_line, f'{obj.shipping_cost or 0:.2f}', f'{obj.total:.2f}'
         )
     totals_display.short_description = 'Totals (live)'
 
