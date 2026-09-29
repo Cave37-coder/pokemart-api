@@ -81,7 +81,22 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     # rows instead of the 178 that are actually #25) -- confirmed via
     # verify_search_fixes.py on 2026-08-03.
     search_fields = ['name', 'card_set__name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number']
-    ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number']
+    # Michael, 2026-09-29: "sorting order must be done on release date of
+    # set, the pokemon are all over the place!" -- root cause: DRF's
+    # OrderingFilter silently DROPS any ?ordering= field that isn't in this
+    # whitelist. The Pokedex/Collections pages request
+    # ?ordering=card_set__release_date,card_number,variant_sort (see
+    # getAllCardsForPokedex in both pokedex/[id]/page.tsx and
+    # collections/[id]/page.tsx), but card_set__release_date and
+    # variant_sort weren't whitelisted here -- only card_number survived,
+    # so cards sorted by card number ACROSS every set mixed together with
+    # zero grouping by release date. The `ordering` Meta-style default two
+    # lines below was never the problem (that one applies fine when no
+    # explicit ?ordering= is given); it's only the explicit query param
+    # path that goes through this whitelist. Added the two missing fields
+    # so the same chronological ordering can be requested explicitly, not
+    # just used as the unrequested default.
+    ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number', 'card_set__release_date', 'variant_sort']
     ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
 
     def get_permissions(self):
