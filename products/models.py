@@ -133,6 +133,29 @@ class PokemonProduct(models.Model):
         "legendary": "RA",
     }
 
+    # 2026-09-29, Michael: "the cards aren't all in the correct sequence of
+    # variant, First must be Normal or Holo then only the Rev Holo after,
+    # for some reason the Rev Holo shows before the Holo!!" -- this mapping
+    # itself was always right (N=0 < H=1 < RH=2), but it used to live only
+    # as a local dict inside sync_tcgcsv.py, so `variant_sort` only ever got
+    # set correctly for a row at the moment sync_tcgcsv created it. Any row
+    # whose variant_override was later changed a different way -- the
+    # manage_set admin tool's "apply variant" action (see views.py) is the
+    # one other place that touches variant_override -- kept its OLD
+    # variant_sort, since that code path never recomputed it. A card whose
+    # Rev Holo print got its variant corrected via that admin tool after the
+    # fact would keep whatever stale sort value it already had, which is
+    # exactly the kind of mismatch that makes RH float above H. Promoted to
+    # a shared constant here so every write path (sync_tcgcsv.py, the
+    # manage_set admin view, and the one-off sync_variant_sort backfill
+    # command) computes variant_sort from the exact same table instead of
+    # each keeping its own copy that can drift.
+    VARIANT_SORT_ORDER = {
+        "N": 0, "H": 1, "RH": 2, "ESH": 3,
+        "PB": 4, "LB": 5, "FB": 6, "QB": 7, "UB": 8, "DB": 9, "MB": 10,
+        "TR": 11, "SE": 12, "PBP": 13, "MBP": 14, "CC": 15, "TT": 16,
+    }
+
     CONDITION_CHOICES = [
         ('NM', 'Near Mint'),
         ('LP', 'Lightly Played'),

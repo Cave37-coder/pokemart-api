@@ -1850,6 +1850,14 @@ def manage_set(request):
                     message = 'No variant chosen "” nothing changed.'
                 else:
                     p.variant_override = new_variant
+                    # 2026-09-29, Michael: "Rev Holo shows before the Holo!!"
+                    # -- root cause was this action changing variant_override
+                    # without ever touching variant_sort, so a card
+                    # corrected here kept whatever sort value it already had
+                    # instead of matching its new variant. Recompute it the
+                    # same way sync_tcgcsv.py does (see PokemonProduct.
+                    # VARIANT_SORT_ORDER's own comment).
+                    p.variant_sort = PokemonProduct.VARIANT_SORT_ORDER.get(new_variant, 9)
                     new_pb_id = p.generate_pb_id()
                     if new_pb_id:
                         p.pb_id = new_pb_id
@@ -1875,6 +1883,10 @@ def manage_set(request):
                         with transaction.atomic():
                             for p in qs:
                                 p.variant_override = new_variant
+                                # Same fix as the single-product branch above
+                                # -- keep variant_sort matched to whatever
+                                # variant this bulk action just applied.
+                                p.variant_sort = PokemonProduct.VARIANT_SORT_ORDER.get(new_variant, 9)
                                 new_pb_id = p.generate_pb_id()
                                 if new_pb_id:
                                     p.pb_id = new_pb_id

@@ -270,11 +270,14 @@ SUBTYPE_MAP = {
 }
 
 
-VARIANT_SORT_ORDER = {
-    "N": 0, "H": 1, "RH": 2, "ESH": 3,
-    "PB": 4, "LB": 5, "FB": 6, "QB": 7, "UB": 8, "DB": 9, "MB": 10,
-    "TR": 11, "SE": 12, "PBP": 13, "MBP": 14, "CC": 15, "TT": 16,
-}
+# 2026-09-29: moved to PokemonProduct.VARIANT_SORT_ORDER (products/models.py)
+# so this script, the manage_set admin tool, and the sync_variant_sort
+# backfill command all read from the same table instead of three copies
+# that can drift out of sync -- see that constant's own comment for why
+# this mattered (a stale variant_sort was letting Rev Holo sort ahead of
+# Holo on some cards). Kept as a local alias so every call site below
+# didn't need touching.
+VARIANT_SORT_ORDER = PokemonProduct.VARIANT_SORT_ORDER
 
 
 # Sets where TCGPlayer has wrong/Japanese images - use pokemontcg.io instead
