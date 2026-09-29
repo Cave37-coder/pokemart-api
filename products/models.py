@@ -114,6 +114,13 @@ class PokemonProduct(models.Model):
         # something already covered.
         ("pikachu_rare", "Pikachu Rare"),
         ("futuristic_rare", "Futuristic Rare"),
+        # 2026-09-29: the 30th Celebration "Mew" trio (TCGCSV numbers
+        # "R/RGB", "G/RGB", "B/RGB" -- no normal set position) -- Michael
+        # flagged these as missing from the site. New tier, own choice for
+        # the same reason as double_rare/pikachu_rare/futuristic_rare
+        # above: visually and pricing-wise its own thing, not a reprint of
+        # an existing bucket.
+        ("rgb_rare", "RGB Rare"),
     ]
 
     VARIANT_CODES = {

@@ -348,6 +348,17 @@ RARITY_MAP = {
     "Trainer Gallery Secret Rare": "secret_rare",
     "Classic Collection": "holo_rare", "ACE SPEC Rare": "ace_spec",
     "Mega Hyper Rare": "mega_hyper_rare", "Mega Attack Rare": "mega_attack_rare",
+    # 2026-09-16/29, 30th Celebration tiers -- "Pikachu Rare"/"Futuristic
+    # Rare" were already added to models.py's RARITY_CHOICES and to
+    # sync_bible_to_db.py's own RARITY_MAP when that set launched, but
+    # never added here (this command had never actually been run for 30C
+    # until now -- see the GROUP_CONFIG key fix above). Without these,
+    # RARITY_MAP.get(rarity_raw, "common") would silently mis-file any of
+    # these as "common" the moment this command creates one. "RGB Rare" is
+    # brand new as of the Mew - R/G/B/RGB trio fix (also new in
+    # models.py's RARITY_CHOICES).
+    "Pikachu Rare": "pikachu_rare", "Futuristic Rare": "futuristic_rare",
+    "RGB Rare": "rgb_rare",
 }
 
 
@@ -457,8 +468,25 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
 
         card_number = _parse_number(number_raw)
         if card_number is None:
-            non_card += 1
-            continue
+            # 2026-09-29, 30th Celebration: TCGCSV's "Number" field isn't
+            # always a parseable int -- e.g. the Mew trio Michael flagged
+            # missing ("Mew - R/RGB", "Mew - G/RGB", "Mew - B/RGB", rarity
+            # "RGB Rare") use "R/RGB" etc instead of a real set position.
+            # Real sealed product (boosters, tins, figure collections) has
+            # NEITHER a Number NOR a Rarity field in TCGCSV at all -- only
+            # actual cards have both. So: Number present but unparseable,
+            # with a Rarity also present, means a real card with no normal
+            # numbering, not sealed product -- keep it, with card_number
+            # left null (the model field allows this) and the raw string
+            # preserved in `number` below. generate_checklist_data.py
+            # already expects exactly this shape (its own comment: "have no
+            # integer card_number and must NOT be dropped"), so no frontend
+            # change is needed for these to show up and sort to the end of
+            # their set. Only genuinely non-card rows (no Number, no
+            # Rarity) still get skipped here.
+            if not (number_raw and rarity_raw):
+                non_card += 1
+                continue
 
         product_prices = {sub: usd for (p_id, sub), usd in prices.items() if p_id == pid}
         if not product_prices:
@@ -521,6 +549,10 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 tcgcsv_product_id=pid,
                 name=name,
                 card_number=card_number,
+                # card_number is null for the non-numeric-Number case above
+                # (e.g. "R/RGB") -- store the raw TCGCSV number string here
+                # so the card still has a real identifier/display value.
+                number=(number_raw or "") if card_number is None else "",
                 card_set=card_set,
                 category=category,
                 variant_override=variant,
