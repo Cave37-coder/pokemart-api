@@ -83,6 +83,12 @@ SUFFIX_STRIP = [
     r"\s+vmax$", r"\s+vstar$", r"\s+v$", r"\s+prime$", r"\s+lv\.?\s*x$",
     r"\s+legend$", r"\s+star$", r"\s+x$", r"\s+y$", r"\s*\*$", r"\s+δ$",
     r"\s+gl$", r"\s+fb$", r"\s+g$", r"\s+c$",  # SP-era single/double-letter tags
+    # 2026-09-29: found via this command's own first live dry-run --
+    # "Greninja BREAK" (a real XY-era BREAK-evolution card) was going to
+    # "no match" because "BREAK" wasn't stripped -- inherited gap from the
+    # original backfill_pokedex_round2.py, not introduced here. Fixed before
+    # the first --apply so this genuine species doesn't get missed.
+    r"\s+break$",
 ]
 
 POSSESSIVE = re.compile(r"^.+?['’]s\s+", re.IGNORECASE)  # handles both ' and the curly '
