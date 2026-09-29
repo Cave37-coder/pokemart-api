@@ -241,8 +241,18 @@ GROUP_CONFIG = {
     # Collection 2026" -- both exist on TCGCSV but their era wasn't
     # confirmed one way or the other, so guessing B9 risked mis-filing them.
     "PBL":      (24688, "Pitch Black",                         "B9"),
-    "ME30":     (24722, "30th Celebration",                    "B9"),
-    "ME30CC":   (24837, "30th Celebration Classic Collection",  "B9"),
+    # 2026-09-29 fix: these two keys were "ME30"/"ME30CC" -- never matching
+    # the real CardSet.code ("30C"/"30CC", set when the site's actual 30C
+    # data went in through the bible-CSV -> sync_bible_to_db.py pipeline
+    # instead of this command). Because CardSet.objects.get_or_create(code=
+    # set_code, ...) keys off this dict's key, running this command with
+    # the old keys would have created a brand-new, duplicate "ME30" CardSet
+    # alongside the real "30C" one rather than adding to it. Confirmed live
+    # via the API that no "ME30" CardSet has ever actually been created
+    # (this command was never successfully run for this set before), so
+    # this is a same-day typo fix, not a migration of existing data.
+    "30C":      (24722, "30th Celebration",                    "B9"),
+    "30CC":     (24837, "30th Celebration Classic Collection",  "B9"),
     "ME06":     (24831, "Delta Reign",                         "B9"),
 }
 
