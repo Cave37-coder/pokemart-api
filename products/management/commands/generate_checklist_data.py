@@ -11,12 +11,11 @@
 # listing Unseen Forces' Unown Collection inside UF after that was split
 # into its own CardSet (UFUC) here.
 #
-# DESIGN: only ever rewrites the `SETS` blob. Every other export in
-# checklistData.ts (ERA_COLORS, TIER_COLORS, TIER_LABELS_FE,
-# MASTER_SET_CHASE_RARITIES, *_VARIANTS, TIER_VARIANT_SCOPE,
-# TIER_NUMBERED_ONLY, ERA_ORDER) is hand-maintained tier/display config,
-# not card data -- this command reads the file, replaces just the SETS
-# assignment, and writes everything else back untouched, verbatim.
+# DESIGN: rewrites both the `SETS` blob and the `SET_INDEX` blob (added
+# 2026-09-29, see note below). Every OTHER export in checklistData.ts
+# (ERA_COLORS, TIER_COLORS, TIER_LABELS_FE, MASTER_SET_CHASE_RARITIES,
+# *_VARIANTS, TIER_VARIANT_SCOPE, TIER_NUMBERED_ONLY, ERA_ORDER) is still
+# hand-maintained tier/display config, not card data -- untouched.
 #
 # RARITY DISPLAY: uses PokemonProduct.RARITY_CHOICES' own labels directly
 # (dict(PokemonProduct.RARITY_CHOICES)) rather than trying to preserve the
@@ -52,6 +51,41 @@
 # either way, since the frontend's own live-fetch regex won't match those
 # rows either; this is a pre-existing gap in non-TCGCSV-synced rows, not
 # something this command can fix from static data alone.
+#
+# SET_INDEX (added 2026-09-29): the /checklists/[era] browse-by-era page
+# (pokemart-frontend/src/app/checklists/[era]/page.tsx) reads a SEPARATE
+# export, SET_INDEX, to list a set's logo tile + "{code} - {cards} cards"
+# meta line + progress bar, and links each tile to
+# `/checklists?set=${s.code}` -- but SET_INDEX had been a one-off
+# hand-typed array since the 09-16 drill-down page shipped, never
+# regenerated alongside SETS. Michael, 2026-09-29: "I can't select any
+# checklist from screenshot, it takes me back to Era page!!!!" on the
+# Sword & Shield era page turned out to be exactly this drift: SET_INDEX
+# listed the 12 mainline SWSH sets under fake marketing codes ("SWSH01"
+# .."SWSH12") that are not real CardSet.code values (those are "SSH",
+# "RCL", "DAA", "VIV", "BST", "CRE", "EVS", "FST", "BRS", "ASR", "LOR",
+# "SIT") -- so `/checklists?set=SWSH10` found nothing in SETS and the
+# page bounced back. Separately, 43 real, active sets (McDonald's
+# collections, POP series, era-specific Black Star Promos, Trick or Trade
+# TK22/23/24, Detective Pikachu, etc.) were simply never in SET_INDEX at
+# all and could never be browsed to.
+#
+# Fixed at the root: SET_INDEX is now generated from the exact same
+# `card_sets`/`cards` this command already computes for SETS, so its
+# `code` is always a real, live SETS key and it always covers every set
+# SETS does -- this class of drift can't recur. `cards`/`variants`/
+# `set_zar` are recomputed from the live card list every run (note:
+# getProgress/getSetValue in checklistShared.ts already read live from
+# SETS[code] directly and were NEVER affected by SET_INDEX's stale
+# numbers -- SET_INDEX only ever fed the cosmetic "{cards} cards" label
+# and the pre-live-fetch set_zar fallback shown for an instant before
+# ensureLivePrices() resolves). `name` keeps the existing hand-typed
+# display string (with its "SWSH10:", "SM -", "XY -", "ME01:", "SV:"-style
+# marketing prefixes) for every set that already had one in SET_INDEX --
+# via NAME_OVERRIDES below, a one-time snapshot of the pre-fix SET_INDEX
+# keyed by each set's REAL code -- and falls back to the DB's own
+# card_set.name for the 43 sets that were never listed before, which
+# don't have an established prefix convention to preserve.
 #
 # Usage:
 #   python manage.py generate_checklist_data
@@ -107,6 +141,166 @@ ERA_DISPLAY_MAP = {
     "B6": "Sun & Moon",
     "B7": "Sword & Shield",
     "B8": "Scarlet & Violet",
+}
+
+# One-time snapshot (2026-09-29) of the pre-fix, hand-typed SET_INDEX's
+# {code: name} pairs, keyed by each set's REAL CardSet.code -- for the 12
+# mainline SWSH sets this means the key changed (was keyed by the fake
+# "SWSH01".."SWSH12" codes; now keyed by "SSH".."SIT" etc, see the module
+# note above) while the display text itself is untouched. Every set NOT in
+# this map (the 43 that were missing from SET_INDEX entirely, plus any
+# brand new set added after this snapshot) falls back to card_set.name
+# as-is with no marketing prefix -- see build_set_index().
+NAME_OVERRIDES = {
+    '30C': '30th Celebration',
+    '30CC': '30th Celebration: Classic Collection',
+    'PBL': 'Pitch Black',
+    'AOR': 'XY - Ancient Origins',
+    'AQ': 'Aquapolis',
+    'AR': 'Arceus',
+    'ASC': 'ME: Ascended Heroes',
+    'ASRTG': 'SWSH10: Astral Radiance Trainer Gallery',
+    'BCR': 'Boundaries Crossed',
+    'BKP': 'XY - BREAKpoint',
+    'BKT': 'XY - BREAKthrough',
+    'BLK': 'SV: Black Bolt',
+    'BLW': 'Black and White',
+    'BRSTG': 'SWSH09: Brilliant Stars Trainer Gallery',
+    'BS': 'Base Set',
+    'BS2': 'Base Set 2',
+    'BSS': 'Base Set (Shadowless)',
+    'CCC': 'Celebrations: Classic Collection',
+    'CES': 'SM - Celestial Storm',
+    'CG': 'Crystal Guardians',
+    'CHP': "Champion's Path",
+    'CLB': 'Celebrations',
+    'CRI': 'ME04: Chaos Rising',
+    'CRZ': 'SWSH: Crown Zenith',
+    'CRZGG': 'SWSH: Crown Zenith: Galarian Gallery',
+    'CoL': 'Call of Legends',
+    'DCR': 'Double Crisis',
+    'DEX': 'Dark Explorers',
+    'DF': 'Dragon Frontiers',
+    'DP': 'Diamond and Pearl',
+    'DR': 'Dragon',
+    'DRI': 'SV10: Destined Rivals',
+    'DRM': 'Dragon Majesty',
+    'DRV': 'Dragon Vault',
+    'DRX': 'Dragons Exalted',
+    'DS': 'Delta Species',
+    'DX': 'Deoxys',
+    'EM': 'Emerald',
+    'EPO': 'Emerging Powers',
+    'EVO': 'XY - Evolutions',
+    'EX': 'Expedition',
+    'FCO': 'XY - Fates Collide',
+    'FFI': 'XY - Furious Fists',
+    'FLF': 'XY - Flashfire',
+    'FO': 'Fossil',
+    'G1': 'Gym Heroes',
+    'G2': 'Gym Challenge',
+    'GE': 'Great Encounters',
+    'GEN': 'Generations',
+    'HIF': 'Hidden Fates',
+    'HIFSV': 'Hidden Fates: Shiny Vault',
+    'HL': 'Hidden Legends',
+    'HP': 'Holon Phantoms',
+    'HS': 'HeartGold SoulSilver',
+    'JTG': 'SV09: Journey Together',
+    'JU': 'Jungle',
+    'KSS': 'Kalos Starter Set',
+    'LA': 'Legends Awakened',
+    'LC': 'Legendary Collection',
+    'LM': 'Legend Maker',
+    'LORTG': 'SWSH11: Lost Origin Trainer Gallery',
+    'LTR': 'Legendary Treasures',
+    'MA': 'Team Magma vs Team Aqua',
+    'MD': 'Majestic Dawn',
+    'MEE': 'MEE: Mega Evolution Energies',
+    'MEG': 'ME01: Mega Evolution',
+    'MEP': 'ME: Mega Evolution Promo',
+    'MEW': 'SV: Scarlet & Violet 151',
+    'MT': 'Mysterious Treasures',
+    'N1': 'Neo Genesis',
+    'N2': 'Neo Discovery',
+    'N3': 'Neo Revelation',
+    'N4': 'Neo Destiny',
+    'NVI': 'Noble Victories',
+    'NXD': 'Next Destinies',
+    'OBF': 'SV03: Obsidian Flames',
+    'PAF': 'SV: Paldean Fates',
+    'PAL': 'SV02: Paldea Evolved',
+    'PAR': 'SV04: Paradox Rift',
+    'PFL': 'ME02: Phantasmal Flames',
+    'PGO': 'Pokemon GO',
+    'PHF': 'XY - Phantom Forces',
+    'PK': 'Power Keepers',
+    'PL': 'Platinum',
+    'PLB': 'Plasma Blast',
+    'PLF': 'Plasma Freeze',
+    'PLS': 'Plasma Storm',
+    'POR': 'ME03: Perfect Order',
+    'PRC': 'XY - Primal Clash',
+    'PRE': 'SV: Prismatic Evolutions',
+    'PRIZEPACK': 'Prize Pack Series Cards',
+    'RG': 'FireRed & LeafGreen',
+    'ROS': 'XY - Roaring Skies',
+    'RR': 'Rising Rivals',
+    'RS': 'Ruby and Sapphire',
+    'SCR': 'SV07: Stellar Crown',
+    'SF': 'Stormfront',
+    'SFA': 'SV: Shrouded Fable',
+    'SHF': 'Shining Fates',
+    'SHFSV': 'Shining Fates: Shiny Vault',
+    'SHL': 'Shining Legends',
+    'SI1': 'Southern Islands',
+    'SITTG': 'SWSH12: Silver Tempest Trainer Gallery',
+    'SK': 'Skyridge',
+    'SM01': 'SM Base Set',
+    'SM02': 'SM - Guardians Rising',
+    'SM03': 'SM - Burning Shadows',
+    'SM04': 'SM - Crimson Invasion',
+    'SM05': 'SM - Ultra Prism',
+    'SM06': 'SM - Forbidden Light',
+    'SM10': 'SM - Unbroken Bonds',
+    'SM11': 'SM - Unified Minds',
+    'SM12': 'SM - Cosmic Eclipse',
+    'SM8': 'SM - Lost Thunder',
+    'SM9': 'SM - Team Up',
+    'SMP': 'SM Promos',
+    'SS': 'Sandstorm',
+    'SSP': 'SV08: Surging Sparks',
+    'STS': 'XY - Steam Siege',
+    'SV': 'Supreme Victors',
+    'SVE': 'SVE: Scarlet & Violet Energies',
+    'SVI': 'SV01: Scarlet & Violet Base Set',
+    'SVP': 'SV: Scarlet & Violet Promo Cards',
+    'SW': 'Secret Wonders',
+    'SSH': 'SWSH01: Sword & Shield Base Set',
+    'RCL': 'SWSH02: Rebel Clash',
+    'DAA': 'SWSH03: Darkness Ablaze',
+    'VIV': 'SWSH04: Vivid Voltage',
+    'BST': 'SWSH05: Battle Styles',
+    'CRE': 'SWSH06: Chilling Reign',
+    'EVS': 'SWSH07: Evolving Skies',
+    'FST': 'SWSH08: Fusion Strike',
+    'BRS': 'SWSH09: Brilliant Stars',
+    'ASR': 'SWSH10: Astral Radiance',
+    'LOR': 'SWSH11: Lost Origin',
+    'SIT': 'SWSH12: Silver Tempest',
+    'TEF': 'SV05: Temporal Forces',
+    'TT22': 'Trick or Trade 2022',
+    'TT23': 'Trick or Trade 2023',
+    'TT24': 'Trick or Trade 2024',
+    'TM': 'Triumphant',
+    'TR': 'Team Rocket',
+    'TRR': 'Team Rocket Returns',
+    'TWM': 'SV06: Twilight Masquerade',
+    'UD': 'Undaunted',
+    'UF': 'Unseen Forces',
+    'UL': 'Unleashed',
+    'WHT': 'SV: White Flare',
+    'XY': 'XY Base Set',
 }
 
 TCGCSV_PID_RE = re.compile(r"TCGCSV-(\d+)")
@@ -219,8 +413,26 @@ def build_set_cards(card_set: CardSet) -> list:
     return cards
 
 
+def build_set_index_entry(card_set: CardSet, era_label: str, cards: list) -> dict:
+    """The browse-by-era page's SetMeta shape -- see the module-level note
+    above for why this now exists and is regenerated every run instead of
+    being hand-maintained. `code` is always card_set.code (a real, live
+    SETS key), so a tile's `/checklists?set=${code}` link can never point
+    at a set that doesn't exist."""
+    variants_count = sum(len(c["variants"]) for c in cards)
+    set_zar = round(sum(v["zar"] for c in cards for v in c["variants"]), 1)
+    return {
+        "code": card_set.code,
+        "name": NAME_OVERRIDES.get(card_set.code, card_set.name),
+        "era": era_label,
+        "cards": len(cards),
+        "variants": variants_count,
+        "set_zar": set_zar,
+    }
+
+
 class Command(BaseCommand):
-    help = "Regenerate the SETS blob in pokemart-frontend's checklistData.ts from this DB. Leaves every other export (ERA_COLORS, TIER_*, *_VARIANTS, ERA_ORDER) untouched."
+    help = "Regenerate the SETS and SET_INDEX blobs in pokemart-frontend's checklistData.ts from this DB. Leaves every other export (ERA_COLORS, TIER_*, *_VARIANTS, ERA_ORDER) untouched."
 
     def add_arguments(self, parser):
         parser.add_argument("--file", type=str, default=DEFAULT_FILE, help=f"Path to checklistData.ts. Default: {DEFAULT_FILE}")
@@ -234,9 +446,13 @@ class Command(BaseCommand):
         except FileNotFoundError:
             raise CommandError(f"File not found: {file_path}\nRun this from pokemart-api's root, or pass --file with the full path to checklistData.ts.")
 
-        m = re.search(r"export const SETS: Record<string, SetData> = (\{.*?\});\n", content, re.DOTALL)
-        if not m:
+        m_sets = re.search(r"export const SETS: Record<string, SetData> = (\{.*?\});\n", content, re.DOTALL)
+        if not m_sets:
             raise CommandError("Could not find 'export const SETS: Record<string, SetData> = {...};' in that file -- format may have changed.")
+
+        m_index = re.search(r"export const SET_INDEX: SetMeta\[\] = (\[.*?\]);\n", content, re.DOTALL)
+        if not m_index:
+            raise CommandError("Could not find 'export const SET_INDEX: SetMeta[] = [...];' in that file -- format may have changed.")
 
         card_sets = (
             CardSet.objects
@@ -246,9 +462,13 @@ class Command(BaseCommand):
             .order_by("code")
         )
 
+        old_index_codes = {e["code"] for e in json.loads(m_index.group(1))}
+
         new_sets = OrderedDict()
+        new_index = []
         unmapped_eras = set()
         total_cards = 0
+        new_to_index = []  # codes that weren't in the old SET_INDEX at all, for the summary
 
         for card_set in card_sets:
             era_code = card_set.era.code if card_set.era else None
@@ -260,12 +480,17 @@ class Command(BaseCommand):
             if not cards:
                 continue
 
+            era_label = ERA_DISPLAY_MAP[era_code]
             new_sets[card_set.code] = {
                 "name": card_set.name,
-                "era": ERA_DISPLAY_MAP[era_code],
+                "era": era_label,
                 "cards": cards,
             }
             total_cards += len(cards)
+
+            new_index.append(build_set_index_entry(card_set, era_label, cards))
+            if card_set.code not in old_index_codes:
+                new_to_index.append(card_set.code)
 
         if unmapped_eras:
             raise CommandError(
@@ -274,8 +499,19 @@ class Command(BaseCommand):
                 f"before regenerating: {sorted(unmapped_eras)}"
             )
 
-        new_blob = json.dumps(new_sets, separators=(",", ":"), ensure_ascii=False)
-        new_content = content[:m.start(1)] + new_blob + content[m.end(1):]
+        new_sets_blob = json.dumps(new_sets, separators=(",", ":"), ensure_ascii=False)
+        new_index_blob = json.dumps(new_index, separators=(",", ":"), ensure_ascii=False)
+
+        # Replace SET_INDEX first if it comes later in the file, else SETS
+        # first -- either order is fine since we use each match's own
+        # stored span, just don't let editing one invalidate the other's
+        # offsets. Safest: always replace the later span first.
+        if m_index.start(1) > m_sets.start(1):
+            new_content = content[:m_index.start(1)] + new_index_blob + content[m_index.end(1):]
+            new_content = new_content[:m_sets.start(1)] + new_sets_blob + new_content[m_sets.end(1):]
+        else:
+            new_content = content[:m_sets.start(1)] + new_sets_blob + content[m_sets.end(1):]
+            new_content = new_content[:m_index.start(1)] + new_index_blob + new_content[m_index.end(1):]
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
@@ -283,5 +519,11 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Wrote {file_path}\n"
             f"  Sets:  {len(new_sets)}\n"
-            f"  Cards: {total_cards}"
+            f"  Cards: {total_cards}\n"
+            f"  SET_INDEX entries: {len(new_index)}"
         ))
+        if new_to_index:
+            self.stdout.write(
+                f"  Newly added to SET_INDEX (previously unreachable on the browse-by-era page): "
+                f"{', '.join(sorted(new_to_index))}"
+            )
