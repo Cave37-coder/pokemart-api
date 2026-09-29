@@ -96,8 +96,29 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     # path that goes through this whitelist. Added the two missing fields
     # so the same chronological ordering can be requested explicitly, not
     # just used as the unrequested default.
-    ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number', 'card_set__release_date', 'variant_sort']
-    ordering = ['-card_set__release_date', 'card_number', 'variant_sort']
+    #
+    # 2026-09-29, round 2: "Sword & Shield sets are disaster" -- Michael's
+    # screenshot of /cards?era=SWSH showed cards from CRZ (the base Crown
+    # Zenith-style set) and CRZGG (its Trainer Gallery subset) interleaved
+    # card-by-card even with card_set__release_date leading the sort. Root
+    # cause: a Trainer Gallery/Shiny Vault/Classic Collection subset always
+    # ships the SAME DAY as its parent set (confirmed against
+    # sync_tcgcsv.py's own PTCGIO_IMAGE_SETS pairs -- BRS/BRSTG, ASR/ASRTG,
+    # CRZ/CRZGG, SHF/SHFSV, HIF/HIFSV all share a release_date with their
+    # sibling), so "order by release_date" doesn't actually separate them --
+    # every one of their cards TIES on release_date and falls straight
+    # through to card_number, which is where GG01/GG02/... (parsed down to
+    # bare 1/2/...) collides with the parent set's own 001/002/... numbering.
+    # Added card_set__code as the tiebreaker BETWEEN release_date and
+    # card_number so same-day sibling sets stay fully grouped/contiguous
+    # even though neither of their real sort keys (date, number) can tell
+    # them apart alone. This works because every one of these pairs follows
+    # the same naming convention -- the subset's code is the parent code
+    # PLUS a suffix ("CRZ" -> "CRZGG") -- so plain alphabetical sort always
+    # puts the shorter parent code first, base set before its own subset,
+    # with zero special-casing per set pair.
+    ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number', 'card_set__release_date', 'card_set__code', 'variant_sort']
+    ordering = ['-card_set__release_date', 'card_set__code', 'card_number', 'variant_sort']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

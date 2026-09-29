@@ -131,9 +131,26 @@ def build_set_cards(card_set: CardSet) -> list:
     # "A/28".."Z/28") have no integer card_number and must NOT be dropped
     # just because of that; only skip a row with neither a usable `number`
     # nor a card_number.
+    #
+    # 2026-09-29, Michael: "Sword & Shield sets are disaster... the holo and
+    # Rev holo's don't link together on most sets too!" -- half of that (a
+    # card correctly getting ONE merged entry, but its N/H button showing
+    # AFTER its RH button) traced to THIS query having no .order_by() at
+    # all. .values() doesn't clear Django's default ordering, so it was
+    # silently inheriting PokemonProduct.Meta.ordering = ["-created_at"] --
+    # i.e. whichever variant row was synced/touched MOST RECENTLY came back
+    # FIRST, and entry["variants"] below is an OrderedDict that keeps
+    # insertion order, so that same accident-of-sync-timing order is exactly
+    # what got baked into checklistData.ts's per-card variant list and
+    # rendered as the button order on the checklist page (see
+    # pokemart-frontend/src/app/checklists/page.tsx, which just does
+    # card.variants.map(...) -- no re-sorting of its own). Ordering
+    # explicitly by variant_sort makes N/H always land in the dict before
+    # RH regardless of which row happened to sync last.
     products = (
         PokemonProduct.objects
         .filter(card_set=card_set, is_active=True)
+        .order_by("variant_sort")
         .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price")
     )
     total_cards = card_set.total_cards or 0
