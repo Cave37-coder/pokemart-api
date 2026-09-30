@@ -401,13 +401,30 @@ def build_set_cards(card_set: CardSet) -> list:
             "variants": list(entry["variants"].values()),
         })
 
+    # 2026-09-30, Michael: WHT/BLK/PRE's "(Poke Ball Pattern)"/"(Master Ball
+    # Pattern)" prints are kept as their own separate tiles (see the
+    # name-collision split above -- genuinely different artwork, not just a
+    # different finish of the same print), but which of the 2-3 same-numbered
+    # tiles rendered first was previously whatever order fell out of
+    # `f"{display_num}-{min(id)}"` string comparison -- i.e. an accident of
+    # which row happened to sync first, not a real ordering. Michael: "the
+    # order is wrong, it's N or H, the Rev Holo, then Pokeball and Master
+    # Ball last" -- PATTERN_TILE_RANK gives every tile sharing a card number
+    # an explicit priority so the base print (rank 0) always sorts before
+    # its Poke Ball Pattern sibling (rank 1), which always sorts before its
+    # Master Ball Pattern sibling (rank 2), regardless of row/sync order.
+    PATTERN_TILE_RE = re.compile(r"\((Poke Ball|Master Ball) Pattern\)", re.IGNORECASE)
+    PATTERN_TILE_RANK = {"poke ball": 1, "master ball": 2}
+
     def sort_key(c):
         num = c["num"]
         card_number = None
         head = num.split("/", 1)[0].split("-", 1)[0]
         if head.isdigit():
             card_number = int(head)
-        return (card_number if card_number is not None else 10**9, num)
+        m = PATTERN_TILE_RE.search(c["name"])
+        pattern_rank = PATTERN_TILE_RANK.get(m.group(1).lower(), 0) if m else 0
+        return (card_number if card_number is not None else 10**9, pattern_rank, num)
 
     cards.sort(key=sort_key)
     return cards
