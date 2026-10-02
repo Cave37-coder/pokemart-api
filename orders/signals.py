@@ -7,6 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import Order, OrderTracking, ManualInvoice
+from notifications.push import push_order_status
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,11 @@ def create_tracking_on_status_change(sender, instance, created, **kwargs):
         # way it stalled checkout. Not deferring to a thread here would
         # leave that same failure mode live on every other status change.
         transaction.on_commit(lambda: threading.Thread(target=_send_status_update_email, args=(instance,), daemon=True).start())
+        # 2026-10-02: same moment, same "only once it has really committed"
+        # rule -- also ping the customer's phone/browser if they've turned
+        # notifications on. Runs on its own thread and never raises (see
+        # notifications/push.py); a no-op for customers with no devices.
+        transaction.on_commit(lambda: push_order_status(instance))
 
 
 def _send_status_update_email(order):

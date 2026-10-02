@@ -42,6 +42,7 @@ from products.models import PokemonProduct, PokedexCollectionEntry, SetCompletio
 from products.serializers import PokemonProductSerializer
 from users.views import check_rate_limit
 from .models import Block, TradeRequest, Message, Report, Friendship
+from notifications.push import push_new_message
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -771,6 +772,7 @@ def send_message(request):
         trade_request_id=trade_request_id or None,
     )
     _notify_new_message_email(msg)
+    push_new_message(msg)
     return Response({
         "id": msg.id, "body": msg.body, "created_at": msg.created_at, "from_me": True,
     }, status=201)

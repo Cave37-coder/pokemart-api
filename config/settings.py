@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'analytics_dashboard',
     'community',
     'accessories',
+    'notifications',
 ]
 
 # --- STATIC FILES (production) ---
@@ -190,6 +191,17 @@ EMAIL_BACKEND = 'config.mailersend_backend.MailerSendBackend'
 MAILERSEND_API_KEY = config('MAILERSEND_API_KEY', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='PokeBulk SA <orders@pokebulk.co.za>')
 EMAIL_TIMEOUT = 30
+
+# --- Web Push notifications (2026-10-02) ---
+# The installable-app (PWA) notifications: order status updates and new
+# community messages, sent by notifications/push.py. Generate the pair once
+# with `python manage.py generate_vapid_keys` and set both on Railway.
+# Left blank, the site runs exactly as before and simply sends no pushes.
+# VAPID_CLAIM_EMAIL is a contact address the push services (Google/Apple/
+# Mozilla) can use if this server misbehaves -- it is not shown to customers.
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
+VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='mailto:admin@pokebulk.co.za')
 
 # --- LOGGING ---
 # CRITICAL FIX (2026-07-27): Django's default logging config only wires up
