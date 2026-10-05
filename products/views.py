@@ -169,7 +169,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count
 import json
 
-from .models import PokemonProduct, CardSet, Era
+from .models import PokemonProduct, CardSet, Era, StockMovement, log_stock_movement
 
 ERA_ORDER = [
     'MEG', 'SV', 'SWSH', 'SM', 'XY', 'BW', 'HGSS', 'DP', 'EX',
@@ -222,6 +222,9 @@ def stock_entry(request):
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
+        tracker = _stock_tracker_totals([c['id'] for c in cards])
+    else:
+        tracker = {}
 
     # Build grouped dropdown
     sets_with_cards = [s for s in all_sets if s.card_count > 0]
@@ -306,6 +309,7 @@ def stock_entry(request):
             var = card.get('var_label') or card.get('variant_override') or 'N'
             var_style = VAR_COLORS.get(var, '#e8e8e8;color:#333')
             price = float(card['price'] or 0)
+            tk = tracker.get(card['id'], {'loaded': 0, 'sold': 0, 'on_order': 0, 'in_carts': 0})
             card_num = str(card['card_number']).zfill(3) if card['card_number'] is not None else '???'
             rows += f'''<tr style="scroll-margin-top:120px">
               <td style="font-family:monospace;color:#888;font-size:15px;padding:12px 14px">#{card_num}</td>
@@ -314,14 +318,20 @@ def stock_entry(request):
               <td style="font-size:13px;color:#888;padding:12px 14px">{card["rarity"] or ""}</td>
               <td style="color:#ff6b35;font-weight:600;font-size:15px;padding:12px 14px">R {price:.2f}</td>
               <td style="color:#888;font-size:15px;padding:12px 14px">{card["stock"]}</td>
+              <td style="color:#2563eb;font-size:14px;padding:12px 8px;text-align:center" title="Total loaded (ledger)">{tk["loaded"]}</td>
+              <td style="color:#059669;font-size:14px;padding:12px 8px;text-align:center" title="Sold (Complete orders + manual invoices)">{tk["sold"]}</td>
+              <td style="color:{"#d97706" if tk["on_order"] else "#bbb"};font-size:14px;font-weight:{"700" if tk["on_order"] else "400"};padding:12px 8px;text-align:center" title="On open orders (not Complete/Cancelled)">{tk["on_order"]}</td>
+              <td style="color:{"#7c3aed" if tk["in_carts"] else "#bbb"};font-size:14px;font-weight:{"700" if tk["in_carts"] else "400"};padding:12px 8px;text-align:center" title="In customer carts">{tk["in_carts"]}</td>
               <td style="padding:12px 14px"><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
                          min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
               <td style="padding:12px 14px;white-space:nowrap">
                 <button onclick="delProd({card['id']},this)" style="background:#dc3545;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1.6">✕</button>
                 <button onclick="addPlayed({card['id']},{card['tcgcsv_product_id'] or 'null'},{card['price']},this)" style="background:#f59e0b;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">+Played</button>
+                <button onclick="showHist({card['id']},this)" style="background:#2563eb;color:#fff;border:none;border-radius:3px;padding:4px 10px;cursor:pointer;font-size:11px;line-height:1.6;margin-left:4px">History</button>
               </td>
             </tr>
+            <tr id="hist-row-{card['id']}" style="display:none;background:#eff6ff"><td colspan="12" style="padding:10px 18px;font-size:12px" id="hist-body-{card['id']}"></td></tr>
             <tr id="played-row-{card['id']}" style="display:none;background:#fffbeb">
               <td colspan="2" style="padding:6px 14px;font-size:12px;color:#92400e">↳ Add played copy of <strong>{card["name"]}</strong></td>
               <td style="padding:6px 14px">
@@ -334,6 +344,7 @@ def stock_entry(request):
               </td>
               <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
               <td style="padding:6px 14px;font-size:12px;color:#888">0</td>
+              <td colspan="4"></td>
               <td style="padding:6px 14px">
                 <input type="number" id="played-qty-{card['id']}" min="1" value="1" placeholder="Qty"
                   style="width:70px;padding:6px;border:1px solid #f59e0b;border-radius:4px;font-size:14px;font-weight:600;text-align:center">
@@ -395,11 +406,15 @@ def stock_entry(request):
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">Rarity</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="100">Price</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Current</th>
+    <th style="text-align:center;padding:12px 8px;font-size:12px;color:#2563eb;border-bottom:1px solid #eee" width="60" title="Total stock ever loaded (ledger)">Loaded</th>
+    <th style="text-align:center;padding:12px 8px;font-size:12px;color:#059669;border-bottom:1px solid #eee" width="60" title="Sold: Complete orders + manual invoices">Sold</th>
+    <th style="text-align:center;padding:12px 8px;font-size:12px;color:#d97706;border-bottom:1px solid #eee" width="60" title="On open orders (not Complete/Cancelled)">On Order</th>
+    <th style="text-align:center;padding:12px 8px;font-size:12px;color:#7c3aed;border-bottom:1px solid #eee" width="60" title="In customer carts">In Carts</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">New Qty</th>
     <th width="60"></th>
   </tr>
 </thead>
-<tbody><tr><td colspan="8" style="height:100px;padding:0"></td></tr>{rows}</tbody>
+<tbody><tr><td colspan="12" style="height:100px;padding:0"></td></tr>{rows}</tbody>
 </table>
 
 <script>
@@ -435,6 +450,21 @@ function wipeSet(){{
   if(!confirm('Wipe all stock in {selected_set_code} to 0?'))return;
   fetch('/api/stock/wipe/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{set_code:SET_CODE}})}})
   .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(6)').forEach(td=>td.textContent='0');}}}});
+}}
+function showHist(id,btn){{
+  const row=document.getElementById('hist-row-'+id);
+  if(row.style.display!=='none'){{row.style.display='none';return;}}
+  const body=document.getElementById('hist-body-'+id);
+  body.textContent='Loading...';row.style.display='table-row';
+  fetch('/api/stock/history/'+id+'/').then(r=>r.json()).then(d=>{{
+    if(!d.ok){{body.textContent='Failed to load history';return;}}
+    let h='<div style="margin-bottom:6px"><strong>'+d.name+'</strong> &mdash; Current <b>'+d.stock+'</b> &middot; Loaded <b>'+d.loaded+'</b> &middot; Sold <b>'+d.sold+'</b> &middot; On order <b>'+d.on_order+'</b> &middot; In carts <b>'+d.in_carts+'</b></div>';
+    if(!d.moves.length)h+='<div style="color:#888">No stock movements logged yet.</div>';
+    else{{h+='<table style="width:auto;border-collapse:collapse;font-size:12px"><tr style="color:#666"><th style="text-align:left;padding:2px 12px 2px 0">When (SAST)</th><th style="padding:2px 12px">Change</th><th style="padding:2px 12px">Stock after</th><th style="text-align:left;padding:2px 12px">Source</th><th style="text-align:left;padding:2px 12px">By</th></tr>';
+      d.moves.forEach(m=>{{h+='<tr><td style="padding:2px 12px 2px 0">'+m.when+'</td><td style="padding:2px 12px;text-align:center;color:'+(m.delta>0?'#059669':'#dc2626')+';font-weight:700">'+(m.delta>0?'+':'')+m.delta+'</td><td style="padding:2px 12px;text-align:center">'+m.after+'</td><td style="padding:2px 12px">'+m.source+'</td><td style="padding:2px 12px">'+m.by+'</td></tr>';}});
+      h+='</table>';}}
+    body.innerHTML=h;
+  }}).catch(()=>{{body.textContent='Failed to load history';}});
 }}
 const COND_MULT = {{LP:0.80,MP:0.60,HP:0.35,DMG:0.20}};
 function addPlayed(id,tcgId,basePrice,btn){{
@@ -497,13 +527,61 @@ select option{{font-weight:400;color:#333}}</style>
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
+def _stock_tracker_totals(product_ids):
+    """Per-card tracker numbers for the Stock Entry page (Michael,
+    2026-10-05). Returns {product_id: {loaded, sold, on_order, in_carts}}.
+    - loaded: sum of positive StockMovement deltas (ledger; see backfill)
+    - sold: units on Complete ('invoiced') orders + non-cancelled manual invoices
+    - on_order: units on orders not yet Complete and not Cancelled (these are
+      already deducted from Current stock at checkout)
+    - in_carts: units sitting in customers' carts right now"""
+    from django.db.models import Sum
+    from orders.models import OrderItem, CartItem, ManualInvoiceItem
+
+    def agg(qs, field='quantity'):
+        return {r['product_id']: r['t'] or 0 for r in qs.values('product_id').annotate(t=Sum(field))}
+
+    ids = list(product_ids)
+    loaded = agg(StockMovement.objects.filter(product_id__in=ids, delta__gt=0), 'delta')
+    sold_o = agg(OrderItem.objects.filter(product_id__in=ids, order__status='invoiced'))
+    sold_m = agg(ManualInvoiceItem.objects.filter(product_id__in=ids).exclude(invoice__status='cancelled'))
+    on_order = agg(OrderItem.objects.filter(product_id__in=ids).exclude(order__status__in=['invoiced', 'cancelled']))
+    in_carts = agg(CartItem.objects.filter(product_id__in=ids))
+    return {
+        i: {
+            'loaded': loaded.get(i, 0),
+            'sold': sold_o.get(i, 0) + sold_m.get(i, 0),
+            'on_order': on_order.get(i, 0),
+            'in_carts': in_carts.get(i, 0),
+        } for i in ids
+    }
+
+
+@staff_member_required
+def stock_history(request, product_id):
+    """Full movement history + live tracker numbers for one card (JSON)."""
+    p = get_object_or_404(PokemonProduct, id=product_id)
+    t = _stock_tracker_totals([p.id])[p.id]
+    moves = [
+        {
+            'when': m.created_at.astimezone(__import__('zoneinfo').ZoneInfo('Africa/Johannesburg')).strftime('%Y-%m-%d %H:%M'),
+            'delta': m.delta, 'after': m.stock_after, 'source': m.get_source_display(),
+            'by': m.created_by.username if m.created_by else '',
+        }
+        for m in p.stock_movements.select_related('created_by')[:200]
+    ]
+    return JsonResponse({'ok': True, 'name': p.name, 'stock': p.stock, **t, 'moves': moves})
+
+
 @staff_member_required
 def delete_product(request, product_id):
     if request.method == 'POST':
         try:
             p = PokemonProduct.objects.get(id=product_id)
+            old_stock = p.stock
             p.stock = 0
             p.save(update_fields=['stock'])
+            log_stock_movement(p.id, old_stock, 0, 'wipe', request.user)
             return JsonResponse({'success': True})
         except PokemonProduct.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
@@ -518,13 +596,21 @@ def stock_update(request):
         updates = data.get('updates', [])
         products = {p.id: p for p in PokemonProduct.objects.filter(id__in=[u['id'] for u in updates])}
         to_update = []
+        moves = []
         for u in updates:
             p = products.get(u['id'])
             if p:
+                old_stock = p.stock
                 p.stock = max(0, int(u['stock']))
                 to_update.append(p)
+                if p.stock != old_stock:
+                    moves.append(StockMovement(
+                        product_id=p.id, delta=p.stock - old_stock, stock_after=p.stock,
+                        source='entry', created_by=request.user,
+                    ))
         with transaction.atomic():
             PokemonProduct.objects.bulk_update(to_update, ['stock'])
+            StockMovement.objects.bulk_create(moves)
         return JsonResponse({'ok': True, 'updated': len(to_update)})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
@@ -536,7 +622,13 @@ def stock_wipe(request):
     try:
         data = json.loads(request.body)
         set_code = data.get('set_code', '')
-        count = PokemonProduct.objects.filter(card_set__code=set_code).update(stock=0)
+        qs = PokemonProduct.objects.filter(card_set__code=set_code)
+        moves = [
+            StockMovement(product_id=pid, delta=-s, stock_after=0, source='wipe', created_by=request.user)
+            for pid, s in qs.filter(stock__gt=0).values_list('id', 'stock')
+        ]
+        count = qs.update(stock=0)
+        StockMovement.objects.bulk_create(moves)
         return JsonResponse({'ok': True, 'count': count})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})
@@ -902,9 +994,11 @@ def stock_add_played(request):
 
         if existing:
             # Update stock on existing played copy
+            old_stock = existing.stock
             existing.stock += stock
             existing.price = price
             existing.save(update_fields=['stock', 'price', 'updated_at'])
+            log_stock_movement(existing.id, old_stock, existing.stock, 'played', request.user)
             return JsonResponse({'ok': True, 'product_id': existing.id, 'action': 'updated'})
 
         # Create new played product row
@@ -933,6 +1027,7 @@ def stock_add_played(request):
             legal_unlimited=nm.legal_unlimited,
         )
         played.save()
+        log_stock_movement(played.id, 0, played.stock, 'played', request.user)
 
         # Copy pokemon types
         if nm.pokemon_types.exists():
@@ -1000,6 +1095,7 @@ def bundle_stock_entry(request):
             new_active = request.POST.get('active_' + bid) == 'on'
             if new_stock is not None:
                 try:
+                    log_stock_movement(b['id'], b['stock'], max(0, int(new_stock)), 'bundle', request.user)
                     PokemonProduct.objects.filter(id=b['id']).update(
                         stock=int(new_stock),
                         price=float(new_price) if new_price else 0,

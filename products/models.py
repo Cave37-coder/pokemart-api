@@ -546,3 +546,55 @@ class BundleOpportunity(models.Model):
 
     def __str__(self):
         return f"{self.card_set} -- {self.get_tier_display()} (accepted {self.accepted_at:%Y-%m-%d})"
+
+
+# -- Stock movement ledger (2026-10-05) -------------------------------------
+# Michael: "add a stock tracker on each card -- stock loaded total, current
+# stock, stock on order, stock in carts ... a full history of each card,
+# helps track my best sellers and then we can also follow trends."
+# Every change made through the Stock Entry tools (save, wipe, delete,
+# +Played, bundle stock) appends one row here. "Loaded total" on the Stock
+# Entry page = sum of the positive deltas; the rows themselves are the
+# per-card history. Sales/cart numbers are NOT stored here -- they're read
+# live from OrderItem/CartItem/ManualInvoiceItem. source='opening' rows are
+# written once by the backfill_stock_ledger command as a card's starting
+# balance (current stock + units already sold) so history isn't blank.
+class StockMovement(models.Model):
+    SOURCE_CHOICES = [
+        ("entry", "Stock Entry"),
+        ("played", "Played copy added"),
+        ("bundle", "Bundle stock"),
+        ("wipe", "Wiped to 0"),
+        ("opening", "Opening balance"),
+    ]
+    product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE, related_name="stock_movements")
+    delta = models.IntegerField(help_text="Change in stock (+ loaded, - removed/wiped).")
+    stock_after = models.IntegerField()
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="entry")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["product", "created_at"], name="products_st_product_5f1c2e_idx")]
+
+    def __str__(self):
+        return f"{self.product_id}:{self.delta:+d} -> {self.stock_after} ({self.source})"
+
+
+def log_stock_movement(product_id, old_stock, new_stock, source="entry", user=None):
+    """Append a ledger row if stock actually changed. Never raises -- the
+    ledger is bookkeeping and must not break a stock save."""
+    try:
+        old_stock = int(old_stock or 0)
+        new_stock = int(new_stock or 0)
+        if old_stock == new_stock:
+            return
+        StockMovement.objects.create(
+            product_id=product_id, delta=new_stock - old_stock, stock_after=new_stock,
+            source=source, created_by=user if getattr(user, "pk", None) else None,
+        )
+    except Exception:
+        pass

@@ -23,6 +23,7 @@ urlpatterns = [
     path("stock/print/", views.stock_print, name="stock-print"),
     path("stock/dividers/", views.stock_dividers, name="stock-dividers"),
     path("stock/played/", views.stock_add_played, name="stock-add-played"),
+    path("stock/history/<int:product_id>/", views.stock_history, name="stock-history"),
     path("sets/", views.sets_list, name="sets-list"),
     path("eras/", views.eras_list, name="eras-list"),
     path('stock/delete/<int:product_id>/', views.delete_product, name='stock_delete'),
