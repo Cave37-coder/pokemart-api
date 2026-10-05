@@ -317,11 +317,11 @@ def stock_entry(request):
               <td style="padding:12px 14px"><span style="background:{var_style};padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700">{var}</span></td>
               <td style="font-size:13px;color:#888;padding:12px 14px">{card["rarity"] or ""}</td>
               <td style="color:#ff6b35;font-weight:600;font-size:15px;padding:12px 14px">R {price:.2f}</td>
-              <td style="color:#888;font-size:15px;padding:12px 14px">{card["stock"]}</td>
               <td style="color:#2563eb;font-size:14px;padding:12px 8px;text-align:center" title="Total loaded (ledger)">{tk["loaded"]}</td>
               <td style="color:#059669;font-size:14px;padding:12px 8px;text-align:center" title="Sold (Complete orders + manual invoices)">{tk["sold"]}</td>
               <td style="color:{"#d97706" if tk["on_order"] else "#bbb"};font-size:14px;font-weight:{"700" if tk["on_order"] else "400"};padding:12px 8px;text-align:center" title="On open orders (not Complete/Cancelled)">{tk["on_order"]}</td>
               <td style="color:{"#7c3aed" if tk["in_carts"] else "#bbb"};font-size:14px;font-weight:{"700" if tk["in_carts"] else "400"};padding:12px 8px;text-align:center" title="In customer carts">{tk["in_carts"]}</td>
+              <td style="color:#111;font-size:16px;font-weight:700;padding:12px 14px">{card["stock"]}</td>
               <td style="padding:12px 14px"><input type="number" class="qty" data-id="{card["id"]}" data-orig="{card["stock"]}"
                          min="0" placeholder="-" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:16px;font-weight:600"
                          oninput="this.style.borderColor=this.value!==''?'#10B981':'#ddd'"></td>
@@ -342,9 +342,10 @@ def stock_entry(request):
                   <option value="DMG">DMG "” Damaged</option>
                 </select>
               </td>
+              <td></td>
               <td style="padding:6px 14px;font-size:12px;color:#92400e" id="played-price-{card['id']}">R {price:.2f}</td>
-              <td style="padding:6px 14px;font-size:12px;color:#888">0</td>
               <td colspan="4"></td>
+              <td style="padding:6px 14px;font-size:12px;color:#888">0</td>
               <td style="padding:6px 14px">
                 <input type="number" id="played-qty-{card['id']}" min="1" value="1" placeholder="Qty"
                   style="width:70px;padding:6px;border:1px solid #f59e0b;border-radius:4px;font-size:14px;font-weight:600;text-align:center">
@@ -405,11 +406,11 @@ def stock_entry(request):
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Variant</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">Rarity</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="100">Price</th>
-    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="90">Current</th>
     <th style="text-align:center;padding:12px 8px;font-size:12px;color:#2563eb;border-bottom:1px solid #eee" width="60" title="Total stock ever loaded (ledger)">Loaded</th>
     <th style="text-align:center;padding:12px 8px;font-size:12px;color:#059669;border-bottom:1px solid #eee" width="60" title="Sold: Complete orders + manual invoices">Sold</th>
     <th style="text-align:center;padding:12px 8px;font-size:12px;color:#d97706;border-bottom:1px solid #eee" width="60" title="On open orders (not Complete/Cancelled)">On Order</th>
     <th style="text-align:center;padding:12px 8px;font-size:12px;color:#7c3aed;border-bottom:1px solid #eee" width="60" title="In customer carts">In Carts</th>
+    <th style="text-align:left;padding:12px 14px;font-size:13px;color:#111;border-bottom:1px solid #eee" width="80">Current</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="120">New Qty</th>
     <th width="60"></th>
   </tr>
@@ -425,7 +426,7 @@ function delProd(id,btn){{
   .then(r=>r.json()).then(d=>{{
     if(d.success){{
       const row=btn.closest('tr');
-      row.querySelector('td:nth-child(6)').textContent='0';
+      row.querySelector('td:nth-child(10)').textContent='0';
       showMsg('Stock wiped to 0',true);
     }}else alert('Failed to wipe stock');
   }});
@@ -442,14 +443,14 @@ function saveStock(){{
   const updates=inputs.map(i=>({{id:parseInt(i.dataset.id),stock:parseInt(i.value)}}));
   fetch('/api/stock/update/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{updates}})}})
   .then(r=>r.json()).then(d=>{{
-    if(d.ok){{showMsg('Saved '+d.updated+' cards!',true);inputs.forEach(i=>{{i.closest('tr').querySelector('td:nth-child(6)').textContent=i.value;i.value='';i.style.borderColor='#ddd';}});}}
+    if(d.ok){{showMsg('Saved '+d.updated+' cards!',true);inputs.forEach(i=>{{i.closest('tr').querySelector('td:nth-child(10)').textContent=i.value;i.value='';i.style.borderColor='#ddd';}});}}
     else showMsg('Error: '+d.error,false);
   }});
 }}
 function wipeSet(){{
   if(!confirm('Wipe all stock in {selected_set_code} to 0?'))return;
   fetch('/api/stock/wipe/',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}},body:JSON.stringify({{set_code:SET_CODE}})}})
-  .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(6)').forEach(td=>td.textContent='0');}}}});
+  .then(r=>r.json()).then(d=>{{if(d.ok){{showMsg('Wiped '+d.count+' cards to 0',true);document.querySelectorAll('td:nth-child(10)').forEach(td=>td.textContent='0');}}}});
 }}
 function showHist(id,btn){{
   const row=document.getElementById('hist-row-'+id);
