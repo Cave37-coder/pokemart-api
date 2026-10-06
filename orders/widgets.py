@@ -28,17 +28,17 @@ from django.utils.safestring import mark_safe
 class StatusStepperWidget(forms.Select):
 
     STEPS = [
-        ('pending',   'Order Received'),
+        ('pending',   'Order Confirmed'),
         ('printed',   'Order Printed'),
-        ('packed',    'Order Preparing'),
-        ('booked',    'Courier Booking'),
+        ('packed',    'Order Being Packed'),
+        ('booked',    'Courier Booked'),
         ('ready',     'Ready for Collection'),
-        ('collected', 'Courier Collected'),
+        ('collected', 'Deposited at Locker/Postnet'),
         ('invoiced',  'Complete'),
     ]
     OTHER = [
         ('', '— choose —'),
-        ('awaiting_payment', 'Awaiting Payment'),
+        ('awaiting_payment', 'Awaiting PayFast Payment'),
         ('pending_eft', 'Awaiting EFT Payment'),
         ('cancelled', 'Cancelled'),
     ]

@@ -30,6 +30,17 @@ def community_discount_percent(user):
     return Decimal("0")
 
 
+def pending_status_label(status, payment_method, delivery_method="", shipping_method=""):
+    """Returns the method-specific label for status 'pending', else None."""
+    if status != "pending":
+        return None
+    if payment_method == "eft":
+        return "EFT Received / Order Confirmed"
+    if payment_method == "coc" or delivery_method == "collection" or shipping_method == "collection":
+        return "Order Confirmed (24 hours minimum notice for pickup)"
+    return "Order Confirmed"
+
+
 class Cart(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -81,14 +92,19 @@ class CartItem(models.Model):
 
 class Order(models.Model):
     STATUS_CHOICES = [
-        ("awaiting_payment", "Awaiting Payment"),
-        ("pending",         "Order Received"),
+        # Relabelled 2026-10-06 from Michael's handwritten status list. Stored
+        # codes are unchanged (labels only, no data migration). 'pending' is
+        # the shared "payment done / order confirmed" state for every payment
+        # method, so its customer-facing wording varies -- see
+        # get_status_display() below.
+        ("awaiting_payment", "Awaiting PayFast Payment"),
+        ("pending",         "Order Confirmed"),
         ("pending_eft",     "Awaiting EFT Payment"),
         ("printed",         "Order Printed"),
-        ("packed",          "Order Preparing"),
-        ("booked",          "Courier Booking"),
+        ("packed",          "Order Being Packed"),
+        ("booked",          "Courier Booked"),
         ("ready",           "Ready for Collection"),
-        ("collected",       "Courier Collected"),
+        ("collected",       "Deposited at Locker/Postnet"),
         ("invoiced",        "Complete"),
         ("cancelled",       "Cancelled"),
     ]
@@ -196,6 +212,17 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} - {self.user.username} [{self.get_status_display()}]"
 
+    def get_status_display(self):
+        """Payment-method-aware label for the shared 'pending' state
+        (Michael, 2026-10-06): PayFast -> "Order Confirmed"; EFT -> "EFT
+        Received / Order Confirmed"; collection/cash -> "Order Confirmed (24
+        hours minimum notice for pickup)". Every other status uses its
+        normal choices label. All serializers, emails, push notifications
+        and admin badges call get_status_display(), so this one override
+        updates them all."""
+        return pending_status_label(self.status, self.payment_method, self.delivery_method, self.shipping_method) \
+            or super().get_status_display()
+
     def save(self, *args, **kwargs):
         """
         Automatic stock restoration on cancellation, and re-decrement if an
@@ -246,6 +273,11 @@ class OrderTracking(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+
+    def get_status_display(self):
+        o = self.order
+        return pending_status_label(self.status, o.payment_method, o.delivery_method, o.shipping_method) \
+            or super().get_status_display()
 
     def __str__(self):
         return f"Order #{self.order.id} -> {self.get_status_display()} @ {self.created_at:%Y-%m-%d %H:%M}"
