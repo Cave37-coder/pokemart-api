@@ -30,6 +30,15 @@ def community_discount_percent(user):
     return Decimal("0")
 
 
+def _choice_label(instance, field_name):
+    """Same result as Django's auto get_FOO_display(). Needed because Django
+    does NOT generate get_status_display() on a class that defines its own,
+    so super().get_status_display() doesn't exist."""
+    field = instance._meta.get_field(field_name)
+    value = getattr(instance, field_name)
+    return str(dict(field.flatchoices).get(value, value))
+
+
 def pending_status_label(status, payment_method, delivery_method="", shipping_method=""):
     """Returns the method-specific label for status 'pending', else None."""
     if status != "pending":
@@ -221,7 +230,7 @@ class Order(models.Model):
         and admin badges call get_status_display(), so this one override
         updates them all."""
         return pending_status_label(self.status, self.payment_method, self.delivery_method, self.shipping_method) \
-            or super().get_status_display()
+            or _choice_label(self, 'status')
 
     def save(self, *args, **kwargs):
         """
@@ -277,7 +286,7 @@ class OrderTracking(models.Model):
     def get_status_display(self):
         o = self.order
         return pending_status_label(self.status, o.payment_method, o.delivery_method, o.shipping_method) \
-            or super().get_status_display()
+            or _choice_label(self, 'status')
 
     def __str__(self):
         return f"Order #{self.order.id} -> {self.get_status_display()} @ {self.created_at:%Y-%m-%d %H:%M}"
