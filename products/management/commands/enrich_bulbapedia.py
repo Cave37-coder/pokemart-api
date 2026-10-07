@@ -21,7 +21,7 @@ Run with DATABASE_URL uncommented in .env
 import requests, time, re
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from products.models import PokemonProduct, CardSet
+from products.models import PokemonProduct, CardSet, PokemonType
 
 BULBA_API   = "https://bulbapedia.bulbagarden.net/w/api.php"
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
@@ -37,6 +37,8 @@ BULBA_SETS = {
     "CRI":    ("Chaos Rising",            "regular", 24655),
     "BLK":    ("Black Bolt",              "regular", 24325),
     "WHT":    ("White Flare",             "regular", 24326),
+    "PBL":    ("Pitch Black",             "regular", 0),
+    "30C":    ("30th Celebration",        "regular", 0),
     "BRSTG":  ("Brilliant Stars",         "tg",      3020),
     "ASRTG":  ("Astral Radiance",         "tg",      3068),
     "LORTG":  ("Lost Origin",             "tg",      3172),
@@ -55,7 +57,17 @@ ENRICH_FIELDS = [
     "attack_1_name", "attack_1_damage", "attack_1_text",
     "attack_2_name", "attack_2_damage", "attack_2_text",
     "pokedex_number",
+    # 2026-10-07 gap-fill
+    "stage", "evolves_from", "name_japanese",
+    "attack_1_cost", "attack_2_cost",
+    "attack_3_name", "attack_3_damage", "attack_3_text", "attack_3_cost",
+    "ability_2_name", "ability_2_type", "ability_2_text",
 ]
+
+TYPE_NAMES = {
+    "Grass", "Fire", "Water", "Lightning", "Psychic", "Fighting", "Darkness",
+    "Metal", "Fairy", "Dragon", "Colorless",
+}
 
 
 def fetch_tcgcsv_numbers(group_id):
@@ -129,6 +141,37 @@ def get_field_from_block(block, field):
     return m.group(1).strip() if m else ""
 
 
+def extract_cost(block):
+    """Energy cost from '|cost={{e|Grass}}{{e|Grass}}{{e|Colorless}}' ->
+    'Grass,Grass,Colorless'. (The generic field regex stops at the first
+    '|', so it can't read nested templates.)"""
+    m = re.search(r'\|cost=((?:\{\{[^{}]*\}\})*)', block)
+    if not m:
+        return ""
+    return ",".join(t.strip() for t in re.findall(r'\{\{e\|([^}|]+)', m.group(1)))
+
+
+def get_effect(block):
+    """'|effect=...' text up to the next top-level '|field=' line. Unlike
+    get_field_from_block it keeps nested {{e|Grass}} templates and '|'
+    characters inside them, so 'Basic {{e|Grass}} Energy' isn't cut short."""
+    m = re.search(r'\|effect=(.*?)(?:\n\||\Z)', block, re.DOTALL)
+    return m.group(1).strip() if m else ""
+
+
+def clean_markup(text):
+    """Wikitext -> plain text: {{e|Grass}} -> Grass, [[a|b]] -> b, strip
+    other templates/formatting."""
+    if not text:
+        return ""
+    text = re.sub(r'\{\{e\|([^}|]+)\}\}', r'\1', text)
+    text = re.sub(r'\{\{(?:TCG|ct|me|p|m)\|([^}|]+)(?:\|[^}]*)?\}\}', r'\1', text)
+    text = re.sub(r'\[\[(?:[^\]|]*\|)?([^\]]+)\]\]', r'\1', text)
+    text = re.sub(r"'''?", '', text)
+    text = re.sub(r'<br\s*/?>', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
 def parse_wikitext(wikitext):
     def get(field):
         m = re.search(rf'\|{field}=([^\n|}}]+)', wikitext)
@@ -139,15 +182,19 @@ def parse_wikitext(wikitext):
     artist_match = re.search(r'Illus\.\s*\[\[([^\]|]+)', caption)
     artist = artist_match.group(1).strip() if artist_match else get("illus")
 
-    # Pokedex from evoicon
-    dex = get("evoicon")
-    pokedex = int(dex) if dex and dex.isdigit() else None
-
-    # Also check ndex in Carddex template
-    if not pokedex:
-        dex2 = get("ndex")
-        if dex2 and dex2.isdigit():
-            pokedex = int(dex2)
+    # Pokedex number. FIXED 2026-10-07: this used to read `evoicon` first, but
+    # on the infobox `evoicon` is the dex number of the PRE-EVOLUTION used for
+    # the evolution icon (Mega Venusaur ex has evoicon=002 = Ivysaur), so every
+    # evolved card got its pre-evo's number. The card's own number is `ndex`
+    # in the Cardtext footer template (ndex=0003). evoicon is only a valid
+    # fallback for a Basic (no pre-evolution).
+    pokedex = None
+    dex = get("ndex")
+    if dex and dex.isdigit():
+        pokedex = int(dex)
+    elif (get("evostage") or "").strip().lower() in ("basic", ""):
+        ev = get("evoicon")
+        pokedex = int(ev) if ev and ev.isdigit() else None
 
     # HP
     hp_raw = get("hp")
@@ -163,24 +210,44 @@ def parse_wikitext(wikitext):
     for block in attack_blocks:
         name   = get_field_from_block(block, "name")
         damage = get_field_from_block(block, "damage")
-        effect = get_field_from_block(block, "effect")
+        effect = clean_markup(get_effect(block))
         if name:
             attacks.append({
                 "name":   name,
                 "damage": damage,
                 "text":   effect,
+                "cost":   extract_cost(block),
             })
 
-    # Parse ability using depth-aware template extraction
-    ability_name = ability_text = ability_type = ""
-    ability_blocks = extract_template_block(wikitext, "Cardtext/Ability")
-    if ability_blocks:
-        ab = ability_blocks[0]
-        ability_name = get_field_from_block(ab, "name")
-        ability_text = get_field_from_block(ab, "effect")
-        ability_type = get_field_from_block(ab, "type") or "Ability"
+    # Parse abilities (first two) using depth-aware template extraction
+    abilities = []
+    for ab in extract_template_block(wikitext, "Cardtext/Ability")[:2]:
+        abilities.append({
+            "name": get_field_from_block(ab, "name"),
+            "text": clean_markup(get_effect(ab)),
+            # the block's own |type= is the ENERGY type ("Grass"), not the
+            # ability kind -- Cardtext/Ability is always an Ability.
+            "type": "Ability",
+        })
+    ab1 = abilities[0] if abilities else {"name": "", "text": "", "type": ""}
+    ab2 = abilities[1] if len(abilities) > 1 else {"name": "", "text": "", "type": ""}
+    ability_name, ability_text, ability_type = ab1["name"], ab1["text"], ab1["type"]
+
+    def atk(i, key):
+        return attacks[i][key] if len(attacks) > i else ""
 
     return {
+        "name_japanese":  get("jname"),
+        "card_class":     get("class"),
+        "attack_1_cost":  atk(0, "cost"),
+        "attack_2_cost":  atk(1, "cost"),
+        "attack_3_name":  atk(2, "name"),
+        "attack_3_damage": atk(2, "damage"),
+        "attack_3_text":  atk(2, "text"),
+        "attack_3_cost":  atk(2, "cost"),
+        "ability_2_name": ab2["name"],
+        "ability_2_type": ab2["type"],
+        "ability_2_text": ab2["text"],
         "hp":             hp,
         "type":           get("type"),
         "weakness":       get("weakness"),
@@ -245,13 +312,31 @@ def apply_to_product(p, parsed, overwrite=False):
         if value is None or value == "":
             return
         current = getattr(p, field, None)
-        if overwrite or not current:
+        # `overwrite` is True (everything), a set of field names (just
+        # those, e.g. {"pokedex_number"}), or falsy (fill blanks only).
+        force = overwrite is True or (isinstance(overwrite, (set, frozenset)) and field in overwrite)
+        if force or not current:
             if current != value:
                 setattr(p, field, value)
                 changed = True
 
     set_field("hp",             parsed["hp"])
-    set_field("card_subtypes",  parsed["type"])
+    # card_subtypes used to be filled with the ENERGY type ("Grass"), which
+    # is wrong -- subtypes are Basic/Stage 1/ex/Mega. Fill the real thing,
+    # and replace a previously-written energy-type value.
+    subtypes = ", ".join(x for x in (parsed.get("evostage"), parsed.get("card_class")) if x)
+    if subtypes and (not p.card_subtypes or p.card_subtypes in TYPE_NAMES or overwrite is True
+                     or (isinstance(overwrite, (set, frozenset)) and "card_subtypes" in overwrite)):
+        if p.card_subtypes != subtypes:
+            p.card_subtypes = subtypes
+            changed = True
+    set_field("stage",          parsed.get("evostage"))
+    set_field("evolves_from",   parsed.get("evolves_from"))
+    set_field("name_japanese",  parsed.get("name_japanese"))
+    for f in ("attack_1_cost", "attack_2_cost", "attack_3_name", "attack_3_damage",
+              "attack_3_text", "attack_3_cost", "ability_2_name", "ability_2_type",
+              "ability_2_text"):
+        set_field(f, parsed.get(f))
     set_field("weakness_type",  parsed["weakness"])
     if parsed["weakness"]:
         set_field("weakness_value", "x2")
@@ -282,6 +367,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run",     action="store_true")
         parser.add_argument("--verify-only", action="store_true")
         parser.add_argument("--overwrite",   action="store_true")
+        parser.add_argument("--overwrite-fields", default="",
+                            help="Comma list of fields to overwrite even when filled, e.g. pokedex_number,ability_type")
         parser.add_argument("--delay",       type=float, default=0.5)
 
     def handle(self, *args, **options):
@@ -289,6 +376,8 @@ class Command(BaseCommand):
         dry_run   = options["dry_run"]
         verify    = options["verify_only"]
         overwrite = options["overwrite"]
+        if not overwrite and options.get("overwrite_fields"):
+            overwrite = {f.strip() for f in options["overwrite_fields"].split(",") if f.strip()}
         delay     = options["delay"]
 
         if len(codes) == 1 and codes[0].upper() == "ALL":
@@ -441,6 +530,12 @@ class Command(BaseCommand):
                 for p in all_variants:
                     if apply_to_product(p, parsed, overwrite):
                         to_update.append(p)
+                        changed_any = True
+                    # Energy type (M2M, not in bulk_update) -- never set for
+                    # MEG-era cards before; fill when the card has none.
+                    t = (parsed.get("type") or "").strip()
+                    if t in TYPE_NAMES and not p.pokemon_types.exists():
+                        p.pokemon_types.add(PokemonType.objects.get_or_create(name=t)[0])
                         changed_any = True
 
                 if changed_any:

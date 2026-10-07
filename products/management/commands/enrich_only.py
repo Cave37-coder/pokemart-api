@@ -432,36 +432,62 @@ class Command(BaseCommand):
                         p.image_small_url = img
                         tcgcsv_fallback += 1
 
-                p.supertype        = card.get("supertype", "") or ""
-                p.card_subtypes    = ", ".join(card.get("subtypes", [])) or ""
+                # 2026-10-07: only write a value when the API actually has
+                # one -- a thin API record used to wipe good existing data
+                # (HP, attacks, artist...) with blanks.
+                def put(field, value):
+                    if value not in (None, ""):
+                        setattr(p, field, value)
+
+                subs = card.get("subtypes", []) or []
+                put("supertype",     card.get("supertype", ""))
+                put("card_subtypes", ", ".join(subs))
                 hp = card.get("hp")
-                p.hp               = int(hp) if hp and str(hp).isdigit() else None
-                p.artist           = card.get("artist", "") or ""
-                p.flavour_text     = card.get("flavorText", "") or ""
+                put("hp",            int(hp) if hp and str(hp).isdigit() else None)
+                put("artist",        card.get("artist", ""))
+                put("flavour_text",  card.get("flavorText", ""))
                 pdx = card.get("nationalPokedexNumbers", [])
-                p.pokedex_number   = pdx[0] if pdx else None
+                put("pokedex_number", pdx[0] if pdx else None)
                 wk = card.get("weaknesses", [])
-                p.weakness_type    = wk[0].get("type", "") if wk else ""
-                p.weakness_value   = wk[0].get("value", "") if wk else ""
+                put("weakness_type",  wk[0].get("type", "") if wk else "")
+                put("weakness_value", wk[0].get("value", "") if wk else "")
                 rs = card.get("resistances", [])
-                p.resistance_type  = rs[0].get("type", "") if rs else ""
-                p.resistance_value = rs[0].get("value", "") if rs else ""
+                put("resistance_type",  rs[0].get("type", "") if rs else "")
+                put("resistance_value", rs[0].get("value", "") if rs else "")
                 ret = card.get("retreatCost", [])
-                p.retreat_cost     = len(ret) if ret else None
-                ab = card.get("abilities", [])
-                p.ability_name     = ab[0].get("name", "") if ab else ""
-                p.ability_type     = ab[0].get("type", "") if ab else ""
-                p.ability_text     = ab[0].get("text", "") if ab else ""
-                atks = card.get("attacks", [])
-                a1 = atks[0] if atks else {}
-                a2 = atks[1] if len(atks) > 1 else {}
-                p.attack_1_name    = a1.get("name", "") or ""
-                p.attack_1_damage  = a1.get("damage", "") or ""
-                p.attack_1_text    = a1.get("text", "") or ""
-                p.attack_2_name    = a2.get("name", "") or ""
-                p.attack_2_damage  = a2.get("damage", "") or ""
-                p.attack_2_text    = a2.get("text", "") or ""
-                p.tcgplayer_id     = card.get("id", "") or ""
+                put("retreat_cost",  len(ret) if ret else None)
+                ab = card.get("abilities", []) or []
+                for i, prefix in enumerate(("ability", "ability_2")):
+                    a = ab[i] if len(ab) > i else {}
+                    put(f"{prefix}_name", a.get("name", ""))
+                    put(f"{prefix}_type", a.get("type", ""))
+                    put(f"{prefix}_text", a.get("text", ""))
+                atks = card.get("attacks", []) or []
+                for i in range(3):
+                    a = atks[i] if len(atks) > i else {}
+                    put(f"attack_{i+1}_name",   a.get("name", ""))
+                    put(f"attack_{i+1}_damage", a.get("damage", ""))
+                    put(f"attack_{i+1}_text",   a.get("text", ""))
+                    put(f"attack_{i+1}_cost",   ",".join(a.get("cost", []) or []))
+                put("tcgplayer_id", card.get("id", ""))
+                # 2026-10-07 gap-fill
+                stage = next((s for s in subs if s in ("Basic", "Stage 1", "Stage 2", "MEGA", "Mega", "VMAX", "VSTAR", "V-UNION", "BREAK", "Restored")), "")
+                put("stage",         stage)
+                put("evolves_from",  card.get("evolvesFrom", ""))
+                put("evolves_to",    ", ".join(card.get("evolvesTo", []) or []))
+                put("rules_text",    " ".join(card.get("rules", []) or []))
+                at = card.get("ancientTrait") or {}
+                put("ancient_trait", f"{at.get('name', '')}: {at.get('text', '')}".strip(": ") if at else "")
+                put("card_level",    card.get("level", ""))
+                # Fill-only (never overwrite): per-card regulation mark and
+                # the API's own legalities where we have none yet.
+                if not p.regulation_mark:
+                    put("regulation_mark", card.get("regulationMark", ""))
+                lg = card.get("legalities", {}) or {}
+                if p.legal_standard is None and lg.get("standard"):
+                    p.legal_standard = (lg["standard"] == "Legal")
+                if p.legal_expanded is None and lg.get("expanded"):
+                    p.legal_expanded = (lg["expanded"] == "Legal")
 
                 to_update.append(p)
 
@@ -480,6 +506,12 @@ class Command(BaseCommand):
                 'attack_1_name', 'attack_1_damage', 'attack_1_text',
                 'attack_2_name', 'attack_2_damage', 'attack_2_text',
                 'tcgplayer_id',
+                'attack_1_cost', 'attack_2_cost',
+                'attack_3_name', 'attack_3_damage', 'attack_3_text', 'attack_3_cost',
+                'ability_2_name', 'ability_2_type', 'ability_2_text',
+                'stage', 'evolves_from', 'evolves_to', 'rules_text',
+                'ancient_trait', 'card_level',
+                'regulation_mark', 'legal_standard', 'legal_expanded',
             ]
             if to_update and not dry_run:
                 with transaction.atomic():

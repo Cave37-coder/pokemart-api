@@ -245,6 +245,27 @@ class PokemonProduct(models.Model):
     attack_2_damage = models.CharField(max_length=20, blank=True)
     attack_2_text = models.TextField(blank=True)
 
+    # 2026-10-07 enrichment gap-fill (Michael: "add all the gaps ... Mega Era,
+    # huge holes there"). Energy costs are stored as comma-separated type
+    # names in order, e.g. "Grass,Grass,Colorless". Attack 3 / second ability
+    # cover the cards (Mega ex, VSTAR/VMAX, multi-ability) the old 2-attack /
+    # 1-ability columns silently truncated.
+    attack_1_cost = models.CharField(max_length=80, blank=True)
+    attack_2_cost = models.CharField(max_length=80, blank=True)
+    attack_3_name = models.CharField(max_length=200, blank=True)
+    attack_3_damage = models.CharField(max_length=20, blank=True)
+    attack_3_text = models.TextField(blank=True)
+    attack_3_cost = models.CharField(max_length=80, blank=True)
+    ability_2_name = models.CharField(max_length=200, blank=True)
+    ability_2_type = models.CharField(max_length=50, blank=True)
+    ability_2_text = models.TextField(blank=True)
+    stage = models.CharField(max_length=40, blank=True, help_text="Basic / Stage 1 / Stage 2 / Mega etc.")
+    evolves_from = models.CharField(max_length=100, blank=True)
+    evolves_to = models.CharField(max_length=200, blank=True, help_text="Comma-separated.")
+    rules_text = models.TextField(blank=True, help_text="Rule box text (ex / V / Mega rules).")
+    ancient_trait = models.CharField(max_length=400, blank=True)
+    card_level = models.CharField(max_length=10, blank=True)
+
     # Media
     image = models.ImageField(upload_to="products/", blank=True, null=True)
     image_url = models.URLField(max_length=500, blank=True)
