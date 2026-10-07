@@ -54,6 +54,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--skip-serebii", action="store_true")
         parser.add_argument("--skip-bulbapedia", action="store_true")
+        parser.add_argument("--overwrite-fields", default="pokedex_number,ability_type",
+                            help="Fields Bulbapedia may overwrite even when filled (default repairs the wrong dex numbers / ability types from the old parser). Use '' to disable.")
 
     # -- coverage ---------------------------------------------------------
     def coverage(self, sets, title):
@@ -104,7 +106,8 @@ class Command(BaseCommand):
             return
         if not o["skip_bulbapedia"]:
             self.stdout.write("\n--- Bulbapedia ---")
-            call_command("enrich_bulbapedia", *sets, dry_run=o["dry_run"])
+            call_command("enrich_bulbapedia", *sets, dry_run=o["dry_run"],
+                         overwrite_fields=o["overwrite_fields"])
         if not o["skip_serebii"]:
             self.stdout.write("\n--- Serebii ---")
             call_command("enrich_serebii", *sets, dry_run=o["dry_run"])
