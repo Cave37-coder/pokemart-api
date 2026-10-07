@@ -25,7 +25,13 @@ from products.models import PokemonProduct, CardSet, PokemonType
 
 BULBA_API   = "https://bulbapedia.bulbagarden.net/w/api.php"
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
-HEADERS     = {"User-Agent": "PokeBulkSA/1.0 (pokebulk.co.za)"}
+# Bulbapedia (MediaWiki) answers HTTP 403 to generic/anonymous clients -- its
+# API etiquette asks for a descriptive User-Agent with contact details.
+HEADERS     = {
+    "User-Agent": "PokeBulkSA-CardEnrichment/1.0 (https://pokebulk.co.za; enquiries@pokebulk.co.za) python-requests",
+    "Accept": "application/json",
+    "Accept-Language": "en",
+}
 
 BULBA_SETS = {
     "MEG":    ("Mega Evolution",          "regular", 24380),
