@@ -106,10 +106,18 @@ def parse_card(html):
         out["hp"] = None
     # Everything from the HP marker to the artist line is the card body.
     start = m.end() if m else 0
-    am = re.search(r'Illustration:\s*([^|«\[]+?)(?:\s{2,}|\s*$|\s+(?:«|\[))', t[start:] + ' ')
+    # The icon right after the HP is the card's own ENERGY TYPE (verified on
+    # real pages: /card/image/grass.png next to "80 HP"), NOT an attack cost.
+    tm0 = re.match(r'\s*\[E:(\w+)\]', t[start:])
+    out["energy_type"] = tm0.group(1) if tm0 else ""
+    if tm0:
+        start += tm0.end()
+    # Artist straight from the raw HTML: Illustration: <a ...><u>NAME</u></a>
+    am_html = re.search(r'Illustration:\s*(?:<a[^>]*>\s*)?(?:<u>\s*)?([^<]+?)\s*(?:</u>|</a>|<)', html, re.I)
+    am = re.search(r'Illustration:', t[start:])
     body_end = start + am.start() if am else len(t)
     body = t[start:body_end]
-    out["artist"] = am.group(1).strip() if am else ""
+    out["artist"] = am_html.group(1).strip() if am_html else ""
 
     # Weakness / Resistance / Retreat
     wm = re.search(r'Weakness\s*«/B»?\s*((?:\[E:\w+\]\s*)*)\s*(x\d+|\+\d+)?', body, re.I)
@@ -216,6 +224,10 @@ class Command(BaseCommand):
                     continue
                 for p in PokemonProduct.objects.filter(card_set=db_set, card_number=n):
                     changed = False
+                    et = parsed.get("energy_type")
+                    if et and not o["dry_run"] and not p.pokemon_types.exists():
+                        p.pokemon_types.add(PokemonType.objects.get_or_create(name=et)[0])
+                        filled += 1
                     for f in FIELDS:
                         v = parsed.get(f)
                         if v in ("", None):
