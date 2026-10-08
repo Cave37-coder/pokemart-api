@@ -420,17 +420,12 @@ class Command(BaseCommand):
                     continue
 
                 # Apply all enrichment fields
-                imgs = card.get("images", {})
-                p.image_url        = imgs.get("large", "") or ""
-                p.image_small_url  = imgs.get("small", "") or ""
-
-                # TCGCSV fallback if ptcgio has no image
-                if not p.image_url and tcgcsv_imgs and p.tcgcsv_product_id:
-                    img = tcgcsv_imgs.get(p.tcgcsv_product_id, "")
-                    if img:
-                        p.image_url = img
-                        p.image_small_url = img
-                        tcgcsv_fallback += 1
+                # 2026-10-08: images are NO LONGER written from here. This used
+                # to overwrite image_url with pokemontcg.io links (or blank it)
+                # on every run, which would replace the R2-hosted images
+                # (images.pokebulk.co.za) with external hotlinks -- against the
+                # "R2 always for images" rule. Card images are handled by the
+                # R2 upload commands only; this command is data-only now.
 
                 # 2026-10-07: only write a value when the API actually has
                 # one -- a thin API record used to wipe good existing data

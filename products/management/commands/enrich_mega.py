@@ -21,7 +21,13 @@ import re
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from products.models import PokemonProduct
+from products.models import PokemonProduct, CardSet
+from products.management.commands.enrich_only import SET_ID_MAP
+from products.management.commands.enrich_bulbapedia import BULBA_SETS
+from products.management.commands.enrich_serebii import SEREBII_SLUGS
+
+# Era codes (Era.code), newest first -- used by --era-from.
+ERA_CODES_NEW_TO_OLD = ["MEG", "SV", "SWSH", "SM", "XY", "BW", "HGSS", "DP", "EX", "WotCO", "WotCL", "WotCN", "WotC"]
 
 MEGA_SETS = ["MEG", "PFL", "MEP", "MEE", "ASC", "POR", "CRI", "BLK", "WHT", "PBL", "30C"]
 
@@ -50,6 +56,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--sets", nargs="+", default=MEGA_SETS)
+        parser.add_argument("--era-from", default="",
+                            help="Run every set from this era up to the newest, e.g. BW. Uses pokemontcg.io "
+                                 "(fast, full cards) for the mapped sets, plus Bulbapedia/Serebii where configured.")
+        parser.add_argument("--skip-ptcgio", action="store_true")
         parser.add_argument("--report", action="store_true")
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--skip-serebii", action="store_true")
@@ -64,8 +74,16 @@ class Command(BaseCommand):
         self.stdout.write(f"\n=== Coverage: {title} (% of Pokemon cards with the field) ===")
         head = f"{'set':5} {'cards':>5} {'pkmn':>5} {'types':>6} " + " ".join(f"{f[:9]:>9}" for f in REPORT_FIELDS)
         self.stdout.write(head)
-        for code in sets:
-            qs = PokemonProduct.objects.filter(card_set__code=code)
+        # Many sets (era mode) -> one row per ERA instead of one per set.
+        if len(sets) > 20:
+            groups = {}
+            for code, era in CardSet.objects.filter(code__in=sets).values_list("code", "era__code"):
+                groups.setdefault(era or "?", []).append(code)
+            rows = [(era, {"card_set__code__in": codes}) for era, codes in groups.items()]
+        else:
+            rows = [(code, {"card_set__code": code}) for code in sets]
+        for code, flt in rows:
+            qs = PokemonProduct.objects.filter(**flt)
             total = qs.count()
             if not total:
                 continue
@@ -143,18 +161,34 @@ class Command(BaseCommand):
 
     def handle(self, *args, **o):
         sets = [s.upper() for s in o["sets"]]
+        era_mode = bool(o["era_from"])
+        if era_mode:
+            ef = o["era_from"]
+            if ef not in ERA_CODES_NEW_TO_OLD:
+                raise SystemExit(f"--era-from must be one of {ERA_CODES_NEW_TO_OLD}")
+            eras = ERA_CODES_NEW_TO_OLD[:ERA_CODES_NEW_TO_OLD.index(ef) + 1]
+            sets = list(CardSet.objects.filter(era__code__in=eras).values_list("code", flat=True))
+            self.stdout.write(f"Era mode: {', '.join(eras)} -> {len(sets)} sets")
         self.coverage(sets, "before")
         if o["report"]:
             return
         if o["twins_only"]:
-            o["skip_bulbapedia"] = o["skip_serebii"] = True
-        if not o["skip_bulbapedia"]:
+            o["skip_bulbapedia"] = o["skip_serebii"] = o["skip_ptcgio"] = True
+        # 1) pokemontcg.io -- every mapped set (BW .. SV). Fast, full card data.
+        if era_mode and not o["skip_ptcgio"]:
+            self.stdout.write("\n--- pokemontcg.io ---")
+            for code in sets:
+                if code in SET_ID_MAP:
+                    call_command("enrich_only", code, dry_run=o["dry_run"])
+        bulba_sets = [c for c in sets if c in BULBA_SETS]
+        if not o["skip_bulbapedia"] and bulba_sets:
             self.stdout.write("\n--- Bulbapedia ---")
-            call_command("enrich_bulbapedia", *sets, dry_run=o["dry_run"],
+            call_command("enrich_bulbapedia", *bulba_sets, dry_run=o["dry_run"],
                          overwrite_fields=o["overwrite_fields"])
-        if not o["skip_serebii"]:
+        serebii_sets = [c for c in sets if c in SEREBII_SLUGS]
+        if not o["skip_serebii"] and serebii_sets:
             self.stdout.write("\n--- Serebii ---")
-            call_command("enrich_serebii", *sets, dry_run=o["dry_run"])
+            call_command("enrich_serebii", *serebii_sets, dry_run=o["dry_run"])
         self.stdout.write("\n--- twin copy (alt/reprint/promo prints) ---")
         self.fill_from_twins(sets, o["dry_run"])
         self.stdout.write("\n--- evolves_to ---")
