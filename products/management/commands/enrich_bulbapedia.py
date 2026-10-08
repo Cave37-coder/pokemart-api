@@ -107,7 +107,11 @@ def fetch_bulba_wikitext(page_title):
             "action": "parse",
             "page":   page_title,
             "prop":   "wikitext",
-            "format": "json"
+            "format": "json",
+            # Reprint pages ("Budew (Ascended Heroes 16)") are #REDIRECTs to
+            # the original card's page -- without this we parsed the redirect
+            # line itself and got nothing (the ASC/MEG alt-print holes).
+            "redirects": 1,
         }, headers=HEADERS, timeout=15)
         if r.status_code != 200:
             return None, f"HTTP {r.status_code}"

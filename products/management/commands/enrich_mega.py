@@ -54,6 +54,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--skip-serebii", action="store_true")
         parser.add_argument("--skip-bulbapedia", action="store_true")
+        parser.add_argument("--twins-only", action="store_true",
+                            help="Skip the web sources; just run the twin-copy + evolves_to passes (fast).")
         parser.add_argument("--overwrite-fields", default="pokedex_number,ability_type",
                             help="Fields Bulbapedia may overwrite even when filled (default repairs the wrong dex numbers / ability types from the old parser). Use '' to disable.")
 
@@ -82,6 +84,46 @@ class Command(BaseCommand):
             self.stdout.write(f"{code:5} {total:>5} {len(pk_ids):>5} {100 * types_have // n:>5}% " + " ".join(cells))
         self.stdout.write("(Trainers/Energy are excluded; unclassified cards = cards - pkmn.)")
 
+    # -- twins ------------------------------------------------------------
+    def fill_from_twins(self, sets, dry):
+        """Alt prints / reprints / promo prints (MEG 133-188, MEP, ASC reprints)
+        have no Bulbapedia page of their own. Copy the print-independent
+        fields from an already-enriched card with the same name + HP + first
+        attack, ANYWHERE in the DB, when all matching cards agree. Never
+        copies artist, image, price or anything print-specific."""
+        def norm(name):
+            n = re.sub(r'\[[^\]]*\]', '', name or '')
+            n = re.sub(r'\([^)]*\)', '', n)
+            n = re.sub(r'-?\s*\d+(?:/\d+)?', '', n)
+            n = re.sub(r'\s+', ' ', n).strip(' -').lower()
+            return n
+
+        COPY = ["stage", "evolves_from", "evolves_to", "name_japanese",
+                "ability_2_name", "ability_2_type", "ability_2_text",
+                "attack_3_name", "attack_3_damage", "attack_3_text", "attack_3_cost",
+                "rules_text", "ancient_trait", "card_level", "card_subtypes"]
+        donors = {}
+        for p in PokemonProduct.objects.exclude(stage="").filter(hp__isnull=False):
+            key = (norm(p.name), p.hp, (p.attack_1_name or "").lower())
+            donors.setdefault(key, []).append(p)
+
+        to_update = []
+        for p in PokemonProduct.objects.filter(card_set__code__in=sets, stage="", hp__isnull=False):
+            cands = donors.get((norm(p.name), p.hp, (p.attack_1_name or "").lower()))
+            if not cands or len({c.stage for c in cands}) != 1:
+                continue
+            d = cands[0]
+            changed = False
+            for f in COPY:
+                if not getattr(p, f) and getattr(d, f):
+                    setattr(p, f, getattr(d, f))
+                    changed = True
+            if changed:
+                to_update.append(p)
+        if to_update and not dry:
+            PokemonProduct.objects.bulk_update(to_update, COPY, batch_size=500)
+        self.stdout.write(f"twin-copy filled {len(to_update)} cards" + (" (DRY RUN)" if dry else ""))
+
     # -- evolves_to -------------------------------------------------------
     def fill_evolves_to(self, sets, dry):
         by_from = {}
@@ -104,6 +146,8 @@ class Command(BaseCommand):
         self.coverage(sets, "before")
         if o["report"]:
             return
+        if o["twins_only"]:
+            o["skip_bulbapedia"] = o["skip_serebii"] = True
         if not o["skip_bulbapedia"]:
             self.stdout.write("\n--- Bulbapedia ---")
             call_command("enrich_bulbapedia", *sets, dry_run=o["dry_run"],
@@ -111,6 +155,8 @@ class Command(BaseCommand):
         if not o["skip_serebii"]:
             self.stdout.write("\n--- Serebii ---")
             call_command("enrich_serebii", *sets, dry_run=o["dry_run"])
+        self.stdout.write("\n--- twin copy (alt/reprint/promo prints) ---")
+        self.fill_from_twins(sets, o["dry_run"])
         self.stdout.write("\n--- evolves_to ---")
         self.fill_evolves_to(sets, o["dry_run"])
         if not o["dry_run"]:
