@@ -20,6 +20,7 @@ import re
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+from django.db.models import Count
 
 from products.models import PokemonProduct, CardSet
 from products.management.commands.enrich_only import SET_ID_MAP
@@ -169,6 +170,17 @@ class Command(BaseCommand):
             eras = ERA_CODES_NEW_TO_OLD[:ERA_CODES_NEW_TO_OLD.index(ef) + 1]
             sets = list(CardSet.objects.filter(era__code__in=eras).values_list("code", flat=True))
             self.stdout.write(f"Era mode: {', '.join(eras)} -> {len(sets)} sets")
+            # Sets no source can reach (not mapped to pokemontcg.io, Bulbapedia
+            # or Serebii) -- these keep their holes until a mapping is added.
+            unmapped = [
+                (c, n, cnt) for c, n, cnt in (
+                    CardSet.objects.filter(code__in=sets).annotate(cnt=Count("products"))
+                    .values_list("code", "name", "cnt"))
+                if c not in SET_ID_MAP and c not in BULBA_SETS and c not in SEREBII_SLUGS and cnt
+            ]
+            self.stdout.write(f"\nSets with NO source mapping ({len(unmapped)}) -- will not be enriched:")
+            for c, n, cnt in sorted(unmapped, key=lambda x: -x[2]):
+                self.stdout.write(f"  {c:8} {cnt:>5} cards  {n}")
         self.coverage(sets, "before")
         if o["report"]:
             return
