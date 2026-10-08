@@ -206,24 +206,26 @@ SET_ID_MAP = {
 
 
 def fetch_ptcgio_cards(ptcgio_id, headers):
+    # 2026-10-08: pokemontcg.io is slow/flaky (frequent timeouts and 504s).
+    # Smaller pages (100 instead of 250), 5 attempts per page with growing
+    # backoff, and 5xx treated as retryable instead of a hard fail.
     all_cards, page = [], 1
     while True:
-        for attempt in range(3):
+        r = None
+        for attempt in range(5):
             try:
                 r = requests.get(
                     f"https://api.pokemontcg.io/v2/cards"
-                    f"?q=set.id:{ptcgio_id}&pageSize=250&page={page}&orderBy=number",
-                    headers=headers, timeout=60)
+                    f"?q=set.id:{ptcgio_id}&pageSize=100&page={page}&orderBy=number",
+                    headers=headers, timeout=90)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                r = None
+            if r is not None and r.status_code == 200:
                 break
-            except requests.exceptions.Timeout:
-                if attempt < 2:
-                    time.sleep(5)
-                else:
-                    return None
-        if r.status_code == 429:
-            time.sleep(10)
-            continue
-        if r.status_code != 200:
+            if r is not None and r.status_code not in (429, 500, 502, 503, 504):
+                return None
+            time.sleep(8 * (attempt + 1))
+        if r is None or r.status_code != 200:
             return None
         data = r.json()
         cards = data.get("data", [])
