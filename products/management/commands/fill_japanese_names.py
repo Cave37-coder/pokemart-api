@@ -52,8 +52,19 @@ def alnum(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
+# Bracketed words that change the PRINTED Japanese name (special card types),
+# as opposed to print variants like "(Poke Ball)" / "(Cosmos Holo)" which keep
+# the same name. A card with one of these is skipped, never guessed.
+SPECIAL_PAREN = re.compile(
+    r"\((?:[^)]*\b)?(prime|legend|lv\.?\s*x|level|break|star|delta|tera|prism|radiant|mega|tag|"
+    r"shining|dark|light|ancient|future|team|g\s*max|dynamax|gigantamax|alolan|galarian|hisuian|paldean)\b[^)]*\)",
+    re.I)
+
+
 def split_name(name):
     """-> (prefix_key or '', core, suffix or '') or None if unsupported shape."""
+    if SPECIAL_PAREN.search(name or ""):
+        return None
     n = clean(name)
     prefix = ""
     first, _, rest = n.partition(" ")
@@ -118,7 +129,11 @@ class Command(BaseCommand):
                 skipped += 1
                 continue
             en, ja = info
-            prefix, core, suffix = split_name(c.name)
+            parts = split_name(c.name)
+            if parts is None:
+                skipped += 1
+                continue
+            prefix, core, suffix = parts
             if alnum(core) != alnum(en):
                 skipped += 1          # not a plain "<species>" -- don't guess
                 continue
