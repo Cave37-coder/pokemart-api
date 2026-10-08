@@ -159,6 +159,28 @@ SET_ID_MAP = {
     'SITTG':  'swsh12tg',
     'CRZ':    'swsh12pt5',
     'CRZGG':  'swsh12pt5gg',
+    # SWSH Era - 2026-10-08: the DB's actual codes for the main sets are the
+    # 3-letter ones below (found via enrich_mega --era-from --report), not
+    # SWSH01..12 above. Both are kept so either naming enriches. Number overlap
+    # is verified at run time (<50% match is skipped), so a wrong guess is safe.
+    'SSH':    'swsh1',
+    'RCL':    'swsh2',
+    'DAA':    'swsh3',
+    'VIV':    'swsh4',
+    'BST':    'swsh5',
+    'CRE':    'swsh6',
+    'EVS':    'swsh7',
+    'FST':    'swsh8',
+    'BRS':    'swsh9',
+    'ASR':    'swsh10',
+    'LOR':    'swsh11',
+    'SIT':    'swsh12',
+    # Promos / specials
+    'PR-SWSH': 'swshp',
+    'SMP':    'smp',
+    'SVP':    'svp',
+    'SVE':    'sve',
+    'DET':    'det1',
     # SV Era - VERIFIED - DB uses SVI/PAL/OBF/PAR/PAF NOT SV1/SV2/SV3
     'SVI':    'sv1',
     'PAL':    'sv2',
