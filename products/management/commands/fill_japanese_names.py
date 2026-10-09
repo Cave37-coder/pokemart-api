@@ -35,6 +35,7 @@ HEADERS = {"User-Agent": "PokeBulkSA-CardEnrichment/1.0 (https://pokebulk.co.za;
 PREFIX_JA = {
     "mega": "メガ", "alolan": "アローラ", "galarian": "ガラル",
     "hisuian": "ヒスイ", "paldean": "パルデア", "radiant": "かがやく",
+    "team_aqua": "アクア団の", "team_magma": "マグマ団の", "team_rocket": "ロケット団の",
 }
 # Alolan/Galarian/... are printed on Japanese cards as  アローラ<species>
 # (no separator) -- same pattern as メガ + species.
@@ -49,7 +50,12 @@ def clean(name):
 
 
 def alnum(s):
-    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+    # strip accents (Flabébé -> flabebe) and map the Nidoran gender symbols so
+    # "Nidoran F" / "Nidoran♀" compare equal.
+    import unicodedata
+    s = (s or "").replace("♀", "f").replace("♂", "m")
+    s = unicodedata.normalize("NFKD", s)
+    return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
 # Bracketed words that change the PRINTED Japanese name (special card types),
@@ -67,8 +73,13 @@ def split_name(name):
         return None
     n = clean(name)
     prefix = ""
+    m = re.match(r"^Team (Aqua|Magma|Rocket)'s\s+(.+)$", n)
+    if m:
+        prefix, n = "team_" + m.group(1).lower(), m.group(2)
     first, _, rest = n.partition(" ")
-    if first.lower() in PREFIX_JA and rest:
+    if not prefix and first == "M" and rest:      # XY-era "M Charizard EX" = Mega
+        prefix, n = "mega", rest
+    elif not prefix and first.lower() in PREFIX_JA and rest:
         prefix, n = first.lower(), rest
     suffix = ""
     for s in SUFFIXES:
@@ -141,13 +152,15 @@ class Command(BaseCommand):
             prefix, core, suffix = parts
             if alnum(core) != alnum(en):
                 skipped += 1          # not a plain "<species>" -- don't guess
-                skipped_names.append(("name != species", c.name))
+                skipped_names.append(("name != species",
+                                      f"{c.name} [{c.card_set.code if c.card_set else '?'}] "
+                                      f"dex={c.pokedex_number} api={en!r}"))
                 continue
             if suffix in ("ex", "EX"):
                 # Modern (SV/Mega) cards print lowercase "ex" (our DB often
                 # stores "EX"); XY/BW-era cards print uppercase "EX".
                 era = c.card_set.era.code if c.card_set and c.card_set.era else ""
-                suffix = "ex" if (era in ("MEG", "SV") or prefix == "mega") else "EX"
+                suffix = "ex" if era in ("MEG", "SV") else "EX"
             c.name_japanese = PREFIX_JA.get(prefix, "") + ja + suffix
             to_update.append(c)
 
