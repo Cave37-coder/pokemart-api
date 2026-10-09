@@ -85,6 +85,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--set", dest="set_code", default="30C")
         parser.add_argument("--serebii-slug", default="", help="e.g. 30thcelebration (fallback source)")
+        parser.add_argument("--era", default="", help="Batch: comma-separated Era codes, e.g. MEG,SV")
+        parser.add_argument("--all", action="store_true", help="Batch: every set")
         parser.add_argument("--min-width", type=int, default=500)
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--limit", type=int, default=3, help="With --dry-run: cards to test (0 = all). Ignored otherwise.")
@@ -92,6 +94,20 @@ class Command(BaseCommand):
         parser.add_argument("--delay", type=float, default=0.4)
 
     def handle(self, *args, **o):
+        # Batch mode: --era MEG (or --all) loops every set in that era, one
+        # set at a time, reusing the single-set logic below.
+        if o.get("era") or o.get("all"):
+            from products.models import CardSet
+            qs = CardSet.objects.all()
+            if o.get("era"):
+                qs = qs.filter(era__code__in=o["era"].split(","))
+            for c in qs.order_by("-release_date").values_list("code", flat=True):
+                self.stdout.write(f"\n===== {c} =====")
+                self._run_set({**o, "set_code": c, "era": "", "all": False})
+            return
+        self._run_set(o)
+
+    def _run_set(self, o):
         code = o["set_code"].upper()
         rows = list(PokemonProduct.objects.filter(card_set__code=code, tcgcsv_product_id__isnull=False)
                     .order_by("card_number", "variant_sort"))
