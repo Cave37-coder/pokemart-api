@@ -86,6 +86,8 @@ class Command(BaseCommand):
         parser.add_argument("--sets", nargs="*", default=[],
                             help="Set codes and/or era codes (e.g. MEG SV SWSH). Default: all sets.")
         parser.add_argument("--delay", type=float, default=0.12)
+        parser.add_argument("--report-skipped", action="store_true",
+                            help="List why/which cards were skipped (no changes if combined with --dry-run).")
 
     def handle(self, *args, **o):
         qs = PokemonProduct.objects.filter(name_japanese="", pokedex_number__isnull=False,
@@ -123,19 +125,23 @@ class Command(BaseCommand):
                 self.stdout.write(f"  looked up {i}/{len(dex_numbers)} species")
 
         to_update, skipped = [], 0
+        skipped_names = []   # (reason, card name) for --report-skipped
         for c in cards:
             info = species.get(c.pokedex_number)
             if not info or not info[1]:
                 skipped += 1
+                skipped_names.append(("no species/ja name", c.name))
                 continue
             en, ja = info
             parts = split_name(c.name)
             if parts is None:
                 skipped += 1
+                skipped_names.append(("special card type", c.name))
                 continue
             prefix, core, suffix = parts
             if alnum(core) != alnum(en):
                 skipped += 1          # not a plain "<species>" -- don't guess
+                skipped_names.append(("name != species", c.name))
                 continue
             if suffix in ("ex", "EX"):
                 # Modern (SV/Mega) cards print lowercase "ex" (our DB often
@@ -148,6 +154,19 @@ class Command(BaseCommand):
         self.stdout.write(f"will fill {len(to_update)} cards; skipped {skipped} (unsupported name shape or no match)")
         for c in to_update[:8]:
             self.stdout.write(f"  e.g. {c.name!r} -> {c.name_japanese}")
+        if o["report_skipped"]:
+            from collections import Counter
+            self.stdout.write("\nSkipped, by reason:")
+            for reason, n in Counter(r for r, _ in skipped_names).most_common():
+                self.stdout.write(f"  {n:>5}  {reason}")
+            # group by the card name with set numbering stripped, most common first
+            shapes = Counter(clean(n) for _, n in skipped_names)
+            self.stdout.write("\nMost common skipped names (top 60):")
+            for name, n in shapes.most_common(60):
+                self.stdout.write(f"  {n:>4}  {name}")
+            self.stdout.write("\nSample of the rest (every 40th):")
+            for _, n in skipped_names[::40][:40]:
+                self.stdout.write(f"       {n}")
         if o["dry_run"]:
             self.stdout.write("DRY RUN - nothing saved")
             return
