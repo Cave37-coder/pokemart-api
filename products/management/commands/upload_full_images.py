@@ -109,11 +109,24 @@ class Command(BaseCommand):
 
     def _run_set(self, o):
         code = o["set_code"].upper()
-        rows = list(PokemonProduct.objects.filter(card_set__code=code, tcgcsv_product_id__isnull=False)
+        def product_id(p):
+            """TCGplayer product id: the real field, else parsed from pb_id 'TCGCSV-<id>'
+            (Prize Pack rows were created that way and have no tcgcsv_product_id)."""
+            if p.tcgcsv_product_id:
+                return p.tcgcsv_product_id
+            pb = (p.pb_id or "")
+            if pb.startswith("TCGCSV-") and pb[7:].isdigit():
+                return int(pb[7:])
+            return None
+
+        rows = list(PokemonProduct.objects.filter(card_set__code=code)
                     .order_by("card_number", "variant_sort"))
         by_pid = {}
         for p in rows:
-            by_pid.setdefault(p.tcgcsv_product_id, []).append(p)
+            pid = product_id(p)
+            if pid:
+                by_pid.setdefault(pid, []).append(p)
+        rows = [p for g in by_pid.values() for p in g]
         pids = list(by_pid)
         self.stdout.write(f"[{code}] {len(rows)} rows, {len(pids)} distinct TCGplayer products")
 
