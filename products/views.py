@@ -270,6 +270,7 @@ def stock_entry(request):
         options_html += '</optgroup>'
 
     cards_html = ''
+    cards_top = ''
     if cards:
         selected_set = next((s for s in all_sets if s.code == selected_set_code), None)
         set_name = selected_set.name if selected_set else selected_set_code
@@ -356,8 +357,8 @@ def stock_entry(request):
               </td>
             </tr>'''
 
-        cards_html = f'''
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        cards_top = f'''
+<div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
   <div style="background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 4px #0001;flex:1">
     <div style="font-size:22px;font-weight:700;color:#ff6b35">{total}</div>
     <div style="font-size:11px;color:#888">Total Cards</div>
@@ -390,16 +391,18 @@ def stock_entry(request):
 
 <div id="msg"></div>
 
-<div style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #eee;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0001;margin-bottom:0">
+<div style="background:#fff;border-bottom:1px solid #eee;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
   <div style="font-size:13px;color:#666">Enter quantities - only changed rows saved</div>
   <div>
     <button onclick="wipeSet()" style="background:#EF4444;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;cursor:pointer;margin-right:8px">Wipe to 0</button>
     <button onclick="saveStock()" style="background:#10B981;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">Save Stock</button>
   </div>
 </div>
+'''
 
-<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #0001;margin-top:0">
-<thead style="position:sticky;top:57px">
+        cards_html = f'''
+<table id="stockTable" style="width:100%;border-collapse:collapse;background:#fff;box-shadow:0 1px 4px #0001;margin-top:0">
+<thead>
   <tr style="background:#f8f8f8">
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee" width="70">Card #</th>
     <th style="text-align:left;padding:12px 14px;font-size:13px;color:#666;border-bottom:1px solid #eee">Name</th>
@@ -415,11 +418,15 @@ def stock_entry(request):
     <th width="60"></th>
   </tr>
 </thead>
-<tbody><tr><td colspan="12" style="height:100px;padding:0"></td></tr>{rows}</tbody>
+<tbody>{rows}</tbody>
 </table>
 
 <script>
 const SET_CODE = "{selected_set_code}";
+// Keep the column header row pinned just below the frozen top block, whatever height that block is
+function pinHeader(){{var b=document.getElementById("stockBar");if(b)document.documentElement.style.setProperty("--bar-h",b.offsetHeight+"px");}}
+pinHeader();window.addEventListener("resize",pinHeader);
+if(window.ResizeObserver)new ResizeObserver(pinHeader).observe(document.getElementById("stockBar"));
 function delProd(id,btn){{
   if(!confirm('Wipe stock to 0 for this card?'))return;
   fetch('/api/stock/delete/'+id+'/',{{method:'POST',headers:{{'X-CSRFToken':getCookie('csrftoken')}}}})
@@ -507,21 +514,25 @@ document.addEventListener('keydown',function(e){{
 <style>*{{box-sizing:border-box;margin:0;padding:0}}body{{font-family:Arial,sans-serif;background:#f5f5f5}}
 tr:hover td{{background:#fafafa}}td{{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:15px}}
 select optgroup{{font-weight:700;color:#ff6b35}}
-select option{{font-weight:400;color:#333}}</style>
+select option{{font-weight:400;color:#333}}
+#stockTable thead th{{position:sticky;top:var(--bar-h,58px);z-index:90;background:#f8f8f8;box-shadow:0 1px 0 #ddd,0 3px 6px #0001}}</style>
 </head><body>
 <div style="background:#ff6b35;color:#fff;padding:12px 20px;margin-bottom:20px">
   <h1 style="font-size:18px;display:inline">Stock Entry - PokeBulk SA</h1>
   <a href="/admin/" style="color:#fff;text-decoration:none;font-size:13px;opacity:0.8;margin-left:20px">Back to Admin</a>
 </div>
 <div style="max-width:1200px;margin:0 auto;padding:0 16px">
-  <div style="background:#fff;border-radius:8px;padding:16px;margin-bottom:20px;box-shadow:0 1px 4px #0001">
-    <h2 style="font-size:15px;margin-bottom:10px;color:#333">Select a Set</h2>
+ <div id="stockBar" style="position:sticky;top:0;z-index:100;background:#f5f5f5;padding-top:8px">
+  <div style="background:#fff;border-radius:8px;padding:10px 16px;margin-bottom:8px;box-shadow:0 1px 4px #0001">
+    <h2 style="font-size:15px;margin-bottom:6px;color:#333">Select a Set</h2>
     <form method="GET">
       <select name="set" onchange="this.form.submit()" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px">
         {options_html}
       </select>
     </form>
   </div>
+  {cards_top}
+ </div>
   {cards_html}
 </div></body></html>'''
 
