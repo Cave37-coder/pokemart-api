@@ -21,6 +21,7 @@ Run with DATABASE_URL uncommented in .env
 import requests, re
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 from products.models import PokemonProduct, CardSet
 
 HEADERS     = {"User-Agent": "PokeBulkSA/1.0 (pokebulk.co.za)"}
@@ -53,7 +54,17 @@ ENRICH_FIELDS = [
     "attack_1_name", "attack_1_damage", "attack_1_text",
     "attack_2_name", "attack_2_damage", "attack_2_text",
     "pokedex_number", "flavour_text",
+    # 2026-10 enrichment fields (print-independent, safe to copy from the original)
+    "stage", "evolves_from", "evolves_to", "name_japanese",
+    "attack_1_cost", "attack_2_cost",
+    "attack_3_name", "attack_3_damage", "attack_3_text", "attack_3_cost",
+    "ability_2_name", "ability_2_type", "ability_2_text",
+    "rules_text", "ancient_trait", "card_level",
 ]
+
+# Fields we copy onto the reprint (everything in ENRICH_FIELDS except images --
+# images are R2-hosted separately, never copied from the original / TCGCSV).
+COPY_FIELDS = [f for f in ENRICH_FIELDS if f not in ("image_url", "image_small_url")]
 
 
 def fetch_tcgcsv_products(group_id):
@@ -81,8 +92,11 @@ def parse_card_num(number_str):
 
 
 def clean_name(card_name):
-    """Remove number suffixes from card name"""
-    return re.sub(r'\s*-\s*\d+/\d+\s*$', '', card_name).strip()
+    """Remove number suffixes, (Cosmos Holo)/(Right Stamp) and [Trainer] tags"""
+    n = re.sub(r'\s*-\s*\d+(?:/\d+)?', '', card_name or '')
+    n = re.sub(r'\([^)]*\)', '', n)
+    n = re.sub(r'\[[^\]]*\]', '', n)
+    return re.sub(r'\s+', ' ', n).strip()
 
 
 def find_original_card(card_name, number_str):
@@ -95,32 +109,19 @@ def find_original_card(card_name, number_str):
     name     = clean_name(card_name)
 
     # Try card number + exact name first
+    # Only donors that are already enriched (have HP) -- trainers/energy have no HP
+    # and fall through to name-only matching below, which is fine for them.
+    base = PokemonProduct.objects.exclude(card_set__code__in=REPRINT_SET_CODES)
     if card_num:
-        match = PokemonProduct.objects.filter(
-            card_number=card_num,
-            name__iexact=name
-        ).exclude(
-            card_set__code__in=REPRINT_SET_CODES
-        ).first()
-        if match:
-            return match
-
-        # Try card number + contains name
-        match = PokemonProduct.objects.filter(
-            card_number=card_num,
-            name__icontains=name
-        ).exclude(
-            card_set__code__in=REPRINT_SET_CODES
-        ).first()
-        if match:
-            return match
+        for lookup in ({"name__iexact": name}, {"name__istartswith": name}):
+            match = base.filter(card_number=card_num, **lookup).order_by("-hp").first()
+            if match:
+                return match
 
     # Fallback - name only (less reliable but catches edge cases)
-    match = PokemonProduct.objects.filter(
-        name__iexact=name
-    ).exclude(
-        card_set__code__in=REPRINT_SET_CODES
-    ).first()
+    match = base.filter(name__iexact=name).order_by("-hp").first()
+    if not match:
+        match = base.filter(name__istartswith=name + " -").order_by("-hp").first()
     return match
 
 
@@ -178,6 +179,7 @@ class Command(BaseCommand):
                 products = products[:5]
 
             to_update = []
+            type_jobs = []
             updated = not_found = no_original = 0
 
             for tcg_product in products:
@@ -195,9 +197,10 @@ class Command(BaseCommand):
                     continue
 
                 # Find DB record for this reprint
+                # rows may carry the id in tcgcsv_product_id OR only in pb_id ('TCGCSV-<pid>-<variant>')
                 db_record = PokemonProduct.objects.filter(
+                    Q(tcgcsv_product_id=pid) | Q(pb_id__startswith=f"TCGCSV-{pid}-") | Q(pb_id=f"TCGCSV-{pid}"),
                     card_set=db_set,
-                    tcgcsv_product_id=pid
                 ).first()
 
                 if not db_record:
@@ -217,12 +220,8 @@ class Command(BaseCommand):
                         self.stdout.write(
                             f"  NO ORIGINAL: {card_name} {number_str}"
                         )
-                    # Still update image even without original
-                    if image_url and (overwrite or not db_record.image_url):
-                        if not dry_run:
-                            db_record.image_url = image_url
-                            db_record.image_small_url = image_url
-                            to_update.append(db_record)
+                    # NOTE: images are never written here -- R2-hosted via
+                    # upload_full_images (CLAUDE.md "Image hosting").
                     continue
 
                 if verify:
@@ -239,30 +238,19 @@ class Command(BaseCommand):
 
                 changed = False
 
-                # Always update image from TCGCSV (stamped version)
-                if image_url and (overwrite or not db_record.image_url):
-                    db_record.image_url = image_url
-                    db_record.image_small_url = image_url
-                    changed = True
-
-                # Copy enrichment data from original
-                fields_to_copy = [
-                    "hp", "supertype", "card_subtypes",
-                    "weakness_type", "weakness_value",
-                    "resistance_type", "resistance_value",
-                    "retreat_cost", "artist",
-                    "ability_name", "ability_type", "ability_text",
-                    "attack_1_name", "attack_1_damage", "attack_1_text",
-                    "attack_2_name", "attack_2_damage", "attack_2_text",
-                    "pokedex_number", "flavour_text",
-                ]
-
-                for field in fields_to_copy:
+                # Copy print-independent enrichment data from the original
+                # (fill-only unless --overwrite). Images are NOT copied.
+                for field in COPY_FIELDS:
                     orig_val = getattr(original, field, None)
                     curr_val = getattr(db_record, field, None)
-                    if orig_val and (overwrite or not curr_val):
+                    if orig_val not in (None, "") and (overwrite or curr_val in (None, "")):
                         setattr(db_record, field, orig_val)
                         changed = True
+
+                # Energy/Pokemon types are a many-to-many -- applied after the bulk save.
+                if not db_record.pokemon_types.exists() and original.pokemon_types.exists():
+                    type_jobs.append((db_record, original))
+                    changed = True
 
                 if changed:
                     to_update.append(db_record)
@@ -272,7 +260,7 @@ class Command(BaseCommand):
                 if len(to_update) >= 100:
                     with transaction.atomic():
                         PokemonProduct.objects.bulk_update(
-                            to_update, ENRICH_FIELDS, batch_size=200
+                            to_update, COPY_FIELDS, batch_size=200
                         )
                     self.stdout.write(
                         f"  Saved {len(to_update)} records..."
@@ -283,8 +271,11 @@ class Command(BaseCommand):
             if to_update and not dry_run:
                 with transaction.atomic():
                     PokemonProduct.objects.bulk_update(
-                        to_update, ENRICH_FIELDS, batch_size=200
+                        to_update, COPY_FIELDS, batch_size=200
                     )
+            if type_jobs and not dry_run:
+                for rec, orig in type_jobs:
+                    rec.pokemon_types.set(orig.pokemon_types.all())
 
             self.stdout.write(
                 f"  Updated:{updated} | "
