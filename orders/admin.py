@@ -1002,19 +1002,23 @@ class BuyOrderItemInline(admin.TabularInline):
 
 @admin.register(BuyOrder)
 class BuyOrderAdmin(admin.ModelAdmin):
-    list_display = ['buy_number', 'seller_name', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at', 'buy_order_button']
-    list_filter = ['payment_made', 'payment_method', 'created_at']
+    list_display = ['buy_number', 'seller_name', 'status', 'item_count_display', 'total_display', 'payment_made', 'payment_method', 'created_at', 'buy_order_button']
+    list_filter = ['status', 'payment_made', 'payment_method', 'created_at']
     search_fields = ['buy_number', 'seller_name', 'seller_email']
-    readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display', 'buy_order_button']
+    # status / stock_mode are read-only here on purpose: the Draft -> Paid ->
+    # Complete flow (which adds live stock) runs from the staff Buying
+    # Invoices tab so completion can't be bypassed from this form.
+    readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display', 'buy_order_button',
+                       'status', 'stock_mode', 'stock_applied', 'completed_at']
     ordering = ['-created_at']
     inlines = [BuyOrderItemInline]
 
     fieldsets = (
         ('Buy Order', {
-            'fields': ('buy_number', 'created_at', 'updated_at', 'buy_order_button')
+            'fields': ('buy_number', 'status', 'stock_mode', 'stock_applied', 'completed_at', 'created_at', 'updated_at', 'buy_order_button')
         }),
         ('Seller', {
-            'fields': ('seller_name', 'seller_email', 'seller_phone', 'seller_note')
+            'fields': ('seller_name', 'user', 'seller_email', 'seller_phone', 'seller_note')
         }),
         ('Payment', {
             'fields': ('payment_made', 'payment_method', 'total_display')
@@ -1127,6 +1131,9 @@ class BuyOrderAdmin(admin.ModelAdmin):
             payment_method = ''
 
         buy_order = BuyOrder.objects.create(
+            # legacy standalone-POS flow: items bump pos_stock on save, no
+            # completion step (see BuyOrder.stock_mode).
+            stock_mode='pos', status='complete',
             seller_name=seller_name,
             seller_email=(payload.get('seller_email') or '').strip(),
             seller_phone=(payload.get('seller_phone') or '').strip(),

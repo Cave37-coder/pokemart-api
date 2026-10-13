@@ -642,11 +642,87 @@ class BuyOrder(models.Model):
         help_text="Which method was used, if payment has been made."
     )
 
+    # --- Buying invoices on the staff dashboard (2026-10-13) --------------
+    # Michael: "create a buying invoice from customer, which can add the stock
+    # to the site once i complete the invoice." Draft -> Paid -> Complete
+    # (Complete adds each catalogue line's quantity to LIVE website stock, once).
+    #
+    # stock_mode keeps the two worlds apart: 'pos' = the legacy standalone-POS
+    # buy orders (items bump pos_stock the moment they're saved, no status flow;
+    # all pre-existing rows are migrated to pos/complete). 'site' = invoices
+    # built on the staff page: items touch NOTHING until complete().
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('paid', 'Paid'),
+        ('complete', 'Complete'),
+        ('cancelled', 'Cancelled'),
+    ]
+    STOCK_MODE_CHOICES = [
+        ('pos', 'POS (unsorted pos_stock)'),
+        ('site', 'Live website stock on completion'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+    stock_mode = models.CharField(max_length=4, choices=STOCK_MODE_CHOICES, default='site')
+    stock_applied = models.BooleanField(
+        default=False, editable=False,
+        help_text="True once completing this invoice has added its stock (guards against double-adding)."
+    )
+    completed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="buy_orders_as_seller",
+        help_text="Linked site account of the seller, if they have one."
+    )
+
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.buy_number or 'DRAFT'} - {self.seller_name}"
+
+    def complete(self, completed_by=None):
+        """Add this invoice's catalogue lines to live website stock and lock it.
+        Returns (units_added, units_not_added_off_catalogue). Raises ValueError
+        with a user-facing message when it can't be completed. Atomic and
+        guarded by stock_applied so a double click / retry can never add twice."""
+        from django.db import transaction
+        from django.utils import timezone
+        from products.models import log_stock_movement
+
+        with transaction.atomic():
+            locked = BuyOrder.objects.select_for_update().get(pk=self.pk)
+            if locked.stock_applied or locked.status == 'complete':
+                raise ValueError('This buying invoice is already complete.')
+            if locked.status == 'cancelled':
+                raise ValueError('A cancelled buying invoice cannot be completed.')
+            if locked.stock_mode != 'site':
+                raise ValueError('This is a legacy POS buy order -- it has no completion step.')
+            if locked.status != 'paid':
+                raise ValueError('Mark the invoice as paid before completing it.')
+            items = list(locked.items.all())
+            if not items:
+                raise ValueError('The invoice has no lines.')
+
+            added = skipped = 0
+            for item in items:
+                if not item.product_id:
+                    skipped += item.quantity
+                    continue
+                prod = PokemonProduct.objects.select_for_update().filter(pk=item.product_id).first()
+                if prod is None:
+                    skipped += item.quantity
+                    continue
+                old = prod.stock
+                new = old + item.quantity
+                PokemonProduct.objects.filter(pk=prod.pk).update(stock=new)
+                log_stock_movement(prod.pk, old, new, source='buyin', user=completed_by)
+                added += item.quantity
+
+            locked.status = 'complete'
+            locked.stock_applied = True
+            locked.completed_at = timezone.now()
+            locked.save(update_fields=['status', 'stock_applied', 'completed_at', 'updated_at'])
+            return added, skipped
 
     def save(self, *args, **kwargs):
         if not self.buy_number:
@@ -662,6 +738,12 @@ class BuyOrder(models.Model):
     @property
     def item_count(self):
         return sum(item.quantity for item in self.items.all())
+
+
+def _buy_order_stock_mode(buy_order_id):
+    """'pos' (legacy, pos_stock tracking) or 'site'. Unknown parent -> 'pos'
+    (safe default: keeps the pre-existing behaviour)."""
+    return BuyOrder.objects.filter(pk=buy_order_id).values_list('stock_mode', flat=True).first() or 'pos'
 
 
 class BuyOrderItem(models.Model):
@@ -723,6 +805,11 @@ class BuyOrderItem(models.Model):
 
         super().save(*args, **kwargs)
 
+        # Site-built buying invoices (stock_mode='site') never touch pos_stock;
+        # their stock is added to live stock once, by BuyOrder.complete().
+        if _buy_order_stock_mode(self.buy_order_id) != 'pos':
+            return
+
         # Track physical stock bought at the counter separately from real
         # website stock -- see pos_stock field docstring on PokemonProduct.
         if is_new:
@@ -752,7 +839,7 @@ def restore_pos_stock_on_buy_order_item_delete(sender, instance, **kwargs):
     """Deleting a bought item (or the whole buy order) takes it back out of
     pos_stock. Fires on direct deletes AND on cascade deletes triggered by
     deleting the parent BuyOrder. Clamped at 0 so this can never go negative."""
-    if instance.product_id:
+    if instance.product_id and _buy_order_stock_mode(instance.buy_order_id) == 'pos':
         PokemonProduct.objects.filter(pk=instance.product_id).update(
             pos_stock=Greatest(F('pos_stock') - instance.quantity, 0)
         )

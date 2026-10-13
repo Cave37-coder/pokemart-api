@@ -587,6 +587,7 @@ class StockMovement(models.Model):
         ("bundle", "Bundle stock"),
         ("wipe", "Wiped to 0"),
         ("opening", "Opening balance"),
+        ("buyin", "Buying invoice"),
     ]
     product = models.ForeignKey(PokemonProduct, on_delete=models.CASCADE, related_name="stock_movements")
     delta = models.IntegerField(help_text="Change in stock (+ loaded, - removed/wiped).")

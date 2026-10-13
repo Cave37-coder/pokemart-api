@@ -44,6 +44,7 @@ SUFFIXES = ("VSTAR", "VMAX", "GX", "EX", "ex", "V")
 
 def clean(name):
     n = re.sub(r"\s*-\s*\d+(?:/\d+)?", "", name or "")       # " - 133/132"
+    n = re.sub(r"\s*-\s*[A-Za-z]{1,6}\d+[A-Za-z]*\b", "", n)  # promo code " - SWSH286", " - XY183"
     n = re.sub(r"\[[^\]]*\]", "", n)                           # "[Staff]"
     n = re.sub(r"\([^)]*\)", "", n)                            # "(Poke Ball)"
     return re.sub(r"\s+", " ", n).strip()

@@ -17,12 +17,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from products.models import PokemonProduct
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, community_discount_percent
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, BuyOrder, BuyOrderItem, community_discount_percent
 from .banking import EFT_BANKING_DETAILS_HTML
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
     OrderStatusUpdateSerializer, AdminOrderListSerializer,
-    ManualInvoiceListSerializer,
+    ManualInvoiceListSerializer, BuyInvoiceSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -597,6 +597,196 @@ class OrderDeliveryUpdateView(APIView):
 
         data = AdminOrderListSerializer(order).data
         data['note'] = note
+        return Response(data)
+
+
+# =============================================================================
+# BUYING INVOICES (staff dashboard, 2026-10-13) -- Michael: "create a buying
+# invoice from customer, which can add the stock to the site once I complete
+# the invoice... run the same as manual invoicing from staff page."
+# Draft (editable) -> Paid (seller paid) -> Complete (adds each catalogue
+# line to LIVE website stock, once; off-catalogue lines add nothing).
+# =============================================================================
+
+def _buy_invoice_qs():
+    return BuyOrder.objects.select_related('user').prefetch_related(
+        Prefetch('items', queryset=BuyOrderItem.objects.select_related('product'))
+    )
+
+
+def _parse_buy_lines(raw_items):
+    """-> (lines, error). Validates and normalises the posted item lines."""
+    if not isinstance(raw_items, list) or not raw_items:
+        return None, 'Add at least one line to the invoice.'
+    lines = []
+    for n, it in enumerate(raw_items, 1):
+        if not isinstance(it, dict):
+            return None, f'Line {n} is invalid.'
+        product = None
+        pid = it.get('product_id')
+        if pid:
+            product = PokemonProduct.objects.filter(pk=pid).first()
+            if product is None:
+                return None, f'Line {n}: that card no longer exists.'
+        description = (it.get('description') or '').strip()
+        if not product and not description:
+            return None, f'Line {n}: pick a card or type a description.'
+        try:
+            qty = int(it.get('quantity') or 1)
+            if qty < 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            return None, f'Line {n}: quantity must be 1 or more.'
+        try:
+            price = Decimal(str(it.get('unit_price') if it.get('unit_price') not in (None, '') else '0')).quantize(Decimal('0.01'))
+            if price < 0:
+                raise ValueError
+        except Exception:
+            return None, f'Line {n}: price paid must be a number, 0 or more.'
+        lines.append(dict(
+            product=product, description=description,
+            set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
+            variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,
+        ))
+    return lines, None
+
+
+def _apply_buy_payload(buy, data):
+    """Copy seller/notes fields from the request onto `buy` (not saved)."""
+    for f in ('seller_name', 'seller_email', 'seller_phone', 'seller_note', 'internal_note'):
+        if f in data:
+            setattr(buy, f, (data.get(f) or '').strip())
+    if 'user_id' in data:
+        from django.contrib.auth import get_user_model
+        uid = data.get('user_id')
+        buy.user = get_user_model().objects.filter(pk=uid).first() if uid else None
+
+
+class AdminBuyInvoiceListView(generics.ListAPIView):
+    """GET: staff list (status/search filters, newest first).
+    POST: create a DRAFT buying invoice with its lines."""
+    serializer_class = BuyInvoiceSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        qs = _buy_invoice_qs()
+        st = self.request.query_params.get('status')
+        if st in dict(BuyOrder.STATUS_CHOICES):
+            qs = qs.filter(status=st)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(Q(seller_name__icontains=search) | Q(seller_email__icontains=search)
+                           | Q(buy_number__icontains=search) | Q(seller_phone__icontains=search))
+        return qs.order_by('-created_at')
+
+    @transaction.atomic
+    def post(self, request):
+        data = request.data
+        if not (data.get('seller_name') or '').strip():
+            return Response({'error': 'Seller name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        lines, err = _parse_buy_lines(data.get('items'))
+        if err:
+            return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
+        buy = BuyOrder(stock_mode='site', status='draft', created_by=request.user)
+        _apply_buy_payload(buy, data)
+        buy.save()
+        for ln in lines:
+            BuyOrderItem.objects.create(buy_order=buy, **ln)
+        buy = _buy_invoice_qs().get(pk=buy.pk)
+        return Response(BuyInvoiceSerializer(buy).data, status=status.HTTP_201_CREATED)
+
+
+class AdminBuyInvoiceDetailView(APIView):
+    """GET one / PATCH edit. Lines can only be changed while Draft; once Paid
+    only seller details and notes are editable; Complete/Cancelled are locked."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        buy = _buy_invoice_qs().filter(pk=pk).first()
+        if buy is None:
+            return Response({'error': 'Buying invoice not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(BuyInvoiceSerializer(buy).data)
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        buy = BuyOrder.objects.select_for_update().filter(pk=pk).first()
+        if buy is None:
+            return Response({'error': 'Buying invoice not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if buy.stock_mode != 'site':
+            return Response({'error': 'Legacy POS buy orders are edited in Django admin.'}, status=status.HTTP_400_BAD_REQUEST)
+        if buy.status in ('complete', 'cancelled'):
+            return Response({'error': f'A {buy.get_status_display().lower()} invoice can no longer be edited.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        data = request.data
+        if 'seller_name' in data and not (data.get('seller_name') or '').strip():
+            return Response({'error': 'Seller name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if 'items' in data:
+            if buy.status != 'draft':
+                return Response({'error': 'Lines can only be changed while the invoice is a Draft. Un-pay it first.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            lines, err = _parse_buy_lines(data.get('items'))
+            if err:
+                return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
+            buy.items.all().delete()
+            for ln in lines:
+                BuyOrderItem.objects.create(buy_order=buy, **ln)
+        _apply_buy_payload(buy, data)
+        buy.save()
+        return Response(BuyInvoiceSerializer(_buy_invoice_qs().get(pk=buy.pk)).data)
+
+
+class AdminBuyInvoiceActionView(APIView):
+    """POST {action: mark_paid|unpay|complete|cancel, payment_method?}"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        action = (request.data.get('action') or '').strip()
+        buy = BuyOrder.objects.filter(pk=pk).first()
+        if buy is None:
+            return Response({'error': 'Buying invoice not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if buy.stock_mode != 'site':
+            return Response({'error': 'Legacy POS buy orders have no status flow.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        message = ''
+        if action == 'complete':
+            try:
+                added, skipped = buy.complete(completed_by=request.user)
+            except ValueError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            message = f'Completed. {added} card(s) added to live website stock.'
+            if skipped:
+                message += f' {skipped} off-catalogue item(s) were not added to stock.'
+        else:
+            with transaction.atomic():
+                buy = BuyOrder.objects.select_for_update().get(pk=pk)
+                if buy.status in ('complete', 'cancelled'):
+                    return Response({'error': f'This invoice is already {buy.get_status_display().lower()}.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                if action == 'mark_paid':
+                    pm = (request.data.get('payment_method') or '').strip()
+                    if pm not in dict(BuyOrder.PAYMENT_METHOD_CHOICES):
+                        return Response({'error': 'Choose how you paid the seller (EFT, Cash or Card).'},
+                                        status=status.HTTP_400_BAD_REQUEST)
+                    if not buy.items.exists():
+                        return Response({'error': 'The invoice has no lines.'}, status=status.HTTP_400_BAD_REQUEST)
+                    buy.status, buy.payment_made, buy.payment_method = 'paid', True, pm
+                    message = 'Marked as paid.'
+                elif action == 'unpay':
+                    if buy.status != 'paid':
+                        return Response({'error': 'Only a Paid invoice can be moved back to Draft.'},
+                                        status=status.HTTP_400_BAD_REQUEST)
+                    buy.status, buy.payment_made, buy.payment_method = 'draft', False, ''
+                    message = 'Moved back to Draft.'
+                elif action == 'cancel':
+                    buy.status = 'cancelled'
+                    message = 'Cancelled. No stock was added.'
+                else:
+                    return Response({'error': 'action must be mark_paid, unpay, complete or cancel.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                buy.save()
+
+        data = BuyInvoiceSerializer(_buy_invoice_qs().get(pk=pk)).data
+        data['message'] = message
         return Response(data)
 
 

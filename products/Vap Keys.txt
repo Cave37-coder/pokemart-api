@@ -1,0 +1,7 @@
+Add these two variables on Railway (and to your local .env):
+
+VAPID_PUBLIC_KEY=BFfnKGHRpx1IYvSrLunAXwgHOBUx8HGT9Jxoan0E683w2b5eIDEtZ2BpNjjQZ1jbQc_RbV8E7Q7v9fQkN2bwJgo
+VAPID_PRIVATE_KEY=53Xt-pH7fCNhoDQH6BX9Liga3e9Y6lq01WHIENC0zJ8
+
+Keep VAPID_PRIVATE_KEY secret -- never commit it. Generate once only;
+replacing the pair later breaks every customer's existing subscription.

@@ -1,5 +1,5 @@
 ﻿from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, BuyOrder, BuyOrderItem
 from products.serializers import PokemonProductSerializer
 
 
@@ -154,6 +154,52 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 
     def get_item_count(self, obj):
         return sum(i.quantity for i in obj.items.all())
+
+
+# =============================================================================
+# BUYING INVOICES (2026-10-13) -- staff dashboard view of BuyOrder. Draft ->
+# Paid -> Complete; completing adds catalogue lines to live website stock.
+# =============================================================================
+
+class BuyInvoiceItemSerializer(serializers.ModelSerializer):
+    line_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    product_id = serializers.IntegerField(read_only=True)
+    live_stock = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BuyOrderItem
+        fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
+                  'quantity', 'unit_price', 'line_total', 'live_stock']
+
+    def get_live_stock(self, obj):
+        return obj.product.stock if obj.product else None
+
+
+class BuyInvoiceSerializer(serializers.ModelSerializer):
+    """List + detail. `items` is included (invoices are small); the list view
+    prefetches them so this stays a handful of queries."""
+    items = BuyInvoiceItemSerializer(many=True, read_only=True)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    item_count = serializers.IntegerField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    off_catalogue_units = serializers.SerializerMethodField()
+    user_id = serializers.IntegerField(read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True, default=None)
+
+    class Meta:
+        model = BuyOrder
+        fields = [
+            'id', 'buy_number', 'status', 'status_display', 'stock_mode', 'stock_applied',
+            'seller_name', 'seller_email', 'seller_phone', 'user_id', 'user_username',
+            'seller_note', 'internal_note',
+            'payment_made', 'payment_method', 'payment_method_display',
+            'total', 'item_count', 'off_catalogue_units',
+            'created_at', 'completed_at', 'items',
+        ]
+
+    def get_off_catalogue_units(self, obj):
+        return sum(i.quantity for i in obj.items.all() if not i.product_id)
 
 
 class ManualInvoiceListSerializer(serializers.ModelSerializer):
