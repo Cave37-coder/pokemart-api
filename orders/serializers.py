@@ -165,14 +165,20 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     line_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     product_id = serializers.IntegerField(read_only=True)
     live_stock = serializers.SerializerMethodField()
+    tcg_price = serializers.SerializerMethodField()
 
     class Meta:
         model = BuyOrderItem
         fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
-                  'quantity', 'unit_price', 'line_total', 'live_stock']
+                  'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price']
 
     def get_live_stock(self, obj):
         return obj.product.stock if obj.product else None
+
+    def get_tcg_price(self, obj):
+        # Current site (TCG-derived, ZAR) price -- used by the staff form to
+        # show "% of TCG" next to the price paid. Display only.
+        return str(obj.product.price) if obj.product else None
 
 
 class BuyInvoiceSerializer(serializers.ModelSerializer):
