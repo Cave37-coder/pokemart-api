@@ -662,6 +662,39 @@ def _apply_buy_payload(buy, data):
         buy.user = get_user_model().objects.filter(pk=uid).first() if uid else None
 
 
+class AdminBuyCardBrowseView(APIView):
+    """Card browser for the buying-invoice screen (same behaviour as the
+    Manual Invoice POS search, but JWT-auth for the staff dashboard).
+    ?set_code=X  -> the whole set (NM only, card number order, max 500)
+    ?term=abc    -> free-text name/sku/set search (2+ chars, max 30)"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        set_code = request.query_params.get('set_code', '').strip()
+        term = request.query_params.get('term', '').strip()
+        if not set_code and len(term) < 2:
+            return Response({'results': []})
+        products = PokemonProduct.objects.select_related('card_set').filter(condition='NM')
+        if set_code:
+            products = products.filter(card_set__code=set_code)
+            if term:
+                products = products.filter(name__icontains=term)
+            products = products.order_by('card_number', 'variant_sort', 'name')[:500]
+        else:
+            products = products.filter(
+                Q(name__icontains=term) | Q(sku__icontains=term) |
+                Q(card_set__name__icontains=term) | Q(card_set__code__icontains=term)
+            ).order_by('-card_set__release_date', 'name')[:30]
+        return Response({'results': [{
+            'id': p.id, 'name': p.name,
+            'set_name': p.card_set.name if p.card_set else '',
+            'set_code': p.card_set.code if p.card_set else '',
+            'card_number': p.card_number or '',
+            'variant': p.variant_override or '',
+            'price': float(p.price or 0), 'stock': p.stock,
+        } for p in products]})
+
+
 class AdminBuyInvoiceListView(generics.ListAPIView):
     """GET: staff list (status/search filters, newest first).
     POST: create a DRAFT buying invoice with its lines."""
