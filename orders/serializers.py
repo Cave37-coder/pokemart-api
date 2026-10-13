@@ -117,6 +117,10 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             'total_price', 'discount_percent', 'discount_amount', 'shipping_cost',
             'shipping_method', 'delivery_method', 'waybill_number', 'courier_name',
             'courier_tracking_url', 'item_count', 'created_at',
+            # delivery details -- prefill the staff "Change delivery" form
+            'pudo_locker_name', 'pudo_locker_address',
+            'delivery_address_line1', 'delivery_address_line2',
+            'delivery_city', 'delivery_province', 'delivery_postal_code',
         ]
 
     def get_customer_name(self, obj):

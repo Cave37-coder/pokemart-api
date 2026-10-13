@@ -472,6 +472,134 @@ class OrderStatusUpdateView(APIView):
         return Response(OrderSerializer(order).data)
 
 
+# Standard Pudo prices -- MUST mirror SHIPPING_OPTIONS in
+# pokemart-frontend/src/app/checkout/page.tsx. Staff can override the price per
+# order (the request's shipping_cost wins), these are just the prefilled default.
+PUDO_RATES = {
+    'pudo_locker': Decimal('75'),
+    'pudo_kiosk': Decimal('85'),
+    'pudo_medium': Decimal('95'),
+    'pudo_door': Decimal('105'),
+}
+
+
+class OrderDeliveryUpdateView(APIView):
+    """Staff: change how an existing order is delivered (Michael, 2026-10-13:
+    "customer want to change order from 'Collection' to Pudo can you add the
+    ability to Staff section?"). Switches shipping_method/delivery_method,
+    stores the locker (or door address), swaps the old shipping charge for the
+    new one inside total_price, and logs a tracking note.
+
+    Collection -> courier orders were Cash on Collection, i.e. unpaid, and now
+    ship before the customer arrives -- so the request MUST say how they'll pay
+    (payment_method eft|payfast). If the order is still plain 'pending' and not
+    yet paid, status moves to Awaiting EFT / PayFast Payment (the normal status
+    email goes out) so it can't be packed unpaid."""
+    permission_classes = [IsAdminUser]
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        try:
+            order = Order.objects.select_for_update().get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status in ('cancelled', 'invoiced'):
+            return Response({'error': f'Order is {order.get_status_display()} -- delivery can no longer be changed.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        method = (request.data.get('shipping_method') or '').strip()
+        if method != 'collection' and method not in PUDO_RATES:
+            return Response({'error': 'shipping_method must be collection or one of: ' + ', '.join(PUDO_RATES)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        locker_name = (request.data.get('pudo_locker_name') or '').strip()
+        locker_address = (request.data.get('pudo_locker_address') or '').strip()
+        addr1 = (request.data.get('address_line1') or '').strip()
+        addr2 = (request.data.get('address_line2') or '').strip()
+        city = (request.data.get('city') or '').strip()
+        province = (request.data.get('province') or '').strip()
+        postal = (request.data.get('postal_code') or '').strip()
+
+        # Same rules as checkout: locker-to-* needs a locker, door needs an address.
+        if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') and (not locker_name or not locker_address):
+            return Response({'error': 'Please enter the Pudo locker/kiosk name and address.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if method == 'pudo_door' and not (addr1 and city and postal):
+            return Response({'error': 'Door delivery needs address line 1, city and postal code.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if 'shipping_cost' in request.data and str(request.data.get('shipping_cost')).strip() != '':
+            try:
+                new_cost = Decimal(str(request.data.get('shipping_cost'))).quantize(Decimal('0.01'))
+                if new_cost < 0:
+                    raise ValueError
+            except Exception:
+                return Response({'error': 'shipping_cost must be a number, 0 or more.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+        else:
+            new_cost = PUDO_RATES.get(method, Decimal('0')).quantize(Decimal('0.01'))
+
+        old_method_label = order.get_shipping_method_display() or order.shipping_method or '—'
+        old_cost = order.shipping_cost or Decimal('0')
+        was_paid = bool(order.stripe_payment_intent) or order.eft_confirmed or order.cash_confirmed
+
+        payment_method = (request.data.get('payment_method') or '').strip()
+        if payment_method and payment_method not in ('eft', 'payfast', 'coc'):
+            return Response({'error': 'payment_method must be eft, payfast or coc.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        going_courier = method != 'collection'
+        if going_courier and order.payment_method == 'coc' and not was_paid and payment_method not in ('eft', 'payfast'):
+            return Response({'error': 'This was a Cash on Collection order -- choose how the customer will pay '
+                                      'for courier delivery (EFT or PayFast).'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # ---- apply -------------------------------------------------------
+        order.shipping_method = method
+        order.delivery_method = 'courier' if going_courier else 'collection'
+        order.shipping_cost = new_cost
+        order.total_price = (order.total_price - old_cost + new_cost).quantize(Decimal('0.01'))
+        order.pudo_locker_name = locker_name if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') else ''
+        order.pudo_locker_address = locker_address if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') else ''
+        if method == 'pudo_door':
+            order.delivery_address_line1, order.delivery_address_line2 = addr1, addr2
+            order.delivery_city, order.delivery_province, order.delivery_postal_code = city, province, postal
+        elif method == 'collection':
+            order.delivery_address_line1 = order.delivery_address_line2 = ''
+            order.delivery_city = order.delivery_province = order.delivery_postal_code = ''
+        if payment_method:
+            order.payment_method = payment_method
+
+        status_changed = False
+        if going_courier and not was_paid and order.status == 'pending' and payment_method in ('eft', 'payfast'):
+            order.status = 'pending_eft' if payment_method == 'eft' else 'awaiting_payment'
+            status_changed = True
+
+        parts = [f'Delivery changed by staff: {old_method_label} -> {order.get_shipping_method_display()}']
+        if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium'):
+            parts.append(f'Locker: {locker_name}, {locker_address}')
+        if method == 'pudo_door':
+            parts.append(f'Address: {addr1}, {city} {postal}')
+        parts.append(f'Shipping R{old_cost} -> R{new_cost}; new total R{order.total_price}')
+        if payment_method:
+            parts.append(f'Payment: {order.get_payment_method_display()}')
+        note = '. '.join(parts) + '.'
+
+        if status_changed:
+            # post_save signal writes the tracking row + customer status email
+            order._tracking_note = note
+            order._tracking_waybill = ''
+            order._tracking_created_by = request.user
+            order.save()
+        else:
+            order.save()
+            OrderTracking.objects.create(order=order, status=order.status, note=note, created_by=request.user)
+
+        data = AdminOrderListSerializer(order).data
+        data['note'] = note
+        return Response(data)
+
+
 class AdminOrderListView(generics.ListAPIView):
     """Feeds the staff Orders dashboard's changelist-style table (2026-08-12).
     Deliberately lean -- no nested item/product data, just what a
