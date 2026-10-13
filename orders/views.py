@@ -672,6 +672,7 @@ class AdminBuyCardBrowseView(APIView):
     def get(self, request):
         set_code = request.query_params.get('set_code', '').strip()
         term = request.query_params.get('term', '').strip()
+        variant = request.query_params.get('variant', '').strip()
         if not set_code and len(term) < 2:
             return Response({'results': []})
         products = PokemonProduct.objects.select_related('card_set').filter(condition='NM')
@@ -679,12 +680,17 @@ class AdminBuyCardBrowseView(APIView):
             products = products.filter(card_set__code=set_code)
             if term:
                 products = products.filter(name__icontains=term)
+            if variant:
+                products = products.filter(variant_override=variant)
             products = products.order_by('card_number', 'variant_sort', 'name')[:500]
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |
                 Q(card_set__name__icontains=term) | Q(card_set__code__icontains=term)
-            ).order_by('-card_set__release_date', 'name')[:30]
+            )
+            if variant:
+                products = products.filter(variant_override=variant)
+            products = products.order_by('-card_set__release_date', 'name')[:30]
         return Response({'results': [{
             'id': p.id, 'name': p.name,
             'set_name': p.card_set.name if p.card_set else '',
