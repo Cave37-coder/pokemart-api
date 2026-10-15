@@ -1061,21 +1061,38 @@ class BuyOrderAdmin(admin.ModelAdmin):
             path('pos-buy/save/', self.admin_site.admin_view(self.pos_buy_save_view), name='buy-order-pos-save'),
             path('<int:pk>/buy-order-print/', self.admin_site.admin_view(self.buy_order_print_view), name='buy-order-print'),
             path('<int:pk>/buy-order-pdf/', self.admin_site.admin_view(self.buy_order_pdf_view), name='buy-order-pdf'),
+            path('<int:pk>/buy-order-client-print/', self.admin_site.admin_view(self.buy_order_client_print_view), name='buy-order-client-print'),
+            path('<int:pk>/buy-order-client-pdf/', self.admin_site.admin_view(self.buy_order_client_pdf_view), name='buy-order-client-pdf'),
             path('<int:pk>/buy-order-email/', self.admin_site.admin_view(self.buy_order_email_view), name='buy-order-email'),
         ]
         return custom + super().get_urls()
 
     def buy_order_print_view(self, request, pk):
+        # Internal stock sheet (condition, TCG price, rate, sell-at, for our inventory tracking).
         buy_order = get_object_or_404(BuyOrder, pk=pk)
-        html = build_buy_order_html(buy_order, show_controls=True)
+        html = build_buy_order_html(buy_order, show_controls=True, mode='internal')
         return HttpResponse(html)
+
+    def buy_order_client_print_view(self, request, pk):
+        # Seller's copy: TCG price, rate bought at and price paid -- no sell price.
+        buy_order = get_object_or_404(BuyOrder, pk=pk)
+        html = build_buy_order_html(buy_order, show_controls=True, mode='client')
+        return HttpResponse(html)
+
+    def buy_order_client_pdf_view(self, request, pk):
+        buy_order = get_object_or_404(BuyOrder, pk=pk)
+        html = build_buy_order_html(buy_order, show_controls=False, mode='client')
+        pdf_bytes = buy_order_html_to_pdf(html)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{buy_order.buy_number}-client.pdf"'
+        return response
 
     def buy_order_pdf_view(self, request, pk):
         buy_order = get_object_or_404(BuyOrder, pk=pk)
-        html = build_buy_order_html(buy_order, show_controls=False)
+        html = build_buy_order_html(buy_order, show_controls=False, mode='internal')
         pdf_bytes = buy_order_html_to_pdf(html)
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{buy_order.buy_number}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{buy_order.buy_number}-internal.pdf"'
         return response
 
     def buy_order_email_view(self, request, pk):
@@ -1086,7 +1103,7 @@ class BuyOrderAdmin(admin.ModelAdmin):
             self.message_user(request, "No seller email on file for this buy order.", level=messages.ERROR)
             return redirect(change_url)
 
-        html = build_buy_order_html(buy_order, show_controls=False)
+        html = build_buy_order_html(buy_order, show_controls=False, mode='client')
         pdf_bytes = buy_order_html_to_pdf(html)
 
         email = EmailMultiAlternatives(

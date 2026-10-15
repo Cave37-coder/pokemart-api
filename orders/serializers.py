@@ -170,7 +170,8 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = BuyOrderItem
         fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
-                  'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price']
+                  'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
+                  'condition', 'sell_price']
 
     def get_live_stock(self, obj):
         return obj.product.stock if obj.product else None
@@ -178,6 +179,8 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     def get_tcg_price(self, obj):
         # Current site (TCG-derived, ZAR) price -- used by the staff form to
         # show "% of TCG" next to the price paid. Display only.
+        if obj.tcg_price is not None:
+            return str(obj.tcg_price)
         return str(obj.product.price) if obj.product else None
 
 

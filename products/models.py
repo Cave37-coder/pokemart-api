@@ -271,6 +271,16 @@ class PokemonProduct(models.Model):
     image_url = models.URLField(max_length=500, blank=True)
     image_small_url = models.URLField(max_length=500, blank=True)
 
+    # Manual price lock (2026-10-15) -- Michael: high-priced cards bought in
+    # must be sold at e.g. 1.2 x TCG to recover the investment. A buying
+    # invoice sets price + price_locked=True on completion; the nightly price
+    # syncs (sync_prices_only / sync_tcgcsv) skip locked rows so the manual
+    # price survives. Untick in Django admin to hand the card back to the sync.
+    price_locked = models.BooleanField(
+        default=False,
+        help_text="Manual price -- the nightly TCGCSV price sync will not overwrite it."
+    )
+
     # Pricing
     price = models.DecimalField(max_digits=10, decimal_places=2)
     price_normal = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

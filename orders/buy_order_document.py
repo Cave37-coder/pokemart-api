@@ -18,8 +18,15 @@ dependency for manual_invoice.py, no new requirements.txt entry needed).
 METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card'}
 
 
-def build_buy_order_html(buy_order, show_controls=True):
+def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
+    """mode='client'   -> receipt for the seller: card, condition, qty, TCG price,
+                          the rate bought at (% of TCG) and the price paid. No
+                          sell price / profit.
+       mode='internal' -> our stock sheet: same plus the sell-at price and
+                          profit per card (inventory tracking)."""
+    client = (mode == 'client')
     items = list(buy_order.items.select_related('product').all())
+    td = 'padding:3px 8px;font-size:11px;border-bottom:1px solid #eee'
 
     rows = ''
     for i, item in enumerate(items, 1):
@@ -29,17 +36,32 @@ def build_buy_order_html(buy_order, show_controls=True):
         name = item.description or (item.product.name if item.product else 'Item')
         unit_price = float(item.unit_price or 0)
         line_total = float(item.line_total)
+        condition = item.condition or 'NM'
+        tcg = float(item.tcg_price) if item.tcg_price else None
+        tcg_txt = f'R {tcg:.2f}' if tcg else '-'
+        rate_txt = f'{unit_price / tcg * 100:.0f}%' if tcg else '-'
+        sell_cell = ''
+        if not client:
+            sell = f'R {float(item.sell_price):.2f}' if item.sell_price else '-'
+            sell_cell = f'<td style="{td};text-align:right">{sell}</td>'
         rows += f'''<tr>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee">{i}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee">{set_name}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee">#{card_number}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee">{name}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee">{variant}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee;text-align:center">{item.quantity}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee;text-align:right">R {unit_price:.2f}</td>
-            <td style="padding:3px 8px;font-size:11px;border-bottom:1px solid #eee;text-align:right">R {line_total:.2f}</td>
+            <td style="{td}">{i}</td>
+            <td style="{td}">{set_name}</td>
+            <td style="{td}">#{card_number}</td>
+            <td style="{td}">{name}</td>
+            <td style="{td}">{variant}</td>
+            <td style="{td}">{condition}</td>
+            <td style="{td};text-align:center">{item.quantity}</td>
+            <td style="{td};text-align:right">{tcg_txt}</td>
+            <td style="{td};text-align:right">{rate_txt}</td>
+            <td style="{td};text-align:right">R {unit_price:.2f}</td>
+            {sell_cell}
+            <td style="{td};text-align:right">R {line_total:.2f}</td>
         </tr>'''
 
+    sell_header = '' if client else '<th width="70" style="text-align:right">Sell at</th>'
+    doc_title = 'BUY-IN RECEIPT' if client else 'BUY-IN STOCK SHEET'
+    doc_sub = '' if client else '<div style="font-size:10px;color:#c62828;font-weight:bold;margin-top:2px">INTERNAL COPY - not for the seller</div>'
     total = float(buy_order.total)
     item_count = buy_order.item_count
     buy_date = buy_order.created_at.strftime('%d-%m-%Y')
@@ -68,7 +90,7 @@ def build_buy_order_html(buy_order, show_controls=True):
 
     controls_html = '''<table width="100%" style="margin-bottom:16px"><tr><td>
       <span class="no-print" style="background:#ff6b35;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:bold">
-      <a href="javascript:window.print()" style="color:#fff;text-decoration:none">Print Receipt</a></span>
+      <a href="javascript:window.print()" style="color:#fff;text-decoration:none">Print</a></span>
       &nbsp;
       <span class="no-print" style="background:#eee;color:#333;border:none;padding:9px 16px;border-radius:6px;font-size:13px">
       <a href="javascript:window.close()" style="color:#333;text-decoration:none">Close</a></span>
@@ -95,7 +117,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
       </div>
     </td>
     <td style="width:40%;text-align:right;vertical-align:top">
-      <div style="font-size:20px;font-weight:bold;color:#333">BUY-IN RECEIPT</div>
+      <div style="font-size:20px;font-weight:bold;color:#333">{doc_title}</div>{doc_sub}
       <div style="font-size:13px;margin-top:3px"><strong>{buy_order.buy_number}</strong></div>
       <div style="font-size:11px;color:#555;margin-top:2px">{buy_date}</div>
       <div style="margin-top:5px;font-size:11px;color:{payment_color};font-weight:bold">{payment_status}</div>
@@ -121,8 +143,9 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
 <table style="margin-bottom:10px">
   <thead><tr>
     <th width="30">#</th><th>Set</th><th width="60">Card #</th><th>Item</th>
-    <th width="80">Variant</th><th width="40" style="text-align:center">Qty</th>
-    <th width="75" style="text-align:right">Unit</th><th width="80" style="text-align:right">Total</th>
+    <th width="55">Variant</th><th width="35">Cond.</th><th width="35" style="text-align:center">Qty</th>
+    <th width="65" style="text-align:right">TCG price</th><th width="50" style="text-align:right">Rate</th>
+    <th width="65" style="text-align:right">Paid ea.</th>{sell_header}<th width="75" style="text-align:right">Total</th>
   </tr></thead>
   <tbody>{rows}</tbody>
 </table>

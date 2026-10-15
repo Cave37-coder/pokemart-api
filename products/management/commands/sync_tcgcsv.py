@@ -531,7 +531,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             if (pid, variant) in existing:
                 # Update price and image on existing record
                 obj = existing_map.get((pid, variant))
-                if obj and usd:
+                if obj and usd and not obj.price_locked:
                     new_price = _zar_price(usd, rate)
                     new_img = card_image_url if ptcgio_set and number_raw else None
                     if obj.price != new_price or (new_img and obj.image_url != new_img):

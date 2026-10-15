@@ -643,10 +643,28 @@ def _parse_buy_lines(raw_items):
                 raise ValueError
         except Exception:
             return None, f'Line {n}: price paid must be a number, 0 or more.'
+        condition = (it.get('condition') or 'NM').strip().upper()
+        if condition not in dict(BuyOrderItem.CONDITION_CHOICES):
+            return None, f'Line {n}: invalid condition.'
+        sell_raw = it.get('sell_price')
+        sell_price = None
+        if sell_raw not in (None, ''):
+            try:
+                sell_price = Decimal(str(sell_raw)).quantize(Decimal('0.01'))
+                if sell_price < 0:
+                    raise ValueError
+            except Exception:
+                return None, f'Line {n}: sell price must be a number, 0 or more.'
+            if sell_price == 0:
+                sell_price = None
+            elif not product:
+                sell_price = None  # off-catalogue lines have no site price to set
         lines.append(dict(
             product=product, description=description,
             set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
             variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,
+            condition=condition, sell_price=sell_price,
+            tcg_price=(product.price if product and product.price and product.price > 0 else None),
         ))
     return lines, None
 

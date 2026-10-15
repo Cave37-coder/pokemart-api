@@ -113,7 +113,11 @@ class Command(BaseCommand):
 
         # Build map: (tcgcsv_product_id, variant_override) -> product
         self.stdout.write("Loading products from DB...")
-        all_products = PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True)
+        # price_locked rows (manual prices set by buying invoices) are never
+        # touched. Played copies (condition != NM) share the NM row's
+        # tcgcsv_product_id/variant, so they are excluded too -- otherwise a
+        # played row could collide with / be overwritten by the NM market price.
+        all_products = PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True).exclude(price_locked=True).filter(condition='NM')
         pid_variant_map = {}
         pid_counts = {}   # how many DB products share this pid (any variant)
         pid_map = {}      # fallback target: the one product, ONLY when pid_counts == 1

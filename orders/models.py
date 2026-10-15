@@ -712,9 +712,17 @@ class BuyOrder(models.Model):
                 if prod is None:
                     skipped += item.quantity
                     continue
+                # Non-NM lines add to (or create) the played copy of the card.
+                if item.condition and item.condition != 'NM' and prod.condition == 'NM':
+                    prod = _played_copy_for(prod, item.condition, item.sell_price)
                 old = prod.stock
                 new = old + item.quantity
-                PokemonProduct.objects.filter(pk=prod.pk).update(stock=new)
+                fields = {'stock': new}
+                if item.sell_price is not None and item.sell_price > 0:
+                    # Manual sell price: apply + lock so the nightly sync keeps it.
+                    fields['price'] = max(item.sell_price, PokemonProduct.MINIMUM_PRICE)
+                    fields['price_locked'] = True
+                PokemonProduct.objects.filter(pk=prod.pk).update(**fields)
                 log_stock_movement(prod.pk, old, new, source='buyin', user=completed_by)
                 added += item.quantity
 
@@ -746,6 +754,36 @@ def _buy_order_stock_mode(buy_order_id):
     return BuyOrder.objects.filter(pk=buy_order_id).values_list('stock_mode', flat=True).first() or 'pos'
 
 
+def _played_copy_for(nm, condition, sell_price=None):
+    """Return the played-condition copy of NM product `nm` (creating it when
+    missing, same field set as products.views.stock_add_played). New copies are
+    priced at the sell price, else NM price x the condition multiplier."""
+    q = PokemonProduct.objects.filter(condition=condition, variant_override=nm.variant_override)
+    if nm.tcgcsv_product_id:
+        q = q.filter(tcgcsv_product_id=nm.tcgcsv_product_id)
+    else:
+        q = q.filter(card_set=nm.card_set, card_number=nm.card_number, name=nm.name)
+    existing = q.exclude(pk=nm.pk).first()
+    if existing:
+        return existing
+    mult = Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(condition, 1.0)))
+    price = sell_price if sell_price and sell_price > 0 else (nm.price * mult).quantize(Decimal('0.10'))
+    played = PokemonProduct(
+        name=nm.name, name_japanese=nm.name_japanese, card_set=nm.card_set, category=nm.category,
+        rarity=nm.rarity, condition=condition, variant_override=nm.variant_override,
+        variant_sort=nm.variant_sort, card_number=nm.card_number, number=nm.number,
+        pokedex_number=nm.pokedex_number, supertype=nm.supertype, card_subtypes=nm.card_subtypes,
+        image_url=nm.image_url, image_small_url=nm.image_small_url,
+        tcgcsv_product_id=nm.tcgcsv_product_id, price=max(price, PokemonProduct.MINIMUM_PRICE), stock=0,
+        is_active=True, legal_standard=nm.legal_standard, legal_expanded=nm.legal_expanded,
+        legal_unlimited=nm.legal_unlimited,
+    )
+    played.save()
+    if nm.pokemon_types.exists():
+        played.pokemon_types.set(nm.pokemon_types.all())
+    return played
+
+
 class BuyOrderItem(models.Model):
     buy_order = models.ForeignKey(BuyOrder, on_delete=models.CASCADE, related_name="items")
 
@@ -770,6 +808,22 @@ class BuyOrderItem(models.Model):
     unit_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('0.00'),
         help_text="What you actually paid per card/item."
+    )
+    CONDITION_CHOICES = [
+        ('NM', 'Near Mint'), ('LP', 'Lightly Played'), ('MP', 'Moderately Played'),
+        ('HP', 'Heavily Played'), ('DMG', 'Damaged'),
+    ]
+    condition = models.CharField(
+        max_length=3, choices=CONDITION_CHOICES, default='NM',
+        help_text="Condition of the cards bought. Non-NM stock goes to the played copy of the card."
+    )
+    sell_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Optional: price to sell at on the site. Set (and locked) when the invoice is completed."
+    )
+    tcg_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Site/TCG price of the card when this line was saved (snapshot, for the buy-in rate shown on the client receipt)."
     )
 
     class Meta:
