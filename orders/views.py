@@ -664,7 +664,12 @@ def _parse_buy_lines(raw_items):
             set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
             variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,
             condition=condition, sell_price=sell_price,
-            tcg_price=(product.price if product and product.price and product.price > 0 else None),
+            # Snapshot of the condition-adjusted reference price (NM site price x
+            # condition multiplier) -- what the client receipt shows as "TCG price".
+            tcg_price=(
+                (product.price * Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(condition, 1.0)))).quantize(Decimal('0.01'))
+                if product and product.price and product.price > 0 else None
+            ),
         ))
     return lines, None
 
