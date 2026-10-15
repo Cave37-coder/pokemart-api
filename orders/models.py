@@ -668,6 +668,14 @@ class BuyOrder(models.Model):
         help_text="True once completing this invoice has added its stock (guards against double-adding)."
     )
     completed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Physical storage box for the cards bought on this invoice (2026-10-15,
+    # Michael: "Add a Box # automatically to each invoice so we can track where
+    # the stock is put"). Auto-numbered on creation of site invoices; staff can
+    # overwrite it (e.g. to put a small buy into an existing box).
+    box_number = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Storage box the stock from this invoice is put in. Auto-assigned; can be changed."
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="buy_orders_as_seller",
@@ -733,6 +741,9 @@ class BuyOrder(models.Model):
             return added, skipped
 
     def save(self, *args, **kwargs):
+        if self.box_number is None and self.stock_mode == 'site':
+            from django.db.models import Max
+            self.box_number = (BuyOrder.objects.aggregate(m=Max('box_number'))['m'] or 0) + 1
         if not self.buy_number:
             last = BuyOrder.objects.order_by('-id').first()
             next_num = (last.id + 1) if last else 1

@@ -85,6 +85,9 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
     sell_header = '' if client else '<th width="70" style="text-align:right">Sell at</th>'
     doc_title = 'BUY-IN RECEIPT' if client else 'BUY-IN STOCK SHEET'
     doc_sub = '' if client else '<div style="font-size:10px;color:#c62828;font-weight:bold;margin-top:2px">INTERNAL COPY - not for the seller</div>'
+    box_block = ''
+    if not client and getattr(buy_order, 'box_number', None):
+        box_block = f'<div style="margin-top:6px;display:inline-block;border:2px solid #222;padding:3px 12px;font-size:20px;font-weight:bold">BOX # {buy_order.box_number}</div>'
     total = float(buy_order.total)
     item_count = buy_order.item_count
     buy_date = buy_order.created_at.strftime('%d-%m-%Y')
@@ -140,7 +143,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
       </div>
     </td>
     <td style="width:40%;text-align:right;vertical-align:top">
-      <div style="font-size:20px;font-weight:bold;color:#333">{doc_title}</div>{doc_sub}
+      <div style="font-size:20px;font-weight:bold;color:#333">{doc_title}</div>{doc_sub}{box_block}
       <div style="font-size:13px;margin-top:3px"><strong>{buy_order.buy_number}</strong></div>
       <div style="font-size:11px;color:#555;margin-top:2px">{buy_date}</div>
       <div style="margin-top:5px;font-size:11px;color:{payment_color};font-weight:bold">{payment_status}</div>

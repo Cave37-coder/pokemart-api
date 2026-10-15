@@ -679,6 +679,15 @@ def _apply_buy_payload(buy, data):
     for f in ('seller_name', 'seller_email', 'seller_phone', 'seller_note', 'internal_note'):
         if f in data:
             setattr(buy, f, (data.get(f) or '').strip())
+    # Box # is auto-assigned on first save; staff may override it with a
+    # positive whole number. Blank / invalid leaves the current value alone.
+    if 'box_number' in data:
+        try:
+            bn = int(str(data.get('box_number')).strip())
+            if bn > 0:
+                buy.box_number = bn
+        except (TypeError, ValueError):
+            pass
     if 'user_id' in data:
         from django.contrib.auth import get_user_model
         uid = data.get('user_id')
@@ -737,8 +746,11 @@ class AdminBuyInvoiceListView(generics.ListAPIView):
             qs = qs.filter(status=st)
         search = self.request.query_params.get('search', '').strip()
         if search:
-            qs = qs.filter(Q(seller_name__icontains=search) | Q(seller_email__icontains=search)
-                           | Q(buy_number__icontains=search) | Q(seller_phone__icontains=search))
+            q = (Q(seller_name__icontains=search) | Q(seller_email__icontains=search)
+                 | Q(buy_number__icontains=search) | Q(seller_phone__icontains=search))
+            if search.lstrip('#').isdigit():
+                q |= Q(box_number=int(search.lstrip('#')))
+            qs = qs.filter(q)
         return qs.order_by('-created_at')
 
     @transaction.atomic

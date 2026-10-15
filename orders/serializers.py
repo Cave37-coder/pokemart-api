@@ -199,7 +199,7 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = BuyOrder
         fields = [
-            'id', 'buy_number', 'status', 'status_display', 'stock_mode', 'stock_applied',
+            'id', 'buy_number', 'box_number', 'status', 'status_display', 'stock_mode', 'stock_applied',
             'seller_name', 'seller_email', 'seller_phone', 'user_id', 'user_username',
             'seller_note', 'internal_note',
             'payment_made', 'payment_method', 'payment_method_display',
