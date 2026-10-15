@@ -29,6 +29,8 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
     td = 'padding:3px 8px;font-size:11px;border-bottom:1px solid #eee'
 
     rows = ''
+    tot_qty = 0
+    tot_tcg = tot_paid = tot_sell = 0.0
     for i, item in enumerate(items, 1):
         set_name = item.set_name or '-'
         card_number = item.card_number or '--'
@@ -40,6 +42,11 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
         tcg = float(item.tcg_price) if item.tcg_price else None
         tcg_txt = f'R {tcg:.2f}' if tcg else '-'
         rate_txt = f'{unit_price / tcg * 100:.0f}%' if tcg else '-'
+        tot_qty += item.quantity
+        tot_tcg += (tcg or 0) * item.quantity
+        tot_paid += line_total
+        if item.sell_price:
+            tot_sell += float(item.sell_price) * item.quantity
         sell_cell = ''
         if not client:
             sell = f'R {float(item.sell_price):.2f}' if item.sell_price else '-'
@@ -59,6 +66,22 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
             <td style="{td};text-align:right">R {line_total:.2f}</td>
         </tr>'''
 
+    # Stock-sheet totals row (internal only): every numeric column summed.
+    # Price columns are extended (price x qty), so Paid ea. adds up to the
+    # same figure as the Total column and the TOTAL PAID box below.
+    totals_row = ''
+    if not client:
+        tt = 'padding:5px 8px;font-size:11px;font-weight:bold;border-top:2px solid #ff6b35;background:#fafafa'
+        overall_rate = f'{tot_paid / tot_tcg * 100:.0f}%' if tot_tcg else '-'
+        totals_row = f'''<tfoot><tr>
+            <td colspan="6" style="{tt};text-align:right">TOTALS</td>
+            <td style="{tt};text-align:center">{tot_qty}</td>
+            <td style="{tt};text-align:right">R {tot_tcg:.2f}</td>
+            <td style="{tt};text-align:right">{overall_rate}</td>
+            <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
+            <td style="{tt};text-align:right">R {tot_sell:.2f}</td>
+            <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
+        </tr></tfoot>'''
     sell_header = '' if client else '<th width="70" style="text-align:right">Sell at</th>'
     doc_title = 'BUY-IN RECEIPT' if client else 'BUY-IN STOCK SHEET'
     doc_sub = '' if client else '<div style="font-size:10px;color:#c62828;font-weight:bold;margin-top:2px">INTERNAL COPY - not for the seller</div>'
@@ -147,7 +170,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
     <th width="65" style="text-align:right">TCG price</th><th width="50" style="text-align:right">Rate</th>
     <th width="65" style="text-align:right">Paid ea.</th>{sell_header}<th width="75" style="text-align:right">Total</th>
   </tr></thead>
-  <tbody>{rows}</tbody>
+  <tbody>{rows}</tbody>{totals_row}
 </table>
 
 <table style="margin-bottom:14px">
