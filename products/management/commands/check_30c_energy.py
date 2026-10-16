@@ -1,25 +1,22 @@
 """
 check_30c_energy.py - PokeBulk SA (read-only)
 
-Do we have the exact data for the 30th Celebration Basic Energy cards -- the
-TCGplayer product list, the images and the pricing? Looks at BOTH 30th
-Celebration groups on TCGCSV (24722 main set, 24837 Classic Collection) and at
-what we hold in the database (sets 30C / 30CC), and prints:
+Where are the 30th Celebration Basic Energy cards, and do we have them?
 
-  * every TCGplayer product that looks like an Energy card (name contains
-    'Energy', or a Number that is not a normal set number), with its market price
-  * every DB row in 30C / 30CC whose name contains 'Energy': price, stock,
-    where its image lives (R2 / external / blank)
-  * which TCGplayer Energy products are missing from the DB
+TCGCSV does NOT put them in the 30th Celebration groups -- they are in group
+24461 "MEE: Mega Evolution Energies" as "Basic <Type> Energy - 0NN (30th
+Celebration)" (productIds 713248-713255, numbers 009-016, rarity Futuristic
+Rare, Holofoil). This lists them, their TCGplayer market prices, and what the
+database holds for each (any set): price, stock, image location, set.
 
-  python manage.py check_30c_energy
+  python manage.py check_30c_energy --skip-checks
 """
 import requests
 from django.core.management.base import BaseCommand
 
 from products.models import PokemonProduct
 
-GROUPS = {"30C": 24722, "30CC": 24837}
+GROUP = 24461
 BASE = "https://tcgcsv.com/tcgplayer/3"
 UA = {"User-Agent": "PokeBulkSA-30CEnergyCheck/1.0 (https://pokebulk.co.za)"}
 R2 = "https://images.pokebulk.co.za/"
@@ -39,49 +36,30 @@ def where(url):
 
 
 class Command(BaseCommand):
-    help = "Read-only check of the 30th Celebration Energy cards: TCGplayer data vs our DB (images + pricing)."
+    help = "Read-only check of the 30th Celebration Basic Energy cards (TCGCSV group 24461) vs our DB."
 
     def handle(self, *args, **o):
-        for code, gid in GROUPS.items():
-            self.stdout.write(f"\n===== {code}  (TCGCSV group {gid}) =====")
-            try:
-                prods = requests.get(f"{BASE}/{gid}/products", headers=UA, timeout=90).json().get("results", [])
-                prices = requests.get(f"{BASE}/{gid}/prices", headers=UA, timeout=90).json().get("results", [])
-            except Exception as e:
-                self.stdout.write(f"  fetch failed: {e}")
-                continue
-            by_pid_price = {}
-            for r in prices:
-                by_pid_price.setdefault(r["productId"], []).append(r)
-            self.stdout.write(f"  TCGplayer: {len(prods)} products, {len(prices)} price rows")
+        prods = requests.get(f"{BASE}/{GROUP}/products", headers=UA, timeout=90).json().get("results", [])
+        prices = requests.get(f"{BASE}/{GROUP}/prices", headers=UA, timeout=90).json().get("results", [])
+        by_pid = {}
+        for r in prices:
+            by_pid.setdefault(r["productId"], []).append(r)
+        cards = [p for p in prods if "30th" in (p.get("name") or "")]
+        self.stdout.write(f"TCGCSV group {GROUP}: {len(prods)} products, {len(cards)} are 30th Celebration Energy")
 
-            energy = [p for p in prods if "energy" in (p.get("name") or "").lower()]
-            self.stdout.write(f"  TCGplayer products with 'Energy' in the name: {len(energy)}")
-            have = {}
-            for r in PokemonProduct.objects.filter(card_set__code=code).values(
-                    "id", "name", "tcgcsv_product_id", "pb_id", "price", "stock", "image_url", "variant_override", "card_number"):
-                if r["tcgcsv_product_id"]:
-                    have.setdefault(int(r["tcgcsv_product_id"]), []).append(r)
-                if r["pb_id"] and r["pb_id"].startswith("TCGCSV-"):
-                    pid = r["pb_id"][7:].split("-")[0]
-                    if pid.isdigit():
-                        have.setdefault(int(pid), []).append(r)
-            for p in sorted(energy, key=lambda x: x["productId"]):
-                pr = by_pid_price.get(p["productId"], [])
-                prtxt = ", ".join(f"{x.get('subTypeName')}: mkt ${x.get('marketPrice')}" for x in pr) or "no price rows"
-                rows = have.get(p["productId"], [])
-                state = "in DB" if rows else "MISSING from DB"
-                self.stdout.write(f"   {p['productId']}  {p['name'][:46]:46} #{ext(p, 'Number') or '-':8} {prtxt}  -> {state}")
-                for r in rows:
-                    self.stdout.write(f"        DB id {r['id']}  {r['variant_override'] or 'N'}  R{r['price']}  stock {r['stock']}  image {where(r['image_url'])}")
+        for p in sorted(cards, key=lambda x: x["productId"]):
+            pid = p["productId"]
+            pr = ", ".join(f"{x.get('subTypeName')}: mkt ${x.get('marketPrice')}" for x in by_pid.get(pid, [])) or "no price rows"
+            self.stdout.write(f"\n{pid}  {p['name']}  #{ext(p, 'Number')}  {ext(p, 'Rarity')}  {pr}")
+            rows = list(PokemonProduct.objects.select_related("card_set").filter(tcgcsv_product_id=pid))
+            rows += [r for r in PokemonProduct.objects.select_related("card_set").filter(pb_id__startswith=f"TCGCSV-{pid}")
+                     if r not in rows]
+            if not rows:
+                self.stdout.write("   -> NOT in the database")
+            for r in rows:
+                self.stdout.write(f"   -> DB id {r.id}  set {r.card_set.code if r.card_set else '-'}  {r.variant_override or 'N'}  "
+                                  f"R{r.price}  stock {r.stock}  rarity {r.rarity}  image {where(r.image_url)}")
 
-            db_energy = PokemonProduct.objects.filter(card_set__code=code, name__icontains="energy")
-            self.stdout.write(f"\n  DB rows named '*Energy*' in {code}: {db_energy.count()}")
-            for r in db_energy.order_by("card_number", "variant_override")[:60]:
-                self.stdout.write(f"   id {r.id}  {r.name[:40]:40} #{r.card_number or '-':6} {r.variant_override or 'N':4} "
-                                  f"R{r.price}  stock {r.stock}  image {where(r.image_url)}  tcgcsv {r.tcgcsv_product_id or '-'}")
-
-        # Any Energy-like rows sitting in OTHER sets that came from these groups
-        self.stdout.write("\nNote: the main-set 'Basic Energy' cards are packed 1 per booster; TCGplayer may list them "
-                          "under names like 'Grass Energy', 'Lightning Energy' etc., or not at all (in which case "
-                          "the count above is 0 and they would need entering by hand + images from Serebii/Bulbapedia).")
+        mee = PokemonProduct.objects.filter(card_set__code="MEE")
+        self.stdout.write(f"\nDB set MEE: {mee.count()} rows "
+                          f"(images on R2: {mee.filter(image_url__startswith=R2).count()}, blank: {mee.filter(image_url='').count()})")
