@@ -425,7 +425,10 @@ def build_set_cards(card_set: CardSet) -> list:
             card_number = int(head)
         m = PATTERN_TILE_RE.search(c["name"])
         pattern_rank = PATTERN_TILE_RANK.get(m.group(1).lower(), 0) if m else 0
-        return (card_number if card_number is not None else 10**9, pattern_rank, num)
+        # Energy cards moved into a release set (num like "EN-MEE-009") go
+        # after everything else, incl. the letter-numbered RGB trio.
+        group = 1 if num.startswith("EN-") else 0
+        return (card_number if card_number is not None else 10**9, group, pattern_rank, num)
 
     cards.sort(key=sort_key)
     return cards
