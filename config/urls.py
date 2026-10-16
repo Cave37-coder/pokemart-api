@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from products.admin import ProductAutocompleteJsonView
+from products.checklist_regen_view import checklist_regen_view
 from orders.pos_auth import pos_csrf_view, pos_login_view, pos_logout_view, pos_whoami_view
 from analytics_dashboard.dashboard_view import dashboard_page
 from analytics_dashboard.store_overview_view import store_overview_page
@@ -23,6 +24,7 @@ urlpatterns = [
     # things? quick overview" -- stock + real (DB-exact, not GA4) sales
     # figures in one place. Same before-admin/ ordering reasoning as above.
     path("admin/store-overview/", store_overview_page, name="store-overview-page"),
+    path("admin/checklist-regen/", checklist_regen_view, name="checklist-regen"),
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

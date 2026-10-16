@@ -449,6 +449,83 @@ def build_set_index_entry(card_set: CardSet, era_label: str, cards: list) -> dic
     }
 
 
+def regenerate_checklist_content(content):
+    """Takes the text of checklistData.ts, returns (new_content, stats).
+    stats = dict(sets, cards, index, new_to_index). Raises ValueError on
+    format problems. Shared by the management command and the admin
+    upload/download view (products/checklist_regen_view.py)."""
+    m_sets = re.search(r"export const SETS: Record<string, SetData> = (\{.*?\});\n", content, re.DOTALL)
+    if not m_sets:
+        raise ValueError("Could not find 'export const SETS: Record<string, SetData> = {...};' in that file -- format may have changed.")
+
+    m_index = re.search(r"export const SET_INDEX: SetMeta\[\] = (\[.*?\]);\n", content, re.DOTALL)
+    if not m_index:
+        raise ValueError("Could not find 'export const SET_INDEX: SetMeta[] = [...];' in that file -- format may have changed.")
+
+    card_sets = (
+        CardSet.objects
+        .select_related("era")
+        .filter(products__is_active=True)
+        .distinct()
+        .order_by("code")
+    )
+
+    old_index_codes = {e["code"] for e in json.loads(m_index.group(1))}
+
+    new_sets = OrderedDict()
+    new_index = []
+    unmapped_eras = set()
+    total_cards = 0
+    new_to_index = []  # codes that weren't in the old SET_INDEX at all, for the summary
+
+    for card_set in card_sets:
+        era_code = card_set.era.code if card_set.era else None
+        if era_code not in ERA_DISPLAY_MAP:
+            unmapped_eras.add((era_code, card_set.era.name if card_set.era else "(no era)"))
+            continue
+
+        cards = build_set_cards(card_set)
+        if not cards:
+            continue
+
+        era_label = ERA_DISPLAY_MAP[era_code]
+        new_sets[card_set.code] = {
+            "name": card_set.name,
+            "era": era_label,
+            "cards": cards,
+        }
+        total_cards += len(cards)
+
+        new_index.append(build_set_index_entry(card_set, era_label, cards))
+        if card_set.code not in old_index_codes:
+            new_to_index.append(card_set.code)
+
+    if unmapped_eras:
+        raise ValueError(
+            "Found CardSet(s) with an era code not in ERA_DISPLAY_MAP -- "
+            "add it there (and to ERA_COLORS/ERA_ORDER in checklistData.ts) "
+            f"before regenerating: {sorted(unmapped_eras)}"
+        )
+
+    new_sets_blob = json.dumps(new_sets, separators=(",", ":"), ensure_ascii=False)
+    new_index_blob = json.dumps(new_index, separators=(",", ":"), ensure_ascii=False)
+
+    # Replace SET_INDEX first if it comes later in the file, else SETS
+    # first -- either order is fine since we use each match's own
+    # stored span, just don't let editing one invalidate the other's
+    # offsets. Safest: always replace the later span first.
+    if m_index.start(1) > m_sets.start(1):
+        new_content = content[:m_index.start(1)] + new_index_blob + content[m_index.end(1):]
+        new_content = new_content[:m_sets.start(1)] + new_sets_blob + new_content[m_sets.end(1):]
+    else:
+        new_content = content[:m_sets.start(1)] + new_sets_blob + content[m_sets.end(1):]
+        new_content = new_content[:m_index.start(1)] + new_index_blob + new_content[m_index.end(1):]
+
+
+    stats = {"sets": len(new_sets), "cards": total_cards, "index": len(new_index), "new_to_index": sorted(new_to_index)}
+    return new_content, stats
+
+
 class Command(BaseCommand):
     help = "Regenerate the SETS and SET_INDEX blobs in pokemart-frontend's checklistData.ts from this DB. Leaves every other export (ERA_COLORS, TIER_*, *_VARIANTS, ERA_ORDER) untouched."
 
@@ -464,84 +541,22 @@ class Command(BaseCommand):
         except FileNotFoundError:
             raise CommandError(f"File not found: {file_path}\nRun this from pokemart-api's root, or pass --file with the full path to checklistData.ts.")
 
-        m_sets = re.search(r"export const SETS: Record<string, SetData> = (\{.*?\});\n", content, re.DOTALL)
-        if not m_sets:
-            raise CommandError("Could not find 'export const SETS: Record<string, SetData> = {...};' in that file -- format may have changed.")
-
-        m_index = re.search(r"export const SET_INDEX: SetMeta\[\] = (\[.*?\]);\n", content, re.DOTALL)
-        if not m_index:
-            raise CommandError("Could not find 'export const SET_INDEX: SetMeta[] = [...];' in that file -- format may have changed.")
-
-        card_sets = (
-            CardSet.objects
-            .select_related("era")
-            .filter(products__is_active=True)
-            .distinct()
-            .order_by("code")
-        )
-
-        old_index_codes = {e["code"] for e in json.loads(m_index.group(1))}
-
-        new_sets = OrderedDict()
-        new_index = []
-        unmapped_eras = set()
-        total_cards = 0
-        new_to_index = []  # codes that weren't in the old SET_INDEX at all, for the summary
-
-        for card_set in card_sets:
-            era_code = card_set.era.code if card_set.era else None
-            if era_code not in ERA_DISPLAY_MAP:
-                unmapped_eras.add((era_code, card_set.era.name if card_set.era else "(no era)"))
-                continue
-
-            cards = build_set_cards(card_set)
-            if not cards:
-                continue
-
-            era_label = ERA_DISPLAY_MAP[era_code]
-            new_sets[card_set.code] = {
-                "name": card_set.name,
-                "era": era_label,
-                "cards": cards,
-            }
-            total_cards += len(cards)
-
-            new_index.append(build_set_index_entry(card_set, era_label, cards))
-            if card_set.code not in old_index_codes:
-                new_to_index.append(card_set.code)
-
-        if unmapped_eras:
-            raise CommandError(
-                "Found CardSet(s) with an era code not in ERA_DISPLAY_MAP -- "
-                "add it there (and to ERA_COLORS/ERA_ORDER in checklistData.ts) "
-                f"before regenerating: {sorted(unmapped_eras)}"
-            )
-
-        new_sets_blob = json.dumps(new_sets, separators=(",", ":"), ensure_ascii=False)
-        new_index_blob = json.dumps(new_index, separators=(",", ":"), ensure_ascii=False)
-
-        # Replace SET_INDEX first if it comes later in the file, else SETS
-        # first -- either order is fine since we use each match's own
-        # stored span, just don't let editing one invalidate the other's
-        # offsets. Safest: always replace the later span first.
-        if m_index.start(1) > m_sets.start(1):
-            new_content = content[:m_index.start(1)] + new_index_blob + content[m_index.end(1):]
-            new_content = new_content[:m_sets.start(1)] + new_sets_blob + new_content[m_sets.end(1):]
-        else:
-            new_content = content[:m_sets.start(1)] + new_sets_blob + content[m_sets.end(1):]
-            new_content = new_content[:m_index.start(1)] + new_index_blob + new_content[m_index.end(1):]
+        try:
+            new_content, stats = regenerate_checklist_content(content)
+        except ValueError as e:
+            raise CommandError(str(e))
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
         self.stdout.write(self.style.SUCCESS(
             f"Wrote {file_path}\n"
-            f"  Sets:  {len(new_sets)}\n"
-            f"  Cards: {total_cards}\n"
-            f"  SET_INDEX entries: {len(new_index)}"
+            f"  Sets:  {stats['sets']}\n"
+            f"  Cards: {stats['cards']}\n"
+            f"  SET_INDEX entries: {stats['index']}"
         ))
-        if new_to_index:
+        if stats["new_to_index"]:
             self.stdout.write(
                 f"  Newly added to SET_INDEX (previously unreachable on the browse-by-era page): "
-                f"{', '.join(sorted(new_to_index))}"
+                f"{', '.join(stats['new_to_index'])}"
             )
