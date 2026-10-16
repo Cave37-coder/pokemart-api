@@ -63,6 +63,7 @@
 #     for this module since we key everything off card_set.code, not name.)
 
 from collections import defaultdict, Counter
+from django.db.models import Q
 
 from .models import PokemonProduct, CardSet, ChecklistEntry
 
@@ -197,7 +198,7 @@ def _grouped_card_rows(card_set: CardSet):
     """
     products = (
         PokemonProduct.objects
-        .filter(card_set=card_set, is_active=True)
+        .filter(Q(card_set=card_set) | Q(id__in=card_set.shared_products.values("id")), is_active=True)
         .values("id", "card_number", "variant_override", "number", "name", "rarity", "stock", "price")
     )
     total_cards = card_set.total_cards or 0

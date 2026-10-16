@@ -9,11 +9,17 @@ from .serializers import PokemonProductSerializer, CategorySerializer, PokemonTy
 
 class PokemonProductFilter(django_filters.FilterSet):
     era = django_filters.CharFilter(field_name='card_set__era__code', lookup_expr='iexact')
-    card_set = django_filters.CharFilter(field_name='card_set__code', lookup_expr='iexact')
+    card_set = django_filters.CharFilter(method='filter_card_set')
     energy_type = django_filters.CharFilter(field_name='pokemon_types__name', lookup_expr='iexact')
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
     category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
+    def filter_card_set(self, queryset, name, value):
+        # Home set OR a set this card is shared with (also_in_sets) -- e.g. the
+        # Black Bolt / White Flare Energy cards show up under both.
+        shared = PokemonProduct.objects.filter(also_in_sets__code__iexact=value).values('id')
+        return queryset.filter(Q(card_set__code__iexact=value) | Q(id__in=shared))
+
     # Tag-team cards ("Pikachu & Zekrom-GX") carry the second Pokemon's dex
     # number in pokedex_number_2 -- ?pokedex=0644 should surface that card
     # too, not just cards where Zekrom is the PRIMARY (pokedex_number) one.

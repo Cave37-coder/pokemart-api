@@ -305,6 +305,15 @@ class PokemonProduct(models.Model):
         default=0,
         help_text="Physical stock acquired via the POS Buy screen. Separate from live website stock -- does not affect what's purchasable on the site."
     )
+    # Extra sets whose checklist also lists this card (2026-10-16). Basic Energy
+    # cards were all dumped into era "Energies" sets; they now live in the set
+    # they were released with, and an energy released with two sets at once
+    # (Black Bolt + White Flare) is shared: one row, one stock count, listed in
+    # both checklists. `card_set` stays the single home set.
+    also_in_sets = models.ManyToManyField(
+        "CardSet", blank=True, related_name="shared_products",
+        help_text="Other sets whose checklist also includes this card (shared Energy)."
+    )
     # "Follows the market" selling price (2026-10-16): when set, the nightly price
     # sync prices this card at (TCG market x rate x 1.1) x sell_pct/100 -- and,
     # for played copies, x the condition multiplier -- instead of the plain

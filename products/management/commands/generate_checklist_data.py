@@ -96,6 +96,7 @@ import re
 from collections import Counter, OrderedDict, defaultdict
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
 
 from products.models import CardSet, PokemonProduct
 
@@ -343,7 +344,7 @@ def build_set_cards(card_set: CardSet) -> list:
     # RH regardless of which row happened to sync last.
     products = (
         PokemonProduct.objects
-        .filter(card_set=card_set, is_active=True)
+        .filter(Q(card_set=card_set) | Q(id__in=card_set.shared_products.values("id")), is_active=True)
         .order_by("variant_sort")
         .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price")
     )
