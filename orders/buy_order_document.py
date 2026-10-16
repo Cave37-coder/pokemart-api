@@ -89,6 +89,20 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
     if not client and getattr(buy_order, 'box_number', None):
         box_block = f'<div style="margin-top:6px;display:inline-block;border:2px solid #222;padding:3px 12px;font-size:20px;font-weight:bold">BOX # {buy_order.box_number}</div>'
     total = float(buy_order.total)
+    # Actual amount paid (negotiated bundle price), when it differs from the line total.
+    actual_rows = ''
+    amt = getattr(buy_order, 'amount_paid', None)
+    if amt is not None and abs(float(amt) - total) >= 0.005:
+        actual = float(amt)
+        actual_rows = (f'<tr><td style="padding:4px 8px;font-weight:bold;font-size:13px">AMOUNT ACTUALLY PAID</td>'
+                       f'<td style="padding:4px 8px;text-align:right;font-weight:bold;font-size:13px">R {actual:.2f}</td></tr>')
+        if not client:
+            eff = f'{actual / tot_tcg * 100:.1f}%' if tot_tcg else '-'
+            nom = f'{total / tot_tcg * 100:.1f}%' if tot_tcg else '-'
+            actual_rows += (f'<tr><td style="padding:3px 8px;color:#555;font-size:11px">Difference vs invoice</td>'
+                            f'<td style="padding:3px 8px;text-align:right;font-size:11px">R {total - actual:+.2f}</td></tr>'
+                            f'<tr><td style="padding:3px 8px;color:#555;font-size:11px">Rate: invoice / actual</td>'
+                            f'<td style="padding:3px 8px;text-align:right;font-size:11px">{nom} / {eff}</td></tr>')
     item_count = buy_order.item_count
     buy_date = buy_order.created_at.strftime('%d-%m-%Y')
 
@@ -181,6 +195,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
     <table>
       <tr><td style="padding:3px 8px;color:#555">Items ({item_count})</td><td style="padding:3px 8px;text-align:right">&nbsp;</td></tr>
       <tr><td style="padding:6px 8px;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35">TOTAL PAID</td><td style="padding:6px 8px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35;color:#ff6b35">R {total:.2f}</td></tr>
+      {actual_rows}
     </table>
   </td></tr>
 </table>

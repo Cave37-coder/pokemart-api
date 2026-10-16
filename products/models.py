@@ -305,6 +305,11 @@ class PokemonProduct(models.Model):
         default=0,
         help_text="Physical stock acquired via the POS Buy screen. Separate from live website stock -- does not affect what's purchasable on the site."
     )
+    # Cost tracking (2026-10-16) -- see products/costing.py. Units on hand whose
+    # purchase cost is known, and their combined cost. Maintained only by
+    # buying-invoice completion and sales; not editable by hand.
+    cost_units = models.PositiveIntegerField(default=0, editable=False)
+    cost_total = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -314,6 +319,13 @@ class PokemonProduct(models.Model):
 
     def __str__(self):
         return f"{self.pb_id} - {self.name}" if self.pb_id else self.name
+
+    @property
+    def avg_cost(self):
+        """Weighted average purchase cost of the costed units on hand, or None."""
+        if self.cost_units and self.cost_units > 0:
+            return (self.cost_total / self.cost_units).quantize(__import__('decimal').Decimal('0.01'))
+        return None
 
     @property
     def in_stock(self):

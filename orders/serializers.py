@@ -1,4 +1,5 @@
-﻿from rest_framework import serializers
+from decimal import Decimal
+from rest_framework import serializers
 from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, BuyOrder, BuyOrderItem
 from products.serializers import PokemonProductSerializer
 
@@ -166,22 +167,34 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(read_only=True)
     live_stock = serializers.SerializerMethodField()
     tcg_price = serializers.SerializerMethodField()
+    effective_unit_cost = serializers.SerializerMethodField()
+    effective_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = BuyOrderItem
         fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
                   'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
-                  'condition', 'sell_price']
+                  'condition', 'sell_price', 'effective_unit_cost', 'effective_rate']
 
     def get_live_stock(self, obj):
         return obj.product.stock if obj.product else None
 
     def get_tcg_price(self, obj):
-        # Current site (TCG-derived, ZAR) price -- used by the staff form to
-        # show "% of TCG" next to the price paid. Display only.
+        # Snapshot taken when the line was saved (condition-adjusted), so the
+        # price lock / later syncs don't change what an old invoice shows.
         if obj.tcg_price is not None:
             return str(obj.tcg_price)
         return str(obj.product.price) if obj.product else None
+
+    def get_effective_unit_cost(self, obj):
+        # Real cost per unit: line price scaled to what was actually paid.
+        return str(obj.buy_order.effective_unit_cost(obj).quantize(Decimal('0.01')))
+
+    def get_effective_rate(self, obj):
+        # Effective cost as % of the TCG price snapshot (None if no TCG price).
+        if not obj.tcg_price:
+            return None
+        return str((obj.buy_order.effective_unit_cost(obj) / obj.tcg_price * 100).quantize(Decimal('0.1')))
 
 
 class BuyInvoiceSerializer(serializers.ModelSerializer):
@@ -195,6 +208,7 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
     off_catalogue_units = serializers.SerializerMethodField()
     user_id = serializers.IntegerField(read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True, default=None)
+    analysis = serializers.SerializerMethodField()
 
     class Meta:
         model = BuyOrder
@@ -203,12 +217,37 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
             'seller_name', 'seller_email', 'seller_phone', 'user_id', 'user_username',
             'seller_note', 'internal_note',
             'payment_made', 'payment_method', 'payment_method_display',
-            'total', 'item_count', 'off_catalogue_units',
+            'total', 'amount_paid', 'cost_applied', 'analysis', 'item_count', 'off_catalogue_units',
             'created_at', 'completed_at', 'items',
         ]
 
     def get_off_catalogue_units(self, obj):
         return sum(i.quantity for i in obj.items.all() if not i.product_id)
+
+    def get_analysis(self, obj):
+        """Rates + profit view: what the line prices said we'd pay, what we
+        really paid, and what the sell prices should return."""
+        items = list(obj.items.all())
+        total = obj.total
+        actual = obj.amount_paid if obj.amount_paid is not None else total
+        factor = obj.allocation_factor
+        tcg_total = sum(((i.tcg_price or Decimal('0')) * i.quantity for i in items), Decimal('0'))
+        sell_total = sum(((i.sell_price or Decimal('0')) * i.quantity for i in items if i.sell_price), Decimal('0'))
+        cost_sell_lines = sum((obj.effective_unit_cost(i) * i.quantity for i in items if i.sell_price), Decimal('0'))
+        def pct(a, b):
+            return str((a / b * 100).quantize(Decimal('0.1'))) if b else None
+        return {
+            'invoice_total': str(total),
+            'actual_paid': str(actual),
+            'difference': str((total - actual).quantize(Decimal('0.01'))),  # + = paid less than the invoice said
+            'allocation_factor': str(factor.quantize(Decimal('0.0001'))),
+            'tcg_total': str(tcg_total.quantize(Decimal('0.01'))),
+            'nominal_rate': pct(total, tcg_total),
+            'effective_rate': pct(actual, tcg_total),
+            'expected_sell_total': str(sell_total.quantize(Decimal('0.01'))),
+            'expected_profit': str((sell_total - cost_sell_lines).quantize(Decimal('0.01'))) if sell_total else None,
+            'expected_margin': pct(sell_total - cost_sell_lines, sell_total) if sell_total else None,
+        }
 
 
 class ManualInvoiceListSerializer(serializers.ModelSerializer):

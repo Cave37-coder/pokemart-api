@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from products.models import PokemonProduct
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, BuyOrder, BuyOrderItem, community_discount_percent
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem, community_discount_percent
 from .banking import EFT_BANKING_DETAILS_HTML
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
@@ -278,7 +278,7 @@ class CheckoutView(APIView):
             customer_note=request.data.get('customer_note', ''),
         )
         for item in items:
-            OrderItem.objects.create(
+            order_item = OrderItem.objects.create(
                 order=order,
                 product=item.product,
                 product_name=item.product.name,
@@ -288,6 +288,12 @@ class CheckoutView(APIView):
             )
             item.product.stock -= item.quantity
             item.product.save()
+            # Cost snapshot AFTER the full save above (which writes every column,
+            # including the cost counters, from this in-memory copy).
+            from products.costing import consume_cost
+            cost = consume_cost(item.product_id, item.quantity)
+            if cost is not None:
+                OrderItem.objects.filter(pk=order_item.pk).update(unit_cost=cost)
         cart.items.all().delete()
         OrderTracking.objects.create(
             order=order,
@@ -679,6 +685,17 @@ def _apply_buy_payload(buy, data):
     for f in ('seller_name', 'seller_email', 'seller_phone', 'seller_note', 'internal_note'):
         if f in data:
             setattr(buy, f, (data.get(f) or '').strip())
+    if 'amount_paid' in data:
+        raw = data.get('amount_paid')
+        if raw in (None, ''):
+            buy.amount_paid = None
+        else:
+            try:
+                amt = Decimal(str(raw)).quantize(Decimal('0.01'))
+                if amt >= 0:
+                    buy.amount_paid = amt
+            except Exception:
+                pass
     # Box # is auto-assigned on first save; staff may override it with a
     # positive whole number. Blank / invalid leaves the current value alone.
     if 'box_number' in data:
@@ -731,6 +748,72 @@ class AdminBuyCardBrowseView(APIView):
             'variant': p.variant_override or '',
             'price': float(p.price or 0), 'stock': p.stock,
         } for p in products]})
+
+
+class AdminCardTraceView(APIView):
+    """Cost trace for one card (2026-10-16): where the stock came from (completed
+    buying invoices -> box, seller, real cost) and what it sold for vs what it
+    cost. ?product_id=<id>  (a played copy's id works too)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        try:
+            pid = int(request.query_params.get('product_id'))
+        except (TypeError, ValueError):
+            return Response({'error': 'product_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        p = PokemonProduct.objects.select_related('card_set').filter(pk=pid).first()
+        if p is None:
+            return Response({'error': 'Card not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Purchases: lines whose stock went to this row (stock_product) or, for
+        # older completed lines, whose product is this row.
+        buys = (BuyOrderItem.objects.select_related('buy_order')
+                .filter(Q(stock_product_id=pid) | Q(stock_product__isnull=True, product_id=pid))
+                .filter(buy_order__status='complete').order_by('-buy_order__completed_at')[:50])
+        purchases = [{
+            'buy_number': b.buy_order.buy_number, 'box_number': b.buy_order.box_number,
+            'seller': b.buy_order.seller_name,
+            'date': (b.buy_order.completed_at or b.buy_order.created_at).isoformat(),
+            'quantity': b.quantity, 'condition': b.condition,
+            'invoice_price': str(b.unit_price),
+            'real_cost': str(b.buy_order.effective_unit_cost(b).quantize(Decimal('0.01'))),
+            'sell_price': str(b.sell_price) if b.sell_price else None,
+        } for b in buys]
+
+        sales = []
+        for oi in OrderItem.objects.filter(product_id=pid).select_related('order').order_by('-order__created_at')[:30]:
+            sales.append({'source': f'Order #{oi.order_id}', 'date': oi.order.created_at.isoformat(),
+                          'quantity': oi.quantity, 'price': str(oi.price_at_purchase),
+                          'unit_cost': str(oi.unit_cost.quantize(Decimal('0.01'))) if oi.unit_cost is not None else None})
+        for mi in ManualInvoiceItem.objects.filter(product_id=pid).select_related('invoice').order_by('-invoice__created_at')[:30]:
+            sales.append({'source': mi.invoice.invoice_number, 'date': mi.invoice.created_at.isoformat(),
+                          'quantity': mi.quantity, 'price': str(mi.unit_price or 0),
+                          'unit_cost': str(mi.unit_cost.quantize(Decimal('0.01'))) if mi.unit_cost is not None else None})
+        sales.sort(key=lambda r: r['date'], reverse=True)
+
+        revenue = cogs = Decimal('0')
+        units_costed = 0
+        for r in sales:
+            if r['unit_cost'] is not None:
+                q = r['quantity']
+                revenue += Decimal(r['price']) * q
+                cogs += Decimal(r['unit_cost']) * q
+                units_costed += q
+        return Response({
+            'product': {
+                'id': p.id, 'name': p.name, 'set_name': p.card_set.name if p.card_set else '',
+                'card_number': p.card_number, 'variant': p.variant_override or 'N', 'condition': p.condition,
+                'stock': p.stock, 'price': str(p.price), 'price_locked': p.price_locked,
+                'cost_units': p.cost_units, 'avg_cost': str(p.avg_cost) if p.avg_cost is not None else None,
+                'cost_on_hand': str(p.cost_total),
+            },
+            'purchases': purchases,
+            'sales': sales[:40],
+            'sales_summary': {
+                'units_costed': units_costed, 'revenue': str(revenue.quantize(Decimal('0.01'))),
+                'cost': str(cogs.quantize(Decimal('0.01'))), 'profit': str((revenue - cogs).quantize(Decimal('0.01'))),
+            },
+        })
 
 
 class AdminBuyInvoiceListView(generics.ListAPIView):
@@ -822,7 +905,35 @@ class AdminBuyInvoiceActionView(APIView):
             return Response({'error': 'Legacy POS buy orders have no status flow.'}, status=status.HTTP_400_BAD_REQUEST)
 
         message = ''
-        if action == 'complete':
+        if action in ('set_amount_paid', 'apply_cost'):
+            # Allowed in ANY status except cancelled (BUY-00003: "I only paid R3400").
+            try:
+                with transaction.atomic():
+                    buy = BuyOrder.objects.select_for_update().get(pk=pk)
+                    if buy.status == 'cancelled':
+                        return Response({'error': 'A cancelled invoice has no cost.'}, status=status.HTTP_400_BAD_REQUEST)
+                    if action == 'set_amount_paid':
+                        raw = request.data.get('amount_paid')
+                        if raw in (None, ''):
+                            buy.amount_paid = None
+                        else:
+                            try:
+                                amt = Decimal(str(raw)).quantize(Decimal('0.01'))
+                                if amt < 0:
+                                    raise ValueError
+                            except Exception:
+                                return Response({'error': 'Amount paid must be a number, 0 or more.'}, status=status.HTTP_400_BAD_REQUEST)
+                            buy.amount_paid = amt
+                        buy.save(update_fields=['amount_paid', 'updated_at'])
+                        if buy.cost_applied:
+                            buy.reapply_costs()
+                        message = 'Actual amount paid saved' + (' and stock cost re-priced.' if buy.cost_applied else '.')
+                    else:
+                        units = buy.apply_cost_retroactively()
+                        message = f'Cost recorded for {units} unit(s) still in stock.'
+            except ValueError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == 'complete':
             try:
                 added, skipped = buy.complete(completed_by=request.user)
             except ValueError as e:

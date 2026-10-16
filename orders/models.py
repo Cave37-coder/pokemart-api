@@ -299,6 +299,9 @@ class OrderItem(models.Model):
     product_sku = models.CharField(max_length=200, blank=True)   # snapshot at purchase
     quantity = models.PositiveIntegerField()
     price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
+    # What the units cost us (weighted average at the time of sale) -- see
+    # products/costing.py. None = no costed stock existed. Profit = price - unit_cost.
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, editable=False)
 
     def __str__(self):
         name = self.product_name or (self.product.name if self.product else "Deleted product")
@@ -520,6 +523,7 @@ class ManualInvoiceItem(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Auto-filled from the linked product's current price on save. Editable at any time."
     )
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ["id"]
@@ -548,37 +552,60 @@ class ManualInvoiceItem(models.Model):
         is_new = self.pk is None
         old_quantity = 0
         old_product_id = None
+        old_unit_cost = None
         if not is_new:
-            old = ManualInvoiceItem.objects.filter(pk=self.pk).values('quantity', 'product_id').first()
+            old = ManualInvoiceItem.objects.filter(pk=self.pk).values('quantity', 'product_id', 'unit_cost').first()
             if old:
                 old_quantity = old['quantity']
                 old_product_id = old['product_id']
+                old_unit_cost = old['unit_cost']
+                if self.unit_cost is None:
+                    self.unit_cost = old_unit_cost
+        else:
+            old_unit_cost = None
 
         super().save(*args, **kwargs)
+
+        from products.costing import consume_cost, restore_cost
+        cost_now = self.unit_cost
 
         # Keep real website stock in sync with what's actually been sold.
         # Clamped at 0 (Greatest) so a typo'd quantity can never push stock
         # negative -- an oversell shows up as 0, not a negative number.
+        # Cost tracking (products/costing.py) mirrors every stock movement.
         if is_new:
             if self.product_id:
                 PokemonProduct.objects.filter(pk=self.product_id).update(
                     stock=Greatest(F('stock') - self.quantity, 0)
                 )
+                cost_now = consume_cost(self.product_id, self.quantity)
         elif old_product_id == self.product_id:
             delta = self.quantity - old_quantity
             if self.product_id and delta != 0:
                 PokemonProduct.objects.filter(pk=self.product_id).update(
                     stock=Greatest(F('stock') - delta, 0)
                 )
+                if delta > 0:
+                    got = consume_cost(self.product_id, delta)
+                    if cost_now is None:
+                        cost_now = got
+                else:
+                    restore_cost(self.product_id, -delta, cost_now)
         else:
             # The linked product itself was changed on an existing item --
             # give the old product its stock back, then decrement the new one.
             if old_product_id:
                 PokemonProduct.objects.filter(pk=old_product_id).update(stock=F('stock') + old_quantity)
+                restore_cost(old_product_id, old_quantity, old_unit_cost)
+            cost_now = None
             if self.product_id:
                 PokemonProduct.objects.filter(pk=self.product_id).update(
                     stock=Greatest(F('stock') - self.quantity, 0)
                 )
+                cost_now = consume_cost(self.product_id, self.quantity)
+        if cost_now != self.unit_cost:
+            self.unit_cost = cost_now
+            ManualInvoiceItem.objects.filter(pk=self.pk).update(unit_cost=cost_now)
 
 
 @receiver(post_delete, sender=ManualInvoiceItem)
@@ -588,6 +615,8 @@ def restore_stock_on_manual_invoice_item_delete(sender, instance, **kwargs):
     deleting the parent ManualInvoice."""
     if instance.product_id:
         PokemonProduct.objects.filter(pk=instance.product_id).update(stock=F('stock') + instance.quantity)
+        from products.costing import restore_cost
+        restore_cost(instance.product_id, instance.quantity, instance.unit_cost)
 
 
 # =============================================================================
@@ -676,6 +705,15 @@ class BuyOrder(models.Model):
         null=True, blank=True,
         help_text="Storage box the stock from this invoice is put in. Auto-assigned; can be changed."
     )
+    # What was ACTUALLY paid to the seller in total (2026-10-16, Michael: "BUY-
+    # 00003 I only paid R3400, not the invoice total"). Blank = the invoice
+    # total. Each line's real cost is its price scaled by amount_paid / total
+    # (pro-rata, i.e. a % of the bundle).
+    amount_paid = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="What was actually paid to the seller in total (blank = the invoice total). Line costs are scaled pro-rata to this."
+    )
+    cost_applied = models.BooleanField(default=False, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="buy_orders_as_seller",
@@ -688,6 +726,63 @@ class BuyOrder(models.Model):
     def __str__(self):
         return f"{self.buy_number or 'DRAFT'} - {self.seller_name}"
 
+    @property
+    def allocation_factor(self):
+        """actual paid / invoice total (1 when no actual amount was entered)."""
+        total = self.total
+        if self.amount_paid is None or not total:
+            return Decimal('1')
+        return Decimal(self.amount_paid) / Decimal(total)
+
+    def effective_unit_cost(self, item):
+        """Real cost of one unit of `item`: its price scaled to the actual paid."""
+        return (Decimal(item.unit_price or 0) * self.allocation_factor).quantize(Decimal('0.0001'))
+
+    def reapply_costs(self):
+        """The actual amount paid changed after cost was recorded: shift each
+        costed line's total by the difference (unit counts stay as they were)."""
+        from products.costing import adjust_cost_total
+        for item in self.items.all():
+            if not item.cost_units_applied or item.cost_unit_applied is None:
+                continue
+            new_unit = self.effective_unit_cost(item)
+            diff = (new_unit - item.cost_unit_applied) * item.cost_units_applied
+            adjust_cost_total(item.stock_product_id or item.product_id, diff)
+            BuyOrderItem.objects.filter(pk=item.pk).update(cost_unit_applied=new_unit)
+
+    def apply_cost_retroactively(self):
+        """For invoices completed BEFORE cost tracking existed: record their cost
+        against the stock still on hand (capped at the units not yet costed),
+        so older buys can be traced too. Returns the number of units costed."""
+        from django.db import transaction
+        from products.costing import add_cost
+        done = 0
+        with transaction.atomic():
+            locked = BuyOrder.objects.select_for_update().get(pk=self.pk)
+            if locked.status != 'complete' or locked.cost_applied:
+                raise ValueError('Cost can only be recorded once, on a completed invoice.')
+            for item in locked.items.select_related('product'):
+                if not item.product_id:
+                    continue
+                prod = item.product
+                if item.condition and item.condition != 'NM' and prod.condition == 'NM':
+                    prod = _find_played_copy(prod, item.condition)
+                    if prod is None:
+                        continue
+                prod = PokemonProduct.objects.get(pk=prod.pk)
+                room = max(prod.stock - prod.cost_units, 0)
+                units = min(item.quantity, room)
+                if units <= 0:
+                    continue
+                unit = locked.effective_unit_cost(item)
+                add_cost(prod.pk, units, unit)
+                BuyOrderItem.objects.filter(pk=item.pk).update(
+                    cost_unit_applied=unit, cost_units_applied=units, stock_product=prod)
+                done += units
+            locked.cost_applied = True
+            locked.save(update_fields=['cost_applied', 'updated_at'])
+        return done
+
     def complete(self, completed_by=None):
         """Add this invoice's catalogue lines to live website stock and lock it.
         Returns (units_added, units_not_added_off_catalogue). Raises ValueError
@@ -696,6 +791,7 @@ class BuyOrder(models.Model):
         from django.db import transaction
         from django.utils import timezone
         from products.models import log_stock_movement
+        from products.costing import add_cost
 
         with transaction.atomic():
             locked = BuyOrder.objects.select_for_update().get(pk=self.pk)
@@ -733,11 +829,17 @@ class BuyOrder(models.Model):
                 PokemonProduct.objects.filter(pk=prod.pk).update(**fields)
                 log_stock_movement(prod.pk, old, new, source='buyin', user=completed_by)
                 added += item.quantity
+                # Cost tracking: what this unit really cost (pro-rata to the actual paid).
+                unit_cost = locked.effective_unit_cost(item)
+                add_cost(prod.pk, item.quantity, unit_cost)
+                BuyOrderItem.objects.filter(pk=item.pk).update(
+                    cost_unit_applied=unit_cost, cost_units_applied=item.quantity, stock_product=prod)
 
             locked.status = 'complete'
             locked.stock_applied = True
+            locked.cost_applied = True
             locked.completed_at = timezone.now()
-            locked.save(update_fields=['status', 'stock_applied', 'completed_at', 'updated_at'])
+            locked.save(update_fields=['status', 'stock_applied', 'cost_applied', 'completed_at', 'updated_at'])
             return added, skipped
 
     def save(self, *args, **kwargs):
@@ -763,6 +865,16 @@ def _buy_order_stock_mode(buy_order_id):
     """'pos' (legacy, pos_stock tracking) or 'site'. Unknown parent -> 'pos'
     (safe default: keeps the pre-existing behaviour)."""
     return BuyOrder.objects.filter(pk=buy_order_id).values_list('stock_mode', flat=True).first() or 'pos'
+
+
+def _find_played_copy(nm, condition):
+    """Existing played copy of NM product `nm` (never creates one)."""
+    q = PokemonProduct.objects.filter(condition=condition, variant_override=nm.variant_override)
+    if nm.tcgcsv_product_id:
+        q = q.filter(tcgcsv_product_id=nm.tcgcsv_product_id)
+    else:
+        q = q.filter(card_set=nm.card_set, card_number=nm.card_number, name=nm.name)
+    return q.exclude(pk=nm.pk).first()
 
 
 def _played_copy_for(nm, condition, sell_price=None):
@@ -835,6 +947,15 @@ class BuyOrderItem(models.Model):
     tcg_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Site/TCG price of the card when this line was saved (snapshot, for the buy-in rate shown on the client receipt)."
+    )
+    # Filled when the invoice is completed (cost tracking): the real unit cost
+    # recorded, how many units it was recorded for, and which product row got
+    # the stock (the played copy for non-NM lines).
+    cost_unit_applied = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, editable=False)
+    cost_units_applied = models.PositiveIntegerField(default=0, editable=False)
+    stock_product = models.ForeignKey(
+        PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True, editable=False, related_name="+",
+        help_text="The product row that actually received the stock (the played copy for non-NM lines)."
     )
 
     class Meta:
