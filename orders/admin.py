@@ -776,7 +776,8 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         products = PokemonProduct.objects.select_related('card_set').filter(condition='NM')
 
         if set_code:
-            products = products.filter(card_set__code=set_code)
+            shared = PokemonProduct.objects.filter(also_in_sets__code=set_code).values('id')
+            products = products.filter(Q(card_set__code=set_code) | Q(id__in=shared))
             if term:
                 products = products.filter(name__icontains=term)
             if variant:
