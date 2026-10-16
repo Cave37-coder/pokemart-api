@@ -823,9 +823,14 @@ class BuyOrder(models.Model):
                 new = old + item.quantity
                 fields = {'stock': new}
                 if item.sell_price is not None and item.sell_price > 0:
-                    # Manual sell price: apply + lock so the nightly sync keeps it.
+                    # Selling price: list at it now; with a % saved, the nightly sync
+                    # keeps re-deriving it from live TCG x rate (fluid pricing).
                     fields['price'] = max(item.sell_price, PokemonProduct.MINIMUM_PRICE)
-                    fields['price_locked'] = True
+                    if item.sell_pct is not None and item.sell_pct > 0:
+                        fields['sell_pct'] = item.sell_pct
+                        fields['price_locked'] = False
+                    else:
+                        fields['price_locked'] = True  # fixed R price (no % available)
                 PokemonProduct.objects.filter(pk=prod.pk).update(**fields)
                 log_stock_movement(prod.pk, old, new, source='buyin', user=completed_by)
                 added += item.quantity
@@ -947,6 +952,10 @@ class BuyOrderItem(models.Model):
     tcg_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Site/TCG price of the card when this line was saved (snapshot, for the buy-in rate shown on the client receipt)."
+    )
+    sell_pct = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="Selling price as a % of the (condition-adjusted) TCG price. Saved on the product so the nightly sync keeps it fluid."
     )
     # Filled when the invoice is completed (cost tracking): the real unit cost
     # recorded, how many units it was recorded for, and which product row got

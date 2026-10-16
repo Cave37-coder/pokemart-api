@@ -665,7 +665,16 @@ def _parse_buy_lines(raw_items):
                 sell_price = None
             elif not product:
                 sell_price = None  # off-catalogue lines have no site price to set
+        # Selling price as a % of the condition-adjusted TCG price (what the
+        # nightly sync will keep applying).
+        tcg_snapshot = None
+        if product and product.price and product.price > 0:
+            tcg_snapshot = (product.price * Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(condition, 1.0)))).quantize(Decimal('0.01'))
+        sell_pct = None
+        if sell_price and tcg_snapshot:
+            sell_pct = (sell_price / tcg_snapshot * 100).quantize(Decimal('0.01'))
         lines.append(dict(
+            sell_pct=sell_pct,
             product=product, description=description,
             set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
             variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,

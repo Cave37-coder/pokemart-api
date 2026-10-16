@@ -305,6 +305,15 @@ class PokemonProduct(models.Model):
         default=0,
         help_text="Physical stock acquired via the POS Buy screen. Separate from live website stock -- does not affect what's purchasable on the site."
     )
+    # "Follows the market" selling price (2026-10-16): when set, the nightly price
+    # sync prices this card at (TCG market x rate x 1.1) x sell_pct/100 -- and,
+    # for played copies, x the condition multiplier -- instead of the plain
+    # market price, so a buy-in markup (e.g. 120%) keeps tracking TCG and the
+    # exchange rate. Set from buying invoices; blank = plain market price.
+    sell_pct = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        help_text="Sell at this % of the (condition-adjusted) TCG-derived price; updated by the nightly sync."
+    )
     # Cost tracking (2026-10-16) -- see products/costing.py. Units on hand whose
     # purchase cost is known, and their combined cost. Maintained only by
     # buying-invoice completion and sales; not editable by hand.

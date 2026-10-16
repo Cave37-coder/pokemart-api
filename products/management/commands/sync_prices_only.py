@@ -128,6 +128,13 @@ class Command(BaseCommand):
             pid_map[p.tcgcsv_product_id] = p
         self.stdout.write(f"  {len(pid_variant_map):,} products loaded")
 
+        # Played copies that follow the market (sell_pct set on a buying invoice):
+        # priced from their NM row's TCG-derived price x condition multiplier x sell_pct.
+        played_follow = {}
+        for pp in PokemonProduct.objects.exclude(condition='NM').filter(
+                sell_pct__isnull=False, tcgcsv_product_id__isnull=False):
+            played_follow.setdefault((pp.tcgcsv_product_id, pp.variant_override or 'N'), []).append(pp)
+
         def round_up_10c(zar):
             # Round UP to nearest R0.10
             return (Decimal(str(zar)) * 10).to_integral_value(rounding=ROUND_UP) / 10
@@ -198,7 +205,18 @@ class Command(BaseCommand):
                 if not usd or float(usd) <= 0:
                     continue
 
-                new_price = round_up_10c(Decimal(str(usd)) * rate * MARKUP)
+                base_price = round_up_10c(Decimal(str(usd)) * rate * MARKUP)
+                # sell_pct = "follow the market at X% of TCG" (set by buying invoices)
+                new_price = round_up_10c(base_price * p.sell_pct / 100) if p.sell_pct else base_price
+
+                # Played copies tracking this card at their own % and condition multiplier.
+                for pp in played_follow.get((pid, p.variant_override or 'N'), []):
+                    mult = Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(pp.condition, 1.0)))
+                    pp_price = max(round_up_10c(base_price * mult * pp.sell_pct / 100), MIN_PRICE)
+                    if pp.price != pp_price:
+                        pp.price = pp_price
+                        to_update.append(pp)
+                        updated += 1
 
                 # Sanity clamp -- see MAX_JUMP_RATIO above. Checked against
                 # the raw TCGCSV-derived price (before the floor below) since

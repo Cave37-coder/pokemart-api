@@ -169,12 +169,13 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     tcg_price = serializers.SerializerMethodField()
     effective_unit_cost = serializers.SerializerMethodField()
     effective_rate = serializers.SerializerMethodField()
+    live_price = serializers.SerializerMethodField()
 
     class Meta:
         model = BuyOrderItem
         fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
                   'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
-                  'condition', 'sell_price', 'effective_unit_cost', 'effective_rate']
+                  'condition', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate']
 
     def get_live_stock(self, obj):
         return obj.product.stock if obj.product else None
@@ -185,6 +186,12 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
         if obj.tcg_price is not None:
             return str(obj.tcg_price)
         return str(obj.product.price) if obj.product else None
+
+    def get_live_price(self, obj):
+        # What the card is listed at on the site right now (moves with the
+        # nightly sync when a sell % is set) -- the 'selling value' for margin.
+        target = obj.stock_product or obj.product
+        return str(target.price) if target is not None else None
 
     def get_effective_unit_cost(self, obj):
         # Real cost per unit: line price scaled to what was actually paid.
@@ -232,7 +239,11 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
         actual = obj.amount_paid if obj.amount_paid is not None else total
         factor = obj.allocation_factor
         tcg_total = sum(((i.tcg_price or Decimal('0')) * i.quantity for i in items), Decimal('0'))
-        sell_total = sum(((i.sell_price or Decimal('0')) * i.quantity for i in items if i.sell_price), Decimal('0'))
+        def selling(i):
+            # Completed invoices: the live site price (fluid); otherwise the planned sell price.
+            tgt = (i.stock_product or i.product) if obj.status == 'complete' else None
+            return tgt.price if (tgt is not None and i.sell_price) else i.sell_price
+        sell_total = sum(((selling(i) or Decimal('0')) * i.quantity for i in items if i.sell_price), Decimal('0'))
         cost_sell_lines = sum((obj.effective_unit_cost(i) * i.quantity for i in items if i.sell_price), Decimal('0'))
         def pct(a, b):
             return str((a / b * 100).quantize(Decimal('0.1'))) if b else None
