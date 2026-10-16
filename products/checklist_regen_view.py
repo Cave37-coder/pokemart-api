@@ -35,9 +35,15 @@ def checklist_regen_view(request):
         return HttpResponse(_FORM.format(msg="<p style='color:#b00'>No file uploaded.</p>", token=token), status=400)
     try:
         content = upload.read().decode("utf-8-sig")
+        crlf = "\r\n" in content
+        if crlf:
+            content = content.replace("\r\n", "\n")
         new_content, stats = regenerate_checklist_content(content)
+        if crlf:  # keep the file's Windows line endings so the git diff stays small
+            new_content = new_content.replace("\n", "\r\n")
     except Exception as e:  # format problems / unmapped era, show to staff
-        return HttpResponse(_FORM.format(msg=f"<p style='color:#b00'>{e}</p>", token=token), status=400)
+        from django.utils.html import escape
+        return HttpResponse(_FORM.format(msg=f"<p style='color:#b00'>{escape(str(e))}</p>", token=token), status=400)
 
     resp = HttpResponse(new_content, content_type="text/plain; charset=utf-8")
     resp["Content-Disposition"] = 'attachment; filename="checklistData.ts"'
