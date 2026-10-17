@@ -714,6 +714,10 @@ class BuyOrder(models.Model):
         help_text="What was actually paid to the seller in total (blank = the invoice total). Line costs are scaled pro-rata to this."
     )
     cost_applied = models.BooleanField(default=False, editable=False)
+    # "Premium accepted" (2026-10-17): paid above the invoice on purpose (e.g. to
+    # secure stock from a regular supplier). Only changes how the Cost panel
+    # reports it -- neutral note instead of red "overpaid" flags. No effect on cost maths.
+    premium_accepted = models.BooleanField(default=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="buy_orders_as_seller",

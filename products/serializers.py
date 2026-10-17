@@ -62,10 +62,14 @@ class PokemonProductSerializer(serializers.ModelSerializer):
         write_only=True, many=True, required=False
     )
     in_stock = serializers.BooleanField(read_only=True)
+    # True while the R600+ cost floor is what's holding this card's price up.
+    # Deliberately a bare flag -- never expose our cost or the floor figure.
+    price_lock = serializers.BooleanField(source="price_lock_active", read_only=True)
 
     class Meta:
         model = PokemonProduct
         fields = [
+            "price_lock",
             "pb_id", "sku", "tcgplayer_id", "gengar_id",
             "id", "name", "name_japanese", "description", "flavour_text",
             "category", "category_id", "card_set", "card_set_id",

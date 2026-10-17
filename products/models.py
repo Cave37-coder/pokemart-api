@@ -345,6 +345,37 @@ class PokemonProduct(models.Model):
             return (self.cost_total / self.cost_units).quantize(__import__('decimal').Decimal('0.01'))
         return None
 
+    # Price lock for high-end cards (2026-10-17, Michael): "cards valued over
+    # R600 and up, we freeze at -10% of cost and flag the card on the website".
+    # While we hold costed stock of a card worth R600+ (by cost or current
+    # price), the nightly sync never lets the price fall below 90% of our
+    # average cost, even if TCG keeps dropping. Bulk / cheaper cards are never
+    # touched. Lock ends by itself when the costed stock is sold out.
+    PRICE_LOCK_MIN_VALUE = __import__('decimal').Decimal('600')
+    PRICE_LOCK_FACTOR = __import__('decimal').Decimal('0.90')
+
+    @property
+    def price_lock_floor(self):
+        """Lowest price the nightly sync may set, or None when no lock applies."""
+        from decimal import Decimal, ROUND_CEILING
+        cost = self.avg_cost
+        if cost is None or self.stock <= 0:
+            return None
+        if max(cost, self.price or Decimal('0')) < self.PRICE_LOCK_MIN_VALUE:
+            return None
+        floor = cost * self.PRICE_LOCK_FACTOR
+        return (floor / Decimal('0.1')).to_integral_value(rounding=ROUND_CEILING) * Decimal('0.1')
+
+    @property
+    def price_lock_active(self):
+        """True when the lock is what's holding the price up (shown on the site)."""
+        floor = self.price_lock_floor
+        return floor is not None and self.price is not None and self.price <= floor
+
+    def apply_price_lock(self, price):
+        floor = self.price_lock_floor
+        return max(price, floor) if floor is not None else price
+
     @property
     def in_stock(self):
         return self.stock > 0

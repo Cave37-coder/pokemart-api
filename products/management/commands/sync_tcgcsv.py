@@ -536,6 +536,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                     if obj.sell_pct:
                         # Follows the market at X% of TCG (set on a buying invoice).
                         new_price = (Decimal(str(new_price)) * obj.sell_pct / 100).quantize(Decimal("0.01"))
+                    new_price = obj.apply_price_lock(Decimal(str(new_price)))  # R600+ cards: never below 90% of our cost
                     new_img = card_image_url if ptcgio_set and number_raw else None
                     if obj.price != new_price or (new_img and obj.image_url != new_img):
                         obj.price = new_price

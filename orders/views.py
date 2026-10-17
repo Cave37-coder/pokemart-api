@@ -916,7 +916,11 @@ class AdminBuyInvoiceActionView(APIView):
             return Response({'error': 'Legacy POS buy orders have no status flow.'}, status=status.HTTP_400_BAD_REQUEST)
 
         message = ''
-        if action in ('set_amount_paid', 'apply_cost'):
+        if action == 'set_premium':
+            buy.premium_accepted = bool(request.data.get('premium_accepted'))
+            buy.save(update_fields=['premium_accepted', 'updated_at'])
+            message = 'Premium marked as accepted.' if buy.premium_accepted else 'Premium flag cleared.'
+        elif action in ('set_amount_paid', 'apply_cost'):
             # Allowed in ANY status except cancelled (BUY-00003: "I only paid R3400").
             try:
                 with transaction.atomic():

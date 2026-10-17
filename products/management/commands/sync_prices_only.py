@@ -212,7 +212,7 @@ class Command(BaseCommand):
                 # Played copies tracking this card at their own % and condition multiplier.
                 for pp in played_follow.get((pid, p.variant_override or 'N'), []):
                     mult = Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(pp.condition, 1.0)))
-                    pp_price = max(round_up_10c(base_price * mult * pp.sell_pct / 100), MIN_PRICE)
+                    pp_price = pp.apply_price_lock(max(round_up_10c(base_price * mult * pp.sell_pct / 100), MIN_PRICE))
                     if pp.price != pp_price:
                         pp.price = pp_price
                         to_update.append(pp)
@@ -239,6 +239,7 @@ class Command(BaseCommand):
                 # business rule, not something that should ever get skipped
                 # as a "suspicious jump".
                 new_price = max(new_price, MIN_PRICE)
+                new_price = p.apply_price_lock(new_price)  # R600+ cards: never below 90% of our cost
                 if p.price == new_price:
                     skipped += 1
                     continue

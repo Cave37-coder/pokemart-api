@@ -224,7 +224,7 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
             'seller_name', 'seller_email', 'seller_phone', 'user_id', 'user_username',
             'seller_note', 'internal_note',
             'payment_made', 'payment_method', 'payment_method_display',
-            'total', 'amount_paid', 'cost_applied', 'analysis', 'item_count', 'off_catalogue_units',
+            'total', 'amount_paid', 'cost_applied', 'premium_accepted', 'analysis', 'item_count', 'off_catalogue_units',
             'created_at', 'completed_at', 'items',
         ]
 
