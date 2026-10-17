@@ -70,6 +70,16 @@ class MailerSendBackend(BaseEmailBackend):
                         "Email sent via MailerSend: subject=%s to=%s status=%s",
                         message.subject, message.to, response.status_code,
                     )
+                    # 2026-10-17: MailerSend answers 202 even when it silently skips
+                    # a suppressed/blocked recipient -- the reason is only in a
+                    # "warnings" block of the response body. Log it so a skipped
+                    # address (e.g. admin@ after a bounce) can never go unnoticed.
+                    body_text = response.text or ""
+                    if "warning" in body_text.lower():
+                        logger.warning(
+                            "MailerSend accepted but warned: %s | subject=%s to=%s",
+                            body_text[:500], message.subject, message.to,
+                        )
                 else:
                     logger.error(
                         "MailerSend API rejected the email: status=%s body=%s subject=%s to=%s",
