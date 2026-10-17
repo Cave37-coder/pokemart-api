@@ -30,7 +30,12 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
 
     rows = ''
     tot_qty = 0
-    tot_tcg = tot_paid = tot_sell = 0.0
+    tot_tcg = tot_paid = tot_sell = tot_profit = tot_sell_cost = 0.0
+    premium = bool(getattr(buy_order, 'premium_accepted', False))
+    # Internal sheet colours (tinted backgrounds so they still read in B&W print):
+    # real rate green <= 80% of TCG, amber above (blue if the premium was accepted
+    # on purpose); profit green = gaining, red = losing.
+    GREEN, RED, AMBER, BLUE = '#d9f2dd;color:#1b5e20', '#fbd5d5;color:#b71c1c', '#fff0c2;color:#8a5a00', '#d6ecfb;color:#0b5394'
     for i, item in enumerate(items, 1):
         set_name = item.set_name or '-'
         card_number = item.card_number or '--'
@@ -49,8 +54,29 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
             tot_sell += float(item.sell_price) * item.quantity
         sell_cell = ''
         if not client:
+            real = float(buy_order.effective_unit_cost(item))
+            if tcg:
+                rr = real / tcg * 100
+                rate_txt = f'{rr:.0f}%'
+                rate_bg = GREEN if rr <= 80 else (BLUE if premium else AMBER)
+                rate_style = f';background:{rate_bg};font-weight:bold'
+            else:
+                rate_style = ''
             sell = f'R {float(item.sell_price):.2f}' if item.sell_price else '-'
-            sell_cell = f'<td style="{td};text-align:right">{sell}</td>'
+            if item.sell_price:
+                sp = float(item.sell_price)
+                profit = sp - real
+                margin = profit / sp * 100 if sp else 0
+                tot_profit += profit * item.quantity
+                tot_sell_cost += sp * item.quantity
+                pbg = GREEN if profit >= 0 else RED
+                profit_cells = (f'<td style="{td};text-align:right;background:{pbg};font-weight:bold">{profit:+.2f}</td>'
+                                f'<td style="{td};text-align:right;background:{pbg};font-weight:bold">{margin:.0f}%</td>')
+            else:
+                profit_cells = f'<td style="{td};text-align:right">-</td><td style="{td};text-align:right">-</td>'
+            sell_cell = f'<td style="{td};text-align:right">{sell}</td>{profit_cells}'
+        else:
+            rate_style = ''
         rows += f'''<tr>
             <td style="{td}">{i}</td>
             <td style="{td}">{set_name}</td>
@@ -60,7 +86,7 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
             <td style="{td}">{condition}</td>
             <td style="{td};text-align:center">{item.quantity}</td>
             <td style="{td};text-align:right">{tcg_txt}</td>
-            <td style="{td};text-align:right">{rate_txt}</td>
+            <td style="{td};text-align:right{rate_style}">{rate_txt}</td>
             <td style="{td};text-align:right">R {unit_price:.2f}</td>
             {sell_cell}
             <td style="{td};text-align:right">R {line_total:.2f}</td>
@@ -72,7 +98,8 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
     totals_row = ''
     if not client:
         tt = 'padding:5px 8px;font-size:11px;font-weight:bold;border-top:2px solid #ff6b35;background:#fafafa'
-        overall_rate = f'{tot_paid / tot_tcg * 100:.0f}%' if tot_tcg else '-'
+        real_total = float(buy_order.amount_paid) if getattr(buy_order, 'amount_paid', None) is not None else tot_paid
+        overall_rate = f'{real_total / tot_tcg * 100:.0f}%' if tot_tcg else '-'
         totals_row = f'''<tfoot><tr>
             <td colspan="6" style="{tt};text-align:right">TOTALS</td>
             <td style="{tt};text-align:center">{tot_qty}</td>
@@ -80,9 +107,21 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
             <td style="{tt};text-align:right">{overall_rate}</td>
             <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
             <td style="{tt};text-align:right">R {tot_sell:.2f}</td>
+            <td style="{tt};text-align:right;color:{'#1b5e20' if tot_profit >= 0 else '#b71c1c'}">{tot_profit:+.2f}</td>
+            <td style="{tt};text-align:right;color:{'#1b5e20' if tot_profit >= 0 else '#b71c1c'}">{(tot_profit / tot_sell_cost * 100) if tot_sell_cost else 0:.0f}%</td>
             <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
         </tr></tfoot>'''
-    sell_header = '' if client else '<th width="70" style="text-align:right">Sell at</th>'
+    legend = '' if client else (
+        '<div style="font-size:10px;color:#555;margin-bottom:10px">'
+        '<b>Colour key:</b> Real rate = what we really paid as % of TCG (after the actual amount paid). '
+        '<span style="background:#d9f2dd;color:#1b5e20;padding:1px 6px">green</span> at or under 80% / profit &nbsp;'
+        '<span style="background:#fff0c2;color:#8a5a00;padding:1px 6px">amber</span> over 80% &nbsp;'
+        '<span style="background:#d6ecfb;color:#0b5394;padding:1px 6px">blue</span> over 80%, premium accepted &nbsp;'
+        '<span style="background:#fbd5d5;color:#b71c1c;padding:1px 6px">red</span> selling below real cost.</div>')
+    sell_header = '' if client else ('<th width="70" style="text-align:right">Sell at</th>'
+                                     '<th width="62" style="text-align:right">Profit ea.</th>'
+                                     '<th width="50" style="text-align:right">Margin</th>')
+    rate_header = 'Rate' if client else 'Real rate'
     doc_title = 'BUY-IN RECEIPT' if client else 'BUY-IN STOCK SHEET'
     doc_sub = '' if client else '<div style="font-size:10px;color:#c62828;font-weight:bold;margin-top:2px">INTERNAL COPY - not for the seller</div>'
     box_block = ''
@@ -184,11 +223,12 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
   <thead><tr>
     <th width="30">#</th><th>Set</th><th width="60">Card #</th><th>Item</th>
     <th width="55">Variant</th><th width="35">Cond.</th><th width="35" style="text-align:center">Qty</th>
-    <th width="65" style="text-align:right">TCG price</th><th width="50" style="text-align:right">Rate</th>
+    <th width="65" style="text-align:right">TCG price</th><th width="50" style="text-align:right">{rate_header}</th>
     <th width="65" style="text-align:right">Paid ea.</th>{sell_header}<th width="75" style="text-align:right">Total</th>
   </tr></thead>
   <tbody>{rows}</tbody>{totals_row}
 </table>
+{legend}
 
 <table style="margin-bottom:14px">
   <tr><td style="width:60%"></td><td style="width:40%">
