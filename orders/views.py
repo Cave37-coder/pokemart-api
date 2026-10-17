@@ -1302,7 +1302,7 @@ def print_order(request, order_id):
 
     html = f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Order #{order.id} - PokeBulk SA</title>
-<style>* {{ margin:0;padding:0;box-sizing:border-box }} body {{ font-family:Arial,sans-serif;font-size:12px;color:#000;padding:14px;line-height:1.2 }} table {{ border-collapse:collapse }} table td {{ padding:2px 8px;border-bottom:1px solid #eee;font-size:11px }} @media print {{ .no-print {{ display:none }} @page {{ margin:10mm;size:A4 }} }}</style>
+<style>* {{ margin:0;padding:0;box-sizing:border-box }} body {{ font-family:Arial,sans-serif;font-size:12px;color:#000;padding:14px;line-height:1.2 }} table {{ border-collapse:collapse }} table td {{ padding:2px 8px;border-bottom:1px solid #eee;font-size:11px }} @media print {{ .no-print {{ display:none }} @page {{ margin:0;size:A4 }} body {{ padding:10mm !important }} }}</style>
 </head><body>
 <div class="no-print" style="margin-bottom:16px">
   <button onclick="window.print()" style="background:#ff6b35;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:14px;cursor:pointer">Print</button>
