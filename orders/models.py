@@ -717,7 +717,10 @@ class BuyOrder(models.Model):
     # "Premium accepted" (2026-10-17): paid above the invoice on purpose (e.g. to
     # secure stock from a regular supplier). Only changes how the Cost panel
     # reports it -- neutral note instead of red "overpaid" flags. No effect on cost maths.
-    premium_accepted = models.BooleanField(default=False)
+    premium_accepted = models.BooleanField(
+        default=False,
+        help_text='Paid above the invoice on purpose (e.g. to secure stock). Only changes how the Cost panel reports it.',
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="buy_orders_as_seller",
