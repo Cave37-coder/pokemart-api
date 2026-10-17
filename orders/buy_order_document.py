@@ -100,16 +100,20 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
         tt = 'padding:5px 8px;font-size:11px;font-weight:bold;border-top:2px solid #ff6b35;background:#fafafa'
         real_total = float(buy_order.amount_paid) if getattr(buy_order, 'amount_paid', None) is not None else tot_paid
         overall_rate = f'{real_total / tot_tcg * 100:.0f}%' if tot_tcg else '-'
+        pc = '#1b5e20' if tot_profit >= 0 else '#b71c1c'
+        margin_tot = (tot_profit / tot_sell_cost * 100) if tot_sell_cost else 0
+        lab = 'display:block;font-size:8px;font-weight:normal;color:#777;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:1px;white-space:nowrap'
+        nw = 'white-space:nowrap'
         totals_row = f'''<tfoot><tr>
-            <td colspan="6" style="{tt};text-align:right">TOTALS</td>
-            <td style="{tt};text-align:center">{tot_qty}</td>
-            <td style="{tt};text-align:right">R {tot_tcg:.2f}</td>
-            <td style="{tt};text-align:right">{overall_rate}</td>
-            <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
-            <td style="{tt};text-align:right">R {tot_sell:.2f}</td>
-            <td style="{tt};text-align:right;color:{'#1b5e20' if tot_profit >= 0 else '#b71c1c'}">{tot_profit:+.2f}</td>
-            <td style="{tt};text-align:right;color:{'#1b5e20' if tot_profit >= 0 else '#b71c1c'}">{(tot_profit / tot_sell_cost * 100) if tot_sell_cost else 0:.0f}%</td>
-            <td style="{tt};text-align:right">R {tot_paid:.2f}</td>
+            <td colspan="6" style="{tt};text-align:right;font-size:13px">TOTALS</td>
+            <td style="{tt};text-align:center"><span style="{lab}">Qty</span>{tot_qty}</td>
+            <td style="{tt};text-align:right;{nw}"><span style="{lab}">TCG value</span>R {tot_tcg:.2f}</td>
+            <td style="{tt};text-align:right;{nw}"><span style="{lab}">Real rate</span>{overall_rate}</td>
+            <td style="{tt};text-align:right;{nw}"><span style="{lab}">Paid (invoice)</span>R {tot_paid:.2f}</td>
+            <td style="{tt};text-align:right;{nw}"><span style="{lab}">Sell value</span>R {tot_sell:.2f}</td>
+            <td style="{tt};text-align:right;{nw};color:{pc}"><span style="{lab}">Profit</span>R {tot_profit:+.2f}</td>
+            <td style="{tt};text-align:right;{nw};color:{pc}"><span style="{lab}">Margin</span>{margin_tot:.0f}%</td>
+            <td style="{tt};text-align:right;{nw}"><span style="{lab}">Total paid</span>R {tot_paid:.2f}</td>
         </tr></tfoot>'''
     legend = '' if client else (
         '<div style="font-size:10px;color:#555;margin-bottom:10px">'
