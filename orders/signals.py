@@ -12,6 +12,28 @@ from notifications.push import push_order_status
 logger = logging.getLogger(__name__)
 
 
+ADMIN_COPY_ADDRESS = 'admin@pokebulk.co.za'
+
+
+def _send_admin_copy(subject, body):
+    """2026-10-17: the admin@ copy of every status update used to ride along as a
+    BCC on the customer's email. Since ~15 Oct those BCC copies stopped reaching
+    the admin@ mailbox even though MailerSend accepted the customer email
+    (202) and delivered it. A BCC leaves no trace of its own in MailerSend, so
+    it can't be diagnosed. Sending the copy as its own, separate message lands
+    it in MailerSend's Emails list (delivered / rejected, with a reason) and
+    can never silently vanish. Never raises: a failed copy must not affect the
+    customer's email or the status save."""
+    try:
+        EmailMultiAlternatives(
+            subject=f'[Copy] {subject}',
+            body=body,
+            to=[ADMIN_COPY_ADDRESS],
+        ).send(fail_silently=False)
+    except Exception:
+        logger.exception("Failed to send admin copy of status-update email (subject=%s)", subject)
+
+
 @receiver(post_save, sender=Order)
 def create_tracking_on_status_change(sender, instance, created, **kwargs):
     if created:
@@ -148,13 +170,13 @@ def _send_status_update_email(order):
             subject=subject,
             body=text_body,
             to=[customer_email],
-            bcc=['admin@pokebulk.co.za'],
         )
         email.send(fail_silently=False)
         logger.info(
             "Order status-update email sent for order_id=%s status=%s to=%s",
             order.id, order.status, customer_email,
         )
+        _send_admin_copy(subject, f"(Copy of the email sent to {customer_email})\n\n{text_body}")
     except Exception:
         logger.exception(
             "Failed to send order status-update email for order_id=%s status=%s",
@@ -215,13 +237,13 @@ def _send_manual_invoice_status_email(invoice):
             subject=subject,
             body=text_body,
             to=[customer_email],
-            bcc=['admin@pokebulk.co.za'],
         )
         email.send(fail_silently=False)
         logger.info(
             "Manual invoice status-update email sent for invoice=%s status=%s to=%s",
             invoice.invoice_number, invoice.status, customer_email,
         )
+        _send_admin_copy(subject, f"(Copy of the email sent to {customer_email})\n\n{text_body}")
     except Exception:
         logger.exception(
             "Failed to send manual invoice status-update email for invoice=%s status=%s",
