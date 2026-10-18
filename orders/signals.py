@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 ADMIN_COPY_ADDRESS = 'admin@pokebulk.co.za'
+# 2026-10-18: admin@ keeps landing on MailerSend's "On hold" list after soft bounces
+# from the cPanel mail server (admin@ 15 Oct, again 17-18 Oct), and a held address
+# is silently skipped. So every copy ALSO goes to an external mailbox that doesn't
+# depend on that server. Each address gets its own message, so one being held can't
+# stop the other.
+ADMIN_COPY_ADDRESSES = [ADMIN_COPY_ADDRESS, 'pokebulk77+orders@gmail.com']
 
 
 def _send_admin_copy(subject, body):
@@ -24,14 +30,15 @@ def _send_admin_copy(subject, body):
     it in MailerSend's Emails list (delivered / rejected, with a reason) and
     can never silently vanish. Never raises: a failed copy must not affect the
     customer's email or the status save."""
-    try:
-        EmailMultiAlternatives(
-            subject=f'[Copy] {subject}',
-            body=body,
-            to=[ADMIN_COPY_ADDRESS],
-        ).send(fail_silently=False)
-    except Exception:
-        logger.exception("Failed to send admin copy of status-update email (subject=%s)", subject)
+    for address in ADMIN_COPY_ADDRESSES:
+        try:
+            EmailMultiAlternatives(
+                subject=f'[Copy] {subject}',
+                body=body,
+                to=[address],
+            ).send(fail_silently=False)
+        except Exception:
+            logger.exception("Failed to send admin copy to %s (subject=%s)", address, subject)
 
 
 @receiver(post_save, sender=Order)
