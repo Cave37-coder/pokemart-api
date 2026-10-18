@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import viewsets, filters
 from django.db.models import Case, When, IntegerField, Value, Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser
@@ -73,12 +75,46 @@ class PokemonProductFilter(django_filters.FilterSet):
         fields = ['era', 'card_set', 'energy_type', 'supertype', 'rarity', 'category', 'min_price', 'max_price', 'in_stock', 'subtype', 'legal_standard', 'legality', 'card_number', 'prize_pack_series']
 
 
+class CardSearchFilter(filters.SearchFilter):
+    """DRF search plus an HP shortcut (Michael, 2026-10-18: "expand the scope of the
+    search function to include attacks, HP, Abilities and Attack names").
+
+    "HP 30", "hp30", "30hp" or "hp:30" filter to cards with exactly 30 HP; any
+    other words still search the normal fields (name, set, artist, attack and
+    ability names ...), so "hp 120 water" works too. A bare number keeps its old
+    meaning (card / dex number) so plain number searches aren't flooded."""
+    _HP_ATTACHED = re.compile(r'^(?:hp[:=]?(\d{1,4})|(\d{1,4})hp)$', re.IGNORECASE)
+
+    def _split(self, request):
+        raw = super().get_search_terms(request)
+        hps, rest, i = [], [], 0
+        while i < len(raw):
+            t = raw[i]
+            m = self._HP_ATTACHED.match(t)
+            if m:
+                hps.append(int(m.group(1) or m.group(2))); i += 1; continue
+            if t.lower() in ('hp', 'hp:', 'hp=') and i + 1 < len(raw) and raw[i + 1].isdigit():
+                hps.append(int(raw[i + 1])); i += 2; continue
+            if t.isdigit() and i + 1 < len(raw) and raw[i + 1].lower() == 'hp':
+                hps.append(int(t)); i += 2; continue
+            rest.append(t); i += 1
+        return hps, rest
+
+    def get_search_terms(self, request):
+        return self._split(request)[1]
+
+    def filter_queryset(self, request, queryset, view):
+        for hp in self._split(request)[0]:
+            queryset = queryset.filter(hp=hp)
+        return super().filter_queryset(request, queryset, view)
+
+
 class PokemonProductViewSet(viewsets.ModelViewSet):
     queryset = PokemonProduct.objects.filter(is_active=True).select_related(
         'category', 'card_set', 'card_set__era'
     ).prefetch_related('pokemon_types')
     serializer_class = PokemonProductSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, CardSearchFilter, filters.OrderingFilter]
     filterset_class = PokemonProductFilter
     # NOTE: "=" prefix on the numeric fields switches DRF's SearchFilter from
     # its default icontains to an exact match for that field. Without it,
@@ -86,7 +122,10 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     # number CONTAINED "25" as a substring -- 125, 225, 251-259, etc (715
     # rows instead of the 178 that are actually #25) -- confirmed via
     # verify_search_fixes.py on 2026-08-03.
-    search_fields = ['name', 'card_set__name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number']
+    # 2026-10-18: + ability and attack NAMES (short fields, so no flood of matches from
+    # long rules text). HP is handled by CardSearchFilter ("HP 30").
+    search_fields = ['name', 'card_set__name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number',
+                     'ability_name', 'ability_2_name', 'attack_1_name', 'attack_2_name', 'attack_3_name']
     # Michael, 2026-09-29: "sorting order must be done on release date of
     # set, the pokemon are all over the place!" -- root cause: DRF's
     # OrderingFilter silently DROPS any ?ordering= field that isn't in this
