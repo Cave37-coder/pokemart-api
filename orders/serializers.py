@@ -105,6 +105,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     customer_name = serializers.SerializerMethodField()
     customer_email = serializers.CharField(source='user.email', read_only=True)
+    customer_phone = serializers.SerializerMethodField()
     is_paid = serializers.SerializerMethodField()
     paid_via = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
@@ -112,7 +113,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'status', 'status_display', 'customer_name', 'customer_email',
+            'id', 'status', 'status_display', 'customer_name', 'customer_email', 'customer_phone',
             'payment_method', 'payment_method_display', 'eft_confirmed', 'cash_confirmed',
             'stripe_payment_intent', 'is_paid', 'paid_via',
             'total_price', 'discount_percent', 'discount_amount', 'shipping_cost',
@@ -127,6 +128,9 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     def get_customer_name(self, obj):
         full = f"{obj.user.first_name} {obj.user.last_name}".strip()
         return full or obj.user.username
+
+    def get_customer_phone(self, obj):
+        return getattr(obj.user, 'phone_number', '') or ''
 
     def get_is_paid(self, obj):
         # Decoupled from payment_method (2026-08-14) -- Michael: "customer
