@@ -166,10 +166,12 @@ class PokemonProduct(models.Model):
 
     CONDITION_MULTIPLIERS = {
         'NM': 1.00,
-        'LP': 0.80,
-        'MP': 0.60,
-        'HP': 0.35,
-        'DMG': 0.20,
+        # 2026-10-20 (Michael): LP 84 / MP 65 / HP 45 / DMG 30 -- set from the
+        # mid-point of published third-party condition guides.
+        'LP': 0.84,
+        'MP': 0.65,
+        'HP': 0.45,
+        'DMG': 0.30,
     }
 
     # Identifiers
