@@ -1546,7 +1546,7 @@ def _build_invoice_html(order, show_controls=True):
   <table style="width:260px">
     <tr><td style="padding:2px 8px;color:#555">Subtotal ({item_count} items)</td><td style="padding:2px 8px;text-align:right">R {subtotal:.2f}</td></tr>
     {f'<tr><td style="padding:2px 8px;color:#2e7d32">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:2px 8px;text-align:right;color:#2e7d32">-R {discount_amount:.2f}</td></tr>' if discount_amount else ''}
-    <tr><td style="padding:2px 8px;color:#555">Shipping</td><td style="padding:2px 8px;text-align:right">{"FREE" if shipping == 0 else f"R {shipping:.2f}"}</td></tr>
+    {f'<tr><td style="padding:2px 8px;color:#555">Shipping</td><td style="padding:2px 8px;text-align:right">R {shipping:.2f}</td></tr>' if shipping else ''}
     <tr style="font-weight:bold;font-size:14px;border-top:2px solid #ff6b35"><td style="padding:5px 8px">TOTAL</td><td style="padding:5px 8px;text-align:right;color:#ff6b35">R {total:.2f}</td></tr>
   </table>
 </div>

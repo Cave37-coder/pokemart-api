@@ -33,7 +33,7 @@ class StatusStepperWidget(forms.Select):
         ('packed',    'Order Being Packed'),
         ('booked',    'Courier Booked'),
         ('ready',     'Ready for Collection'),
-        ('collected', 'Deposited at Locker/Postnet'),
+        ('collected', 'Deposited at Pudo Locker'),
         ('invoiced',  'Complete'),
     ]
     OTHER = [

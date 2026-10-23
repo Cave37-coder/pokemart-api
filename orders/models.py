@@ -113,7 +113,7 @@ class Order(models.Model):
         ("packed",          "Order Being Packed"),
         ("booked",          "Courier Booked"),
         ("ready",           "Ready for Collection"),
-        ("collected",       "Deposited at Locker/Postnet"),
+        ("collected",       "Deposited at Pudo Locker"),
         ("invoiced",        "Complete"),
         ("cancelled",       "Cancelled"),
     ]

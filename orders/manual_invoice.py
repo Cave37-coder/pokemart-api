@@ -145,7 +145,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
     <table>
       <tr><td style="padding:3px 8px;color:#555">Subtotal ({item_count} items)</td><td style="padding:3px 8px;text-align:right">R {subtotal:.2f}</td></tr>
       {discount_row}
-      <tr><td style="padding:3px 8px;color:#555">Shipping</td><td style="padding:3px 8px;text-align:right">{"FREE" if shipping == 0 else f"R {shipping:.2f}"}</td></tr>
+      {f'<tr><td style="padding:3px 8px;color:#555">Shipping</td><td style="padding:3px 8px;text-align:right">R {shipping:.2f}</td></tr>' if shipping else ''}
       <tr><td style="padding:6px 8px;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35">TOTAL</td><td style="padding:6px 8px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35;color:#ff6b35">R {total:.2f}</td></tr>
     </table>
   </td></tr>
