@@ -7,9 +7,29 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import Order, OrderTracking, ManualInvoice
+from .banking import EFT_BANKING_DETAILS
 from notifications.push import push_order_status
 
 logger = logging.getLogger(__name__)
+
+
+def _banking_block(reference, cash_on_collection=False):
+    """2026-10-23 (Michael): banking details on every status-update email for EFT /
+    Cash-on-Collection orders, so customers can always find them."""
+    d = EFT_BANKING_DETAILS
+    intro = (
+        "Paying cash on collection? Nothing to do. Prefer to pay by EFT instead? Use:\n"
+        if cash_on_collection else "EFT banking details:\n"
+    )
+    return (
+        f"{intro}"
+        f"    Account Name:   {d['account_holder']}\n"
+        f"    Bank:           {d['bank']} ({d['account_type']})\n"
+        f"    Account Number: {d['account_number']}\n"
+        f"    Branch Code:    {d['branch_code']}\n"
+        f"    Reference:      {reference}\n"
+        f"Send proof of payment to enquiries@pokebulk.co.za\n\n"
+    )
 
 
 ADMIN_COPY_ADDRESS = 'admin@pokebulk.co.za'
@@ -167,6 +187,9 @@ def _send_status_update_email(order):
         if courier_lines:
             text_body += "\n".join(courier_lines) + "\n\n"
 
+        if order.payment_method in ('eft', 'coc') and order.status not in ('invoiced', 'cancelled'):
+            text_body += _banking_block(f"Order #{order.id}", cash_on_collection=(order.payment_method == 'coc'))
+
         text_body += (
             f"You can view your full order details anytime by signing in at "
             f"https://pokebulk.co.za/orders/{order.id}\n\n"
@@ -237,8 +260,11 @@ def _send_manual_invoice_status_email(invoice):
             f"Hi {customer_name},\n\n"
             f"Your PokeBulk SA invoice {invoice.invoice_number} has been updated:\n\n"
             f"    Status: {status_label}\n\n"
-            f"-- PokeBulk SA"
         )
+        # Banking details while the invoice is still unpaid.
+        if not invoice.payment_received and invoice.status not in ('complete', 'cancelled'):
+            text_body += _banking_block(invoice.invoice_number)
+        text_body += "-- PokeBulk SA"
 
         email = EmailMultiAlternatives(
             subject=subject,

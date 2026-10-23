@@ -54,12 +54,15 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     tracking = OrderTrackingSerializer(many=True, read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # 2026-10-23: read-only, so the status page can show banking details on EFT /
+    # Cash-on-Collection orders.
+    payment_method = serializers.CharField(read_only=True)
 
     class Meta:
         model = Order
         fields = [
     'id', 'status', 'status_display', 'total_price', 'items',
-    'tracking',
+    'tracking', 'payment_method',
     'shipping_cost', 'discount_percent', 'discount_amount',
     'delivery_method', 'delivery_address_line1', 'delivery_address_line2',
     'delivery_city', 'delivery_province', 'delivery_postal_code',
