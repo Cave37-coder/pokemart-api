@@ -349,7 +349,7 @@ function renderResults(results) {
     addAllBtn.style.display = 'none';
     return;
   }
-  resultsCountEl.textContent = results.length + (results.length === 500 ? '+ results (showing first 500)' : ' result' + (results.length === 1 ? '' : 's'));
+  resultsCountEl.textContent = results.length + (results.length === 2500 ? '+ results (showing first 2500)' : ' result' + (results.length === 1 ? '' : 's'));
   addAllBtn.style.display = 'inline-block';
   resultsEl.innerHTML = results.map(r => {
     const meta = [

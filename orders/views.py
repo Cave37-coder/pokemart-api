@@ -742,7 +742,8 @@ class AdminBuyCardBrowseView(APIView):
                 products = products.filter(name__icontains=term)
             if variant:
                 products = products.filter(variant_override=variant)
-            products = products.order_by('card_number', 'variant_sort', 'name')[:500]
+            # 2026-10-24: cap raised 500 -> 2500 (see orders/admin.py pos_search_view).
+            products = products.order_by('card_number', 'variant_sort', 'name')[:2500]
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |

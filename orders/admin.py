@@ -782,7 +782,9 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                 products = products.filter(name__icontains=term)
             if variant:
                 products = products.filter(variant_override=variant)
-            products = products.order_by('card_number', 'variant_sort', 'name')[:500]
+            # 2026-10-24: cap raised 500 -> 2500. At 500 a set cut off around card
+            # #200 (each card has several variants: Normal, Reverse Holo, ...).
+            products = products.order_by('card_number', 'variant_sort', 'name')[:2500]
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |
