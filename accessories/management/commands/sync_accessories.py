@@ -127,8 +127,8 @@ class Command(BaseCommand):
         only_pokemon = not options["all_brands"]
         dry_run = options["dry_run"]
         skip_images = options["skip_images"]
-        from accessories.r2 import rehost_from_url, is_on_r2
-        img_done = img_failed = 0
+        from accessories.r2 import rehost_from_url, is_on_r2, NoSourceImage
+        img_done = img_failed = img_missing = 0
         categories = (
             {options["category"]: ACCESSORY_CATEGORY_IDS[options["category"]]}
             if options.get("category")
@@ -210,6 +210,8 @@ class Command(BaseCommand):
                         try:
                             rehost_from_url(obj, source_img or None)
                             img_done += 1
+                        except NoSourceImage:
+                            img_missing += 1
                         except Exception as e:
                             img_failed += 1
                             self.stdout.write(self.style.WARNING(f"  image re-host failed for {obj.sku} ({name}): {e}"))
@@ -224,7 +226,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"\n{'DRY RUN — nothing written. ' if dry_run else ''}"
             f"Created {created}, updated {updated}, skipped {skipped} non-matching product(s). "
-            f"Images re-hosted on R2: {img_done} (failed {img_failed})."
+            f"Images re-hosted on R2: {img_done} (no TCGplayer photo {img_missing}, failed {img_failed})."
         ))
         if created:
             self.stdout.write(self.style.WARNING(

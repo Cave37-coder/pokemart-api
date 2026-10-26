@@ -21,7 +21,7 @@ class AccessoryAdminForm(forms.ModelForm):
 
 
 def rehost_images_to_r2(modeladmin, request, queryset):
-    from .r2 import rehost_from_url, is_on_r2
+    from .r2 import rehost_from_url, is_on_r2, NoSourceImage
     done = skipped = failed = 0
     for acc in queryset:
         if is_on_r2(acc.image_url):
@@ -32,6 +32,9 @@ def rehost_images_to_r2(modeladmin, request, queryset):
                 done += 1
             else:
                 skipped += 1
+        except NoSourceImage:
+            skipped += 1
+            modeladmin.message_user(request, f"{acc.sku}: TCGplayer has no photo -- upload your own.", level="warning")
         except Exception as e:
             failed += 1
             modeladmin.message_user(request, f"{acc.sku}: failed ({e})", level="error")

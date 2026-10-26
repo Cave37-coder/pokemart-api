@@ -15,7 +15,7 @@ import time
 from django.core.management.base import BaseCommand
 
 from accessories.models import Accessory
-from accessories.r2 import rehost_from_url, is_on_r2
+from accessories.r2 import rehost_from_url, is_on_r2, NoSourceImage
 
 
 class Command(BaseCommand):
@@ -37,14 +37,25 @@ class Command(BaseCommand):
             self.stdout.write("DRY RUN -- nothing written.")
             return
         done = skipped = failed = 0
+        no_image = []
         for a in todo:
             try:
                 if rehost_from_url(a):
                     done += 1
                 else:
                     skipped += 1
+            except NoSourceImage:
+                no_image.append(a)
             except Exception as e:
                 failed += 1
                 self.stdout.write(self.style.WARNING(f"  {a.sku} {a.name!r}: {e}"))
             time.sleep(0.1)
-        self.stdout.write(self.style.SUCCESS(f"Re-hosted {done}, skipped {skipped} (no source), failed {failed}."))
+        self.stdout.write(self.style.SUCCESS(
+            f"Re-hosted {done}, skipped {skipped} (no source), no image on TCGplayer {len(no_image)}, failed {failed}."))
+        in_stock = [a for a in no_image if a.stock > 0]
+        if no_image:
+            self.stdout.write(
+                f"{len(no_image)} product(s) have no TCGplayer photo -- they only need one if you stock them "
+                f"(Django admin -> Accessories -> Upload image). In stock now without a photo: {len(in_stock)}")
+            for a in in_stock:
+                self.stdout.write(f"  {a.sku} {a.name}")

@@ -13,7 +13,16 @@ Reuses the existing _r2_client() / R2_BUCKET / R2_CDN from products.admin
 import requests
 
 TCGPLAYER_IMAGE = "https://tcgplayer-cdn.tcgplayer.com/product/{pid}_200w.jpg"
-USER_AGENT = "Mozilla/5.0 (PokeBulkSA accessory image re-host)"
+# Full browser UA -- same as the card image scripts that already pull from
+# the TCGplayer CDN successfully.
+USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+
+
+class NoSourceImage(Exception):
+    """The source has no image (TCGplayer's CDN answers 403/404 for a
+    product that never had a photo uploaded). Not a real failure -- the
+    product just needs its own photo (Django admin -> Upload image)."""
 
 
 def _r2():
@@ -60,10 +69,12 @@ def rehost_from_url(accessory, source_url=None):
            or (TCGPLAYER_IMAGE.format(pid=accessory.tcgcsv_product_id) if accessory.tcgcsv_product_id else ""))
     if not src or is_on_r2(src):
         return None
-    resp = requests.get(src, timeout=20, headers={"User-Agent": USER_AGENT})
+    resp = requests.get(src, timeout=20, headers={"User-Agent": USER_AGENT, "Accept": "image/*,*/*"})
+    if resp.status_code in (403, 404):
+        raise NoSourceImage(f"no image at {src}")
     resp.raise_for_status()
-    if not resp.content:
-        raise ValueError("empty image")
+    if not resp.content or not resp.headers.get("Content-Type", "image").startswith("image"):
+        raise NoSourceImage(f"no image at {src}")
     if accessory.image_source_url != src:
         type(accessory).objects.filter(pk=accessory.pk).update(image_source_url=src)
         accessory.image_source_url = src
