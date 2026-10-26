@@ -27,6 +27,16 @@ Usage:
     python manage.py sync_accessories --category 31     # just Card Sleeves
     python manage.py sync_accessories --all-brands       # skip the Pokemon keyword filter
     python manage.py sync_accessories --dry-run
+    python manage.py sync_accessories --skip-images     # catalog/price only, no R2 uploads
+
+2026-10-26 changes:
+  * Images: the TCGplayer image is downloaded and re-hosted on R2
+    (accessories/<category>/<sku>.jpg) for new rows and for any row whose
+    image is still external -- CLAUDE.md "always R2". The original URL is
+    kept in image_source_url. Rows already on R2 are left alone (so a
+    photo Michael uploaded himself is never replaced).
+  * Prices: rows with price_locked=True (price set by hand in admin, or by a
+    completed buying invoice's sell price) keep their price.
 """
 import math
 import time
@@ -111,10 +121,14 @@ class Command(BaseCommand):
         parser.add_argument("--category", type=int, help="Only sync this TCGCSV categoryId")
         parser.add_argument("--all-brands", action="store_true", help="Skip the Pokemon keyword filter (imports every brand)")
         parser.add_argument("--dry-run", action="store_true", help="Print what would happen, write nothing")
+        parser.add_argument("--skip-images", action="store_true", help="Don't download/re-host images on R2")
 
     def handle(self, *args, **options):
         only_pokemon = not options["all_brands"]
         dry_run = options["dry_run"]
+        skip_images = options["skip_images"]
+        from accessories.r2 import rehost_from_url, is_on_r2
+        img_done = img_failed = 0
         categories = (
             {options["category"]: ACCESSORY_CATEGORY_IDS[options["category"]]}
             if options.get("category")
@@ -173,20 +187,33 @@ class Command(BaseCommand):
                         self.stdout.write(f"  WOULD sync: {name!r} -> R{zar_price} (tcgcsv_product_id={p['productId']})")
                         continue
 
-                    obj, was_created = Accessory.objects.update_or_create(
-                        tcgcsv_product_id=p["productId"],
-                        defaults={
-                            "name": name,
-                            "category": our_category,
-                            "manufacturer": manufacturer,
-                            "image_url": p.get("imageUrl", "") or "",
-                            "price": zar_price,
-                            "tcgcsv_category_id": cat_id,
-                            "tcgplayer_url": p.get("url", "") or "",
-                            "source_price_usd": market_usd,
-                            # stock intentionally NOT in defaults -- see module docstring.
-                        },
-                    )
+                    source_img = p.get("imageUrl", "") or ""
+                    obj = Accessory.objects.filter(tcgcsv_product_id=p["productId"]).first()
+                    was_created = obj is None
+                    if was_created:
+                        obj = Accessory(tcgcsv_product_id=p["productId"], category=our_category)
+                    # Category is only set on create -- a row Michael moved
+                    # (e.g. to "sealed") stays where he put it.
+                    obj.name = name
+                    obj.manufacturer = manufacturer
+                    obj.tcgcsv_category_id = cat_id
+                    obj.tcgplayer_url = p.get("url", "") or ""
+                    obj.source_price_usd = market_usd
+                    if not obj.price_locked or obj.price is None:
+                        obj.price = zar_price
+                    if source_img:
+                        obj.image_source_url = source_img
+                    # stock intentionally never set here -- see module docstring.
+                    obj.save()
+
+                    if not skip_images and not is_on_r2(obj.image_url) and (source_img or obj.image_source_url):
+                        try:
+                            rehost_from_url(obj, source_img or None)
+                            img_done += 1
+                        except Exception as e:
+                            img_failed += 1
+                            self.stdout.write(self.style.WARNING(f"  image re-host failed for {obj.sku} ({name}): {e}"))
+
                     if was_created:
                         created += 1
                     else:
@@ -196,7 +223,8 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"\n{'DRY RUN — nothing written. ' if dry_run else ''}"
-            f"Created {created}, updated {updated}, skipped {skipped} non-matching product(s)."
+            f"Created {created}, updated {updated}, skipped {skipped} non-matching product(s). "
+            f"Images re-hosted on R2: {img_done} (failed {img_failed})."
         ))
         if created:
             self.stdout.write(self.style.WARNING(

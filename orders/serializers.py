@@ -172,6 +172,8 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     line_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     product_id = serializers.IntegerField(read_only=True)
+    accessory_id = serializers.IntegerField(read_only=True)
+    image_url = serializers.SerializerMethodField()
     live_stock = serializers.SerializerMethodField()
     tcg_price = serializers.SerializerMethodField()
     effective_unit_cost = serializers.SerializerMethodField()
@@ -180,12 +182,19 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BuyOrderItem
-        fields = ['id', 'product_id', 'description', 'set_name', 'card_number', 'variant',
+        fields = ['id', 'product_id', 'accessory_id', 'image_url', 'description', 'set_name', 'card_number', 'variant',
                   'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
                   'condition', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate']
 
     def get_live_stock(self, obj):
-        return obj.product.stock if obj.product else None
+        if obj.product:
+            return obj.product.stock
+        return obj.accessory.stock if obj.accessory_id and obj.accessory else None
+
+    def get_image_url(self, obj):
+        if obj.accessory_id and obj.accessory:
+            return obj.accessory.image_url or None
+        return None
 
     def get_tcg_price(self, obj):
         # Snapshot taken when the line was saved (condition-adjusted), so the
@@ -198,6 +207,8 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
         # What the card is listed at on the site right now (moves with the
         # nightly sync when a sell % is set) -- the 'selling value' for margin.
         target = obj.stock_product or obj.product
+        if target is None and obj.accessory_id and obj.accessory:
+            target = obj.accessory
         return str(target.price) if target is not None else None
 
     def get_effective_unit_cost(self, obj):
@@ -236,7 +247,7 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
         ]
 
     def get_off_catalogue_units(self, obj):
-        return sum(i.quantity for i in obj.items.all() if not i.product_id)
+        return sum(i.quantity for i in obj.items.all() if not i.product_id and not i.accessory_id)
 
     def get_analysis(self, obj):
         """Rates + profit view: what the line prices said we'd pay, what we

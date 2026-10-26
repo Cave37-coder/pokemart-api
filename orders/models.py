@@ -816,6 +816,9 @@ class BuyOrder(models.Model):
 
             added = skipped = 0
             for item in items:
+                if item.accessory_id and not item.product_id:
+                    added += self._complete_accessory_line(locked, item)
+                    continue
                 if not item.product_id:
                     skipped += item.quantity
                     continue
@@ -853,6 +856,29 @@ class BuyOrder(models.Model):
             locked.completed_at = timezone.now()
             locked.save(update_fields=['status', 'stock_applied', 'cost_applied', 'completed_at', 'updated_at'])
             return added, skipped
+
+    @staticmethod
+    def _complete_accessory_line(locked, item):
+        """Add an accessory/sealed line to live Accessory.stock (called inside
+        complete()'s transaction). A sell price on the line becomes the site
+        price and is locked so the TCGCSV accessory sync keeps it. The real
+        unit cost is recorded on the line (accessories have no running
+        average-cost ledger like cards). Returns units added (0 if the
+        accessory was deleted meanwhile)."""
+        from accessories.models import Accessory
+        acc = Accessory.objects.select_for_update().filter(pk=item.accessory_id).first()
+        if acc is None:
+            return 0
+        # Bought-in stock is meant to be sold -- make sure it's listed.
+        fields = {'stock': F('stock') + item.quantity, 'is_active': True}
+        if item.sell_price is not None and item.sell_price > 0:
+            fields['price'] = item.sell_price
+            fields['price_locked'] = True
+        Accessory.objects.filter(pk=acc.pk).update(**fields)
+        unit_cost = locked.effective_unit_cost(item)
+        BuyOrderItem.objects.filter(pk=item.pk).update(
+            cost_unit_applied=unit_cost, cost_units_applied=item.quantity)
+        return item.quantity
 
     def save(self, *args, **kwargs):
         if self.box_number is None and self.stock_mode == 'site':
@@ -933,6 +959,16 @@ class BuyOrderItem(models.Model):
         PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True,
         help_text="Link a real catalog product if it matches one. Leave blank for anything off-catalog."
     )
+    # 2026-10-26: accessories & sealed product on buying invoices (Michael:
+    # "Can we add a Buy-in sheet for Accessories? Also ... other products
+    # too"). Same hold-then-confirm flow as cards: nothing happens to stock
+    # until BuyOrder.complete() adds the quantity to Accessory.stock. A line
+    # links EITHER a card (product) OR an accessory, never both.
+    accessory = models.ForeignKey(
+        "accessories.Accessory", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="buy_items",
+        help_text="Accessory / sealed product this line is for (instead of a card).",
+    )
 
     description = models.CharField(max_length=500, blank=True)
     set_name = models.CharField(max_length=255, blank=True)
@@ -986,6 +1022,11 @@ class BuyOrderItem(models.Model):
         return (self.unit_price or Decimal('0.00')) * self.quantity
 
     def save(self, *args, **kwargs):
+        if self.accessory_id and not self.product_id:
+            if not self.description:
+                self.description = self.accessory.name
+            if not self.set_name:
+                self.set_name = self.accessory.get_category_display()
         if self.product:
             if not self.description:
                 self.description = self.product.name

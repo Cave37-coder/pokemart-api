@@ -616,7 +616,7 @@ class OrderDeliveryUpdateView(APIView):
 
 def _buy_invoice_qs():
     return BuyOrder.objects.select_related('user').prefetch_related(
-        Prefetch('items', queryset=BuyOrderItem.objects.select_related('product'))
+        Prefetch('items', queryset=BuyOrderItem.objects.select_related('product', 'accessory'))
     )
 
 
@@ -634,8 +634,18 @@ def _parse_buy_lines(raw_items):
             product = PokemonProduct.objects.filter(pk=pid).first()
             if product is None:
                 return None, f'Line {n}: that card no longer exists.'
+        # Accessory / sealed line (2026-10-26) -- only when no card is linked.
+        accessory = None
+        aid = it.get('accessory_id')
+        if aid and not product:
+            from accessories.models import Accessory
+            accessory = Accessory.objects.filter(pk=aid).first()
+            if accessory is None:
+                return None, f'Line {n}: that accessory no longer exists.'
         description = (it.get('description') or '').strip()
-        if not product and not description:
+        if accessory and not description:
+            description = accessory.name
+        if not product and not accessory and not description:
             return None, f'Line {n}: pick a card or type a description.'
         try:
             qty = int(it.get('quantity') or 1)
@@ -663,16 +673,29 @@ def _parse_buy_lines(raw_items):
                 return None, f'Line {n}: sell price must be a number, 0 or more.'
             if sell_price == 0:
                 sell_price = None
-            elif not product:
+            elif not product and not accessory:
                 sell_price = None  # off-catalogue lines have no site price to set
         # Selling price as a % of the condition-adjusted TCG price (what the
         # nightly sync will keep applying).
         tcg_snapshot = None
         if product and product.price and product.price > 0:
             tcg_snapshot = (product.price * Decimal(str(PokemonProduct.CONDITION_MULTIPLIERS.get(condition, 1.0)))).quantize(Decimal('0.01'))
+        if accessory:
+            condition = 'NM'  # condition only applies to cards
+            if accessory.price and accessory.price > 0:
+                tcg_snapshot = Decimal(accessory.price).quantize(Decimal('0.01'))
         sell_pct = None
         if sell_price and tcg_snapshot:
             sell_pct = (sell_price / tcg_snapshot * 100).quantize(Decimal('0.01'))
+        if accessory:
+            lines.append(dict(
+                sell_pct=sell_pct, product=None, accessory=accessory, description=description,
+                set_name=accessory.get_category_display(), card_number='', variant='',
+                quantity=qty, unit_price=price, condition='NM', sell_price=sell_price,
+                # Reference price for an accessory = its current site price.
+                tcg_price=tcg_snapshot,
+            ))
+            continue
         lines.append(dict(
             sell_pct=sell_pct,
             product=product, description=description,
@@ -760,6 +783,97 @@ class AdminBuyCardBrowseView(APIView):
             'variant': p.variant_override or '',
             'price': float(p.price or 0), 'stock': p.stock,
         } for p in products]})
+
+
+def _accessory_row(a):
+    return {
+        'id': a.id, 'sku': a.sku, 'name': a.name, 'category': a.category,
+        'category_display': a.get_category_display(), 'manufacturer': a.manufacturer,
+        'price': float(a.price or 0), 'stock': a.stock, 'image_url': a.image_url,
+        'barcode': a.barcode or '', 'tcgcsv_product_id': a.tcgcsv_product_id,
+    }
+
+
+class AdminBuyAccessoryBrowseView(APIView):
+    """Accessory / sealed search for the buying-invoice screen (2026-10-26).
+    ?term=abc (2+ chars: name / SKU / manufacturer / barcode / TCGCSV id)
+    ?category=playmats (optional filter; on its own lists that category).
+    Searches every accessory row, in stock or not -- sync_accessories has
+    already imported the Pokemon TCGCSV accessory catalogue at stock 0."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from accessories.models import Accessory
+        term = request.query_params.get('term', '').strip()
+        category = request.query_params.get('category', '').strip()
+        if not category and len(term) < 2:
+            return Response({'results': [], 'categories': Accessory.CATEGORY_CHOICES})
+        qs = Accessory.objects.all()
+        if category:
+            qs = qs.filter(category=category)
+        for word in term.split():
+            q = (Q(name__icontains=word) | Q(sku__iexact=word) | Q(manufacturer__icontains=word)
+                 | Q(barcode=word))
+            if word.isdigit():
+                q |= Q(tcgcsv_product_id=int(word))
+            qs = qs.filter(q)
+        qs = qs.order_by('-stock', 'name')[:60]
+        return Response({'results': [_accessory_row(a) for a in qs], 'categories': Accessory.CATEGORY_CHOICES})
+
+
+class AdminBuyAccessoryCreateView(APIView):
+    """POST: add a product that isn't in the catalogue yet, straight from the
+    buying-invoice screen (2026-10-26). Body: name, category, price (site
+    sell price, R), optional manufacturer, barcode, tcgcsv_product_id,
+    image_url. Created with stock 0 (stock only arrives when the invoice is
+    completed). Image: an uploaded/pasted URL, else the TCGplayer 200w image
+    for tcgcsv_product_id -- either way re-hosted on R2 (CLAUDE.md).
+    If tcgcsv_product_id already exists, that row is returned instead."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        from accessories.models import Accessory
+        from accessories.r2 import rehost_from_url, TCGPLAYER_IMAGE
+        d = request.data
+        tid = d.get('tcgcsv_product_id')
+        try:
+            tid = int(str(tid).strip()) if tid not in (None, '') else None
+        except (TypeError, ValueError):
+            return Response({'error': 'TCGplayer product ID must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+        if tid:
+            existing = Accessory.objects.filter(tcgcsv_product_id=tid).first()
+            if existing:
+                return Response({'result': _accessory_row(existing), 'message': 'Already in the catalogue -- using it.'})
+        name = (d.get('name') or '').strip()
+        if not name:
+            return Response({'error': 'Name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        category = (d.get('category') or 'other').strip()
+        if category not in dict(Accessory.CATEGORY_CHOICES):
+            return Response({'error': 'Invalid category.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            price = Decimal(str(d.get('price') or '0')).quantize(Decimal('0.01'))
+            if price < 0:
+                raise ValueError
+        except Exception:
+            return Response({'error': 'Sell price must be a number, 0 or more.'}, status=status.HTTP_400_BAD_REQUEST)
+        barcode = (d.get('barcode') or '').strip() or None
+        if barcode and Accessory.objects.filter(barcode=barcode).exists():
+            return Response({'error': 'Another product already has that barcode.'}, status=status.HTTP_400_BAD_REQUEST)
+        acc = Accessory.objects.create(
+            name=name[:200], category=category, price=price, price_locked=price > 0,
+            manufacturer=(d.get('manufacturer') or '').strip()[:100], barcode=barcode,
+            tcgcsv_product_id=tid, stock=0, is_active=True,
+            tcgplayer_url=f'https://www.tcgplayer.com/product/{tid}' if tid else '',
+        )
+        src = (d.get('image_url') or '').strip() or (TCGPLAYER_IMAGE.format(pid=tid) if tid else '')
+        message = 'Product added.'
+        if src:
+            try:
+                rehost_from_url(acc, src)
+            except Exception as e:
+                message = f'Product added, but the image could not be copied to R2 ({e}). Add one in Django admin.'
+        acc.refresh_from_db()
+        return Response({'result': _accessory_row(acc), 'message': message}, status=status.HTTP_201_CREATED)
 
 
 class AdminCardTraceView(APIView):
@@ -954,7 +1068,7 @@ class AdminBuyInvoiceActionView(APIView):
                 added, skipped = buy.complete(completed_by=request.user)
             except ValueError as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            message = f'Completed. {added} card(s) added to live website stock.'
+            message = f'Completed. {added} item(s) added to live website stock.'
             if skipped:
                 message += f' {skipped} off-catalogue item(s) were not added to stock.'
         else:

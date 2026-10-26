@@ -31,6 +31,10 @@ class Accessory(models.Model):
         ("collectible_storage", "Collectible Storage"),
         ("supply_bundles", "Supply Bundles"),
         ("supplies", "Supplies"),
+        # 2026-10-26: sealed product (ETBs, boosters, collection boxes) bought
+        # in through the buying invoice -- Michael: "Also need to be able to
+        # [buy in] other products too". Same lean model, no card fields.
+        ("sealed", "Sealed Product"),
         ("other", "Other"),
     ]
 
@@ -41,6 +45,17 @@ class Accessory(models.Model):
     description = models.TextField(blank=True)
 
     image_url = models.URLField(max_length=500, blank=True)
+    # Where image_url was originally taken from (TCGplayer CDN etc.) before it
+    # was re-hosted on R2 -- kept so a re-host can be re-run, never shown to
+    # customers. image_url itself must always end up on images.pokebulk.co.za
+    # (CLAUDE.md "Image hosting -- always R2").
+    image_source_url = models.URLField(max_length=500, blank=True)
+
+    # Manufacturer barcode (UPC/EAN), for the future in-store POS -- Michael,
+    # 2026-10-26: "not needed for site, but later ... a POS, to link store and
+    # website as one". Optional; unique when filled (null, not "", when empty
+    # so the unique constraint ignores blanks).
+    barcode = models.CharField(max_length=50, blank=True, null=True, unique=True)
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
     # Drives "customers only see what is in Stock" (Michael, 2026-08-07) --
@@ -49,6 +64,13 @@ class Accessory(models.Model):
     # is hidden from the public API entirely. See accessories/views.py.
     stock = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # True once a price was set by hand (admin) or by a completed buying
+    # invoice's sell price -- sync_accessories then leaves price alone, same
+    # idea as PokemonProduct.price_locked.
+    price_locked = models.BooleanField(
+        default=False,
+        help_text="Keep this price -- the TCGCSV sync will not overwrite it.",
+    )
 
     # Import bookkeeping -- lets a re-sync update an existing row (price/
     # stock/name refresh) instead of creating a duplicate every run, and
@@ -78,6 +100,8 @@ class Accessory(models.Model):
         return f"ACC-{str(next_num).zfill(4)}"
 
     def save(self, *args, **kwargs):
+        if not self.barcode:
+            self.barcode = None  # blank -> NULL so unique=True ignores it
         if not self.sku:
             self.sku = self.generate_sku()
         super().save(*args, **kwargs)
