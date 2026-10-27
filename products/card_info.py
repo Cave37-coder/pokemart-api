@@ -41,7 +41,10 @@ def _clean(text):
 def parse_attack(raw):
     """'[DD] Dusk Raid (110+)<br> text' -> (cost 'Darkness,Darkness', name, damage, text)."""
     raw = _clean(raw)
-    if not raw:
+    # A real attack always starts with its energy cost in brackets; TCGCSV
+    # sometimes parks notes in "Attack 1" instead ("This promotional card
+    # was printed in Japanese only.") -- not an attack, ignore it.
+    if not raw or not raw.startswith("["):
         return "", "", "", ""
     first, _, rest = raw.partition("\n")
     cost = ""
@@ -91,7 +94,8 @@ def card_fields(extended_data):
     text = _clean(e("CardText"))
     if text:
         f["description"] = text
-        m = re.match(r"^(?:Ability|Poké-POWER|Poke-POWER|Poké-BODY|Poke-BODY)\s*:?\s*(.+?)\n(.+)$", text, re.S)
+        # "Ability: Name\n...", "Ability — Name\n\n..." (TCGCSV uses both)
+        m = re.match(r"^(?:Ability|Poké-POWER|Poke-POWER|Poké-BODY|Poke-BODY)\s*[:—–-]?\s*(.+?)\n+(.+)$", text, re.S)
         if m:
             f["ability_type"] = "Ability"
             f["ability_name"] = m.group(1).strip()
