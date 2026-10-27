@@ -13,7 +13,7 @@ from django.utils.html import strip_tags
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.middleware.csrf import get_token
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,8 @@ class PaidFilter(admin.SimpleListFilter):
             ~Q(stripe_payment_intent='')
             | Q(eft_confirmed=True)
             | Q(cash_confirmed=True)
+            # fully paid with store credit (2026-10-27)
+            | (Q(store_credit_applied__gt=0) & Q(store_credit_applied__gte=F('total_price')))
         )
 
     def queryset(self, request, queryset):
@@ -131,7 +133,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'customer_name_display', 'status_badge', 'payment_status_display', 'subtotal_display', 'discount_col', 'shipping_col', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
     list_filter = ['status', PaidFilter, 'payment_method', 'delivery_method']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
-    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display', 'payment_status_display']
+    readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display', 'payment_status_display', 'store_credit_applied']
     ordering = ['-created_at']
     inlines = [OrderItemInline, OrderTrackingInline]
 
@@ -143,6 +145,7 @@ class OrderAdmin(admin.ModelAdmin):
                 ('payment_method', 'eft_confirmed', 'cash_confirmed', 'payment_status_display'),
                 ('discount_percent', 'discount_amount'),
                 ('total_price', 'shipping_display', 'invoice_total_display'),
+                'store_credit_applied',
                 'print_button',
                 ('created_at', 'updated_at'),
             )
@@ -253,6 +256,8 @@ class OrderAdmin(admin.ModelAdmin):
             actual_label, confirmed = 'EFT', True
         elif obj.cash_confirmed:
             actual_label, confirmed = 'Cash', True
+        elif obj.paid_by_credit:
+            actual_label, confirmed = 'Store Credit', True
         else:
             actual_label, confirmed = None, False
         color = '#2e7d32' if confirmed else '#c62828'
@@ -263,6 +268,8 @@ class OrderAdmin(admin.ModelAdmin):
             detail = f'{actual_label} — Paid'
         else:
             detail = f'{selected_label} — Unpaid'
+        if obj.store_credit_applied and not obj.paid_by_credit:
+            detail += f' (R{obj.store_credit_applied} store credit used, R{obj.amount_due} due)'
         return format_html('<strong style="color:{}">{} {}</strong>', color, icon, detail)
     payment_status_display.short_description = 'Paid'
 
@@ -482,7 +489,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
     list_display = ['invoice_number', 'customer_name', 'user', 'status_badge', 'item_count_display', 'total_display', 'payment_received', 'payment_method', 'created_at', 'invoice_button']
     list_filter = ['status', 'payment_received', 'payment_method', 'created_at']
     search_fields = ['invoice_number', 'customer_name', 'customer_email', 'user__username', 'user__email']
-    readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button']
+    readonly_fields = ['invoice_number', 'created_at', 'updated_at', 'totals_display', 'invoice_button', 'store_credit_applied']
     ordering = ['-created_at']
     inlines = [ManualInvoiceItemInline]
     # Site-account link (2026-08-12) -- Michael: "wire in the site users to
@@ -504,7 +511,8 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'fields': ('delivery_note',)
         }),
         ('Payment', {
-            'fields': ('shipping_cost', 'discount_percent', 'payment_received', 'payment_method', 'totals_display')
+            'fields': ('shipping_cost', 'discount_percent', 'payment_received', 'payment_method', 'store_credit_applied', 'totals_display'),
+            'description': 'Store credit is applied from the invoice (POS) screen so it comes off the customer\'s balance.',
         }),
         ('Notes', {
             'fields': ('internal_note',)
@@ -638,12 +646,15 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             | Q(first_name__icontains=term) | Q(last_name__icontains=term)
         ).order_by('username')[:15]
 
+        from store_credit.services import balance as credit_balance
         results = [{
             'id': u.id,
             'name': (f"{u.first_name} {u.last_name}".strip() or u.username),
             'username': u.username,
             'email': u.email,
             'phone': u.phone_number,
+            # Store credit (2026-10-27) -- shown on the POS once linked.
+            'store_credit_balance': str(credit_balance(u)),
         } for u in users]
         return JsonResponse({'results': results})
 
@@ -716,6 +727,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         save_url = reverse('admin:manual-invoice-pos-save')
         customer_search_url = reverse('admin:manual-invoice-pos-customer-search')
         cancel_url = reverse('admin:orders_manualinvoice_change', args=[pk])
+        from store_credit.services import balance as credit_balance
         initial_data = {
             'invoice_id': invoice.id,
             'invoice_number': invoice.invoice_number,
@@ -728,6 +740,10 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'shipping_cost': str(invoice.shipping_cost),
             'discount_percent': str(invoice.discount_percent),
             'payment_method': invoice.payment_method,
+            # Store credit (2026-10-27): what's already on this invoice, plus
+            # the linked customer's remaining balance.
+            'store_credit_applied': str(invoice.store_credit_applied or 0),
+            'customer_credit_balance': str(credit_balance(invoice.user_id)),
             'items': [
                 {
                     'product_id': it.product_id,
@@ -945,6 +961,29 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                     unit_price=unit_price,
                 )
 
+            # Store credit (2026-10-27): use up to the invoice total from the
+            # linked customer's balance (re-saving reconciles to the new
+            # amount -- extra goes back, more is taken). Fully covered ->
+            # payment method "Store Credit" and marked as received.
+            from store_credit import services as credit
+            try:
+                requested = Decimal(str(payload.get('store_credit_amount') or 0)).quantize(Decimal('0.01'))
+            except (InvalidOperation, ValueError):
+                requested = Decimal('0.00')
+            invoice = ManualInvoice.objects.get(pk=invoice.pk)
+            target = max(min(requested, invoice.total), Decimal('0.00'))
+            if target or credit.linked_total(manual_invoice=invoice):
+                try:
+                    used = credit.set_invoice_credit(invoice, target, created_by=request.user)
+                except credit.StoreCreditError as e:
+                    transaction.set_rollback(True)
+                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                update = {'store_credit_applied': used}
+                if used and used >= invoice.total:
+                    update.update(payment_method='credit', payment_received=True)
+                ManualInvoice.objects.filter(pk=invoice.pk).update(**update)
+                invoice.refresh_from_db()
+
             # Confirmation email only fires for a brand-new invoice -- an
             # items edit shouldn't re-send the "your invoice was created"
             # email to the customer every time a card gets added/removed.
@@ -1012,7 +1051,7 @@ class BuyOrderAdmin(admin.ModelAdmin):
     # Complete flow (which adds live stock) runs from the staff Buying
     # Invoices tab so completion can't be bypassed from this form.
     readonly_fields = ['buy_number', 'created_at', 'updated_at', 'total_display', 'buy_order_button',
-                       'status', 'stock_mode', 'stock_applied', 'completed_at']
+                       'status', 'stock_mode', 'stock_applied', 'completed_at', 'store_credit_amount']
     ordering = ['-created_at']
     inlines = [BuyOrderItemInline]
 
@@ -1024,7 +1063,7 @@ class BuyOrderAdmin(admin.ModelAdmin):
             'fields': ('seller_name', 'user', 'seller_email', 'seller_phone', 'seller_note')
         }),
         ('Payment', {
-            'fields': ('payment_made', 'payment_method', 'total_display')
+            'fields': ('payment_made', 'payment_method', 'store_credit_amount', 'total_display')
         }),
         ('Notes', {
             'fields': ('internal_note',)

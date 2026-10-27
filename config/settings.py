@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'analytics_dashboard',
     'community',
     'accessories',
+    'store_credit',
     'notifications',
 ]
 

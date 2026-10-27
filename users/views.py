@@ -111,6 +111,31 @@ User = get_user_model()
 REQUIRED_PROFILE_FIELDS = ["first_name", "last_name", "email", "phone_number"]
 
 
+def credit_balance(user):
+    from store_credit.services import balance
+    return balance(user)
+
+
+class StoreCreditHistoryView(APIView):
+    '''GET /api/auth/store-credit/ -- the signed-in customer's store credit
+    balance and their last 100 credit movements (2026-10-27).'''
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from store_credit.models import StoreCreditTransaction
+        rows = (StoreCreditTransaction.objects.filter(user=request.user)
+                .select_related('buy_order', 'manual_invoice').order_by('-created_at', '-id')[:100])
+        return Response({
+            'balance': str(credit_balance(request.user)),
+            'transactions': [{
+                'id': t.id, 'date': t.created_at.isoformat(), 'amount': str(t.amount),
+                'kind': t.kind, 'kind_display': t.get_kind_display(), 'reference': t.reference,
+                'order_id': t.order_id, 'balance_after': str(t.balance_after),
+                # Staff notes stay internal; customers see the type + reference.
+            } for t in rows],
+        })
+
+
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -134,6 +159,7 @@ class ProfileView(APIView):
             "community_bio": u.community_bio,
             "messaging_enabled": u.messaging_enabled,
             "profile_complete": profile_complete,
+            "store_credit_balance": str(credit_balance(u)),
         })
 
     def patch(self, request):
@@ -447,7 +473,14 @@ def admin_customer_search(request):
     ONLY thing shown."""
     User = get_user_model()
     search = request.GET.get('search', '').strip()
-    qs = User.objects.annotate(checklist_count=Count('checklist_entries', distinct=True))
+    from django.db.models import Sum, OuterRef, Subquery, DecimalField
+    from store_credit.models import StoreCreditTransaction
+    credit_sq = (StoreCreditTransaction.objects.filter(user=OuterRef('pk')).values('user')
+                 .annotate(s=Sum('amount')).values('s'))
+    qs = User.objects.annotate(
+        checklist_count=Count('checklist_entries', distinct=True),
+        store_credit_balance=Subquery(credit_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+    )
     if search:
         qs = qs.filter(
             Q(username__icontains=search) | Q(email__icontains=search)
@@ -461,6 +494,9 @@ def admin_customer_search(request):
         'first_name': u.first_name,
         'last_name': u.last_name,
         'checklist_count': u.checklist_count,
+        # Store credit (2026-10-27) -- shown when linking a seller/customer.
+        'phone_number': u.phone_number,
+        'store_credit_balance': f'{(u.store_credit_balance or 0):.2f}',
     } for u in qs])
 
 

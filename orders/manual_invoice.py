@@ -55,7 +55,7 @@ def build_manual_invoice_html(invoice, show_controls=True):
     invoice_date = invoice.created_at.strftime('%d-%m-%Y')
 
     delivery_block = invoice.delivery_note.replace('\n', '<br>') if invoice.delivery_note else '-'
-    METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card (Payfast)', 'trade': 'Trade-In'}
+    METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card (Payfast)', 'trade': 'Trade-In', 'credit': 'Store Credit'}
     if invoice.payment_received:
         method_label = METHOD_LABELS.get(invoice.payment_method, '')
         payment_status = f'{method_label} Received' if method_label else 'Payment Received'
@@ -63,6 +63,15 @@ def build_manual_invoice_html(invoice, show_controls=True):
     else:
         payment_status = 'Awaiting Payment'
         payment_color = '#e65100'
+
+    # Store credit (2026-10-27)
+    credit_used = float(invoice.store_credit_applied or 0)
+    credit_rows = ''
+    if credit_used:
+        credit_rows = (f'<tr><td style="padding:3px 8px;color:#2e7d32">Paid with store credit</td>'
+                       f'<td style="padding:3px 8px;text-align:right;color:#2e7d32">-R {credit_used:.2f}</td></tr>'
+                       f'<tr><td style="padding:4px 8px;font-weight:bold">AMOUNT DUE</td>'
+                       f'<td style="padding:4px 8px;text-align:right;font-weight:bold">R {max(total - credit_used, 0):.2f}</td></tr>')
 
     discount_row = ''
     if discount_percent:
@@ -147,6 +156,7 @@ th {{ background:#f0f0f0;font-size:10px;font-weight:bold;padding:5px 8px;text-al
       {discount_row}
       {f'<tr><td style="padding:3px 8px;color:#555">Shipping</td><td style="padding:3px 8px;text-align:right">R {shipping:.2f}</td></tr>' if shipping else ''}
       <tr><td style="padding:6px 8px;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35">TOTAL</td><td style="padding:6px 8px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #ff6b35;color:#ff6b35">R {total:.2f}</td></tr>
+      {credit_rows}
     </table>
   </td></tr>
 </table>

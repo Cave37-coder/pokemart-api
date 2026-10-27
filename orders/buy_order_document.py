@@ -15,7 +15,7 @@ Requires: pip install xhtml2pdf --break-system-packages (already a
 dependency for manual_invoice.py, no new requirements.txt entry needed).
 """
 
-METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card'}
+METHOD_LABELS = {'eft': 'EFT', 'cash': 'Cash', 'card': 'Card', 'credit': 'Store Credit'}
 
 
 def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
@@ -146,11 +146,23 @@ def build_buy_order_html(buy_order, show_controls=True, mode='internal'):
                             f'<td style="padding:3px 8px;text-align:right;font-size:11px">R {total - actual:+.2f}</td></tr>'
                             f'<tr><td style="padding:3px 8px;color:#555;font-size:11px">Rate: invoice / actual</td>'
                             f'<td style="padding:3px 8px;text-align:right;font-size:11px">{nom} / {eff}</td></tr>')
+    # Store credit split (2026-10-27): show how the payout was made.
+    credit_amt = float(getattr(buy_order, 'store_credit_amount', 0) or 0)
+    if credit_amt > 0:
+        cash_part = float(buy_order.cash_portion)
+        method_label = METHOD_LABELS.get(buy_order.payment_method, '') if buy_order.payment_method != 'credit' else ''
+        actual_rows += (f'<tr><td style="padding:3px 8px;color:#2e7d32">Paid as store credit</td>'
+                        f'<td style="padding:3px 8px;text-align:right;color:#2e7d32">R {credit_amt:.2f}</td></tr>')
+        if cash_part >= 0.005:
+            actual_rows += (f'<tr><td style="padding:3px 8px;color:#555">Paid by {method_label or "cash / EFT / card"}</td>'
+                            f'<td style="padding:3px 8px;text-align:right">R {cash_part:.2f}</td></tr>')
     item_count = buy_order.item_count
     buy_date = buy_order.created_at.strftime('%d-%m-%Y')
 
     if buy_order.payment_made:
         method_label = METHOD_LABELS.get(buy_order.payment_method, '')
+        if credit_amt > 0 and buy_order.payment_method != 'credit':
+            method_label = f'{method_label} + Store Credit' if method_label else 'Store Credit'
         payment_status = f'{method_label} Paid' if method_label else 'Payment Made'
         payment_color = '#2e7d32'
     else:

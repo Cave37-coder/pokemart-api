@@ -102,6 +102,10 @@ POS_HTML = """<!DOCTYPE html>
   .totals-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; color: #ccc; }
   .totals-row.discount { color: #2e7d32; }
   .totals-row.grand { font-size: 18px; font-weight: bold; color: #ff6b35; border-top: 2px solid #ff6b35; margin-top: 6px; padding-top: 8px; }
+  .totals-row.credit { color: #4ade80; display: none; }
+  .totals-row.credit input { width: 90px; }
+  .totals-row.credit button { background: #17332444; color: #4ade80; border: 1px solid #2fbf71; border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; margin-left: 4px; }
+  .totals-row.due { font-weight: bold; color: #fff; display: none; }
   .payment-row { margin: 10px 0; }
   .payment-row label { font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px; }
   #payment-method { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #333; background: #12121A; color: #fff; font-size: 12px; }
@@ -158,6 +162,8 @@ POS_HTML = """<!DOCTYPE html>
     <div class="totals-row discount"><span>Discount amount</span><span id="discount-amount-value">-R 0.00</span></div>
     <div class="totals-row"><span>Shipping</span><input type="number" id="shipping-cost" value="0" step="0.01"></div>
     <div class="totals-row grand"><span>TOTAL</span><span id="total-value">R 0.00</span></div>
+    <div class="totals-row credit" id="credit-row"><span>Store credit <small id="credit-available"></small></span><span><input type="number" id="store-credit" value="0" step="0.01" min="0"><button type="button" id="credit-max-btn">Use max</button></span></div>
+    <div class="totals-row due" id="due-row"><span>Amount due</span><span id="due-value">R 0.00</span></div>
     <div class="customer-fields">
       <label>Existing customer? Search by name / email / username</label>
       <div class="customer-search-wrap">
@@ -207,6 +213,9 @@ let cart = [];
 let searchTimeout = null;
 let lastResults = [];
 let linkedCustomerId = null;
+// Store credit (2026-10-27): what the linked customer can use on this
+// invoice = their balance + whatever this invoice already has applied.
+let creditAvailable = 0;
 let customerSearchTimeout = null;
 
 const searchInput = document.getElementById('search-input');
@@ -483,7 +492,22 @@ function updateTotals() {
   discountAmountEl.textContent = '-R ' + discountAmount.toFixed(2);
   totalEl.textContent = 'R ' + total.toFixed(2);
   itemCountEl.textContent = itemCount;
+  const creditInput = document.getElementById('store-credit');
+  const showCredit = !!linkedCustomerId && creditAvailable > 0;
+  document.getElementById('credit-row').style.display = showCredit ? 'flex' : 'none';
+  let credit = Math.max(0, parseFloat(creditInput.value) || 0);
+  const maxCredit = Math.max(0, Math.min(creditAvailable, total));
+  if (!showCredit) credit = 0;
+  if (credit > maxCredit) { credit = maxCredit; creditInput.value = maxCredit.toFixed(2); }
+  document.getElementById('credit-available').textContent = showCredit ? '(R ' + creditAvailable.toFixed(2) + ' available)' : '';
+  document.getElementById('due-row').style.display = credit > 0 ? 'flex' : 'none';
+  document.getElementById('due-value').textContent = 'R ' + Math.max(0, total - credit).toFixed(2);
 }
+document.getElementById('store-credit').addEventListener('input', updateTotals);
+document.getElementById('credit-max-btn').addEventListener('click', () => {
+  document.getElementById('store-credit').value = '999999';
+  updateTotals();
+});
 
 shippingInput.addEventListener('input', updateTotals);
 discountInput.addEventListener('input', updateTotals);
@@ -559,6 +583,10 @@ function linkCustomer(c) {
   phoneInput.value = c.phone || '';
   linkedLabelEl.textContent = '✓ Linked to ' + c.name + (c.username ? ' (@' + c.username + ')' : '');
   linkedBadgeEl.style.display = 'flex';
+  const alreadyHere = (INITIAL_DATA && INITIAL_DATA.customer_user_id === c.id) ? (parseFloat(INITIAL_DATA.store_credit_applied) || 0) : 0;
+  creditAvailable = (parseFloat(c.store_credit_balance) || 0) + alreadyHere;
+  if (creditAvailable > 0) linkedLabelEl.textContent += ' · store credit R ' + creditAvailable.toFixed(2);
+  updateTotals();
   customerSearchInput.value = '';
   customerSearchResultsEl.style.display = 'none';
 }
@@ -566,6 +594,9 @@ function linkCustomer(c) {
 document.getElementById('unlink-customer-btn').addEventListener('click', () => {
   linkedCustomerId = null;
   linkedBadgeEl.style.display = 'none';
+  creditAvailable = 0;
+  document.getElementById('store-credit').value = '0';
+  updateTotals();
 });
 
 const IS_EDIT = !!(INITIAL_DATA && INITIAL_DATA.invoice_id);
@@ -580,7 +611,9 @@ function applyInitialData() {
       username: INITIAL_DATA.customer_username || '',
       email: INITIAL_DATA.customer_email || '',
       phone: INITIAL_DATA.customer_phone || '',
+      store_credit_balance: INITIAL_DATA.customer_credit_balance || '0',
     });
+    document.getElementById('store-credit').value = INITIAL_DATA.store_credit_applied || '0';
   } else {
     nameInput.value = INITIAL_DATA.customer_name || '';
     emailInput.value = INITIAL_DATA.customer_email || '';
@@ -617,6 +650,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     discount_percent: Math.max(0, Math.min(100, parseFloat(discountInput.value) || 0)),
     payment_method: document.getElementById('payment-method').value,
     payment_received: !!document.getElementById('payment-method').value,
+    store_credit_amount: linkedCustomerId ? (parseFloat(document.getElementById('store-credit').value) || 0) : 0,
     items: cart
   };
   if (IS_EDIT) payload.invoice_id = INITIAL_DATA.invoice_id;

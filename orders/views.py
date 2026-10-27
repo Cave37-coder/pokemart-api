@@ -258,13 +258,29 @@ class CheckoutView(APIView):
 
         total = subtotal - discount_amount + shipping_cost
 
+        # Store credit (2026-10-27): "Use my store credit" at checkout takes
+        # as much of the order as the balance covers; the rest is paid by the
+        # chosen method. If credit covers everything, the order is confirmed
+        # straight away with payment method "Store Credit".
+        from store_credit import services as credit
+        credit_to_use = Decimal('0.00')
+        if request.data.get('use_store_credit') in (True, 'true', '1', 1):
+            credit_to_use = min(credit.balance(request.user), total).quantize(Decimal('0.01'))
+        fully_credit = credit_to_use > 0 and credit_to_use >= total
+        if fully_credit:
+            order_status, order_payment = 'pending', 'credit'
+        else:
+            order_status = 'pending_eft' if is_eft else ('awaiting_payment' if payment_method == 'payfast' else 'pending')
+            order_payment = 'coc' if is_coc else payment_method
+
         order = Order.objects.create(
             user=request.user,
             total_price=total,
             discount_percent=discount_percent,
             discount_amount=discount_amount,
-            status='pending_eft' if is_eft else ('awaiting_payment' if payment_method == 'payfast' else 'pending'),
-            payment_method='coc' if is_coc else payment_method,
+            store_credit_applied=credit_to_use,
+            status=order_status,
+            payment_method=order_payment,
             shipping_method=shipping_method,
             shipping_cost=shipping_cost,
             delivery_method='collection' if is_coc else 'courier',
@@ -277,6 +293,12 @@ class CheckoutView(APIView):
             pudo_locker_address=pudo_locker_address,
             customer_note=request.data.get('customer_note', ''),
         )
+        if credit_to_use > 0:
+            try:
+                credit.set_order_credit(order, credit_to_use)
+            except credit.StoreCreditError as e:
+                transaction.set_rollback(True)
+                return Response({'error': f'{e} Please refresh and try again.'}, status=status.HTTP_400_BAD_REQUEST)
         for item in items:
             order_item = OrderItem.objects.create(
                 order=order,
@@ -298,7 +320,9 @@ class CheckoutView(APIView):
         OrderTracking.objects.create(
             order=order,
             status=order.status,
-            note='Order received successfully.',
+            note='Order received successfully.' + (
+                f' R{credit_to_use} paid with store credit' + ('.' if fully_credit else f'; R{order.amount_due} still to pay.')
+                if credit_to_use > 0 else ''),
         )
 
         # Automated order-confirmation email -- fires only after the DB
@@ -548,7 +572,7 @@ class OrderDeliveryUpdateView(APIView):
 
         old_method_label = order.get_shipping_method_display() or order.shipping_method or '—'
         old_cost = order.shipping_cost or Decimal('0')
-        was_paid = bool(order.stripe_payment_intent) or order.eft_confirmed or order.cash_confirmed
+        was_paid = bool(order.stripe_payment_intent) or order.eft_confirmed or order.cash_confirmed or order.paid_by_credit
 
         payment_method = (request.data.get('payment_method') or '').strip()
         if payment_method and payment_method not in ('eft', 'payfast', 'coc'):
@@ -590,6 +614,12 @@ class OrderDeliveryUpdateView(APIView):
         if payment_method:
             parts.append(f'Payment: {order.get_payment_method_display()}')
         note = '. '.join(parts) + '.'
+
+        # Store credit can never be more than the (new) order total.
+        if order.store_credit_applied and order.store_credit_applied > order.total_price:
+            from store_credit import services as credit
+            order.store_credit_applied = credit.set_order_credit(order, order.total_price, created_by=request.user)
+            note += f' Store credit reduced to R{order.store_credit_applied}.'
 
         if status_changed:
             # post_save signal writes the tracking row + customer status email
@@ -741,6 +771,15 @@ def _apply_buy_payload(buy, data):
         from django.contrib.auth import get_user_model
         uid = data.get('user_id')
         buy.user = get_user_model().objects.filter(pk=uid).first() if uid else None
+    # Store credit part of the payout (2026-10-27). Only changeable while
+    # Draft -- the credit is issued when the invoice is marked Paid.
+    if 'store_credit_amount' in data and buy.status in ('draft', None, ''):
+        raw = data.get('store_credit_amount')
+        try:
+            amt = Decimal(str(raw if raw not in (None, '') else '0')).quantize(Decimal('0.01'))
+            buy.store_credit_amount = max(amt, Decimal('0.00'))
+        except Exception:
+            pass
 
 
 class AdminBuyCardBrowseView(APIView):
@@ -1003,6 +1042,12 @@ class AdminBuyInvoiceDetailView(APIView):
         data = request.data
         if 'seller_name' in data and not (data.get('seller_name') or '').strip():
             return Response({'error': 'Seller name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if buy.status != 'draft' and buy.store_credit_amount:
+            new_uid = data.get('user_id', buy.user_id) or None
+            if 'user_id' in data and (int(new_uid) if new_uid else None) != buy.user_id:
+                return Response({'error': 'Store credit has already been paid to this seller account. '
+                                          'Move the invoice back to Draft before changing the account.'},
+                                status=status.HTTP_400_BAD_REQUEST)
         if 'items' in data:
             if buy.status != 'draft':
                 return Response({'error': 'Lines can only be changed while the invoice is a Draft. Un-pay it first.'},
@@ -1072,33 +1117,56 @@ class AdminBuyInvoiceActionView(APIView):
             if skipped:
                 message += f' {skipped} off-catalogue item(s) were not added to stock.'
         else:
-            with transaction.atomic():
-                buy = BuyOrder.objects.select_for_update().get(pk=pk)
-                if buy.status in ('complete', 'cancelled'):
-                    return Response({'error': f'This invoice is already {buy.get_status_display().lower()}.'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                if action == 'mark_paid':
-                    pm = (request.data.get('payment_method') or '').strip()
-                    if pm not in dict(BuyOrder.PAYMENT_METHOD_CHOICES):
-                        return Response({'error': 'Choose how you paid the seller (EFT, Cash or Card).'},
+            from store_credit import services as credit
+            try:
+                with transaction.atomic():
+                    buy = BuyOrder.objects.select_for_update().get(pk=pk)
+                    if buy.status in ('complete', 'cancelled'):
+                        return Response({'error': f'This invoice is already {buy.get_status_display().lower()}.'},
                                         status=status.HTTP_400_BAD_REQUEST)
-                    if not buy.items.exists():
-                        return Response({'error': 'The invoice has no lines.'}, status=status.HTTP_400_BAD_REQUEST)
-                    buy.status, buy.payment_made, buy.payment_method = 'paid', True, pm
-                    message = 'Marked as paid.'
-                elif action == 'unpay':
-                    if buy.status != 'paid':
-                        return Response({'error': 'Only a Paid invoice can be moved back to Draft.'},
+                    if action == 'mark_paid':
+                        if not buy.items.exists():
+                            return Response({'error': 'The invoice has no lines.'}, status=status.HTTP_400_BAD_REQUEST)
+                        owed = Decimal(buy.amount_owed).quantize(Decimal('0.01'))
+                        store_credit = buy.store_credit_amount or Decimal('0.00')
+                        if store_credit > owed:
+                            return Response({'error': f'Store credit (R{store_credit}) is more than the seller is owed (R{owed}).'},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                        if store_credit > 0 and not buy.user_id:
+                            return Response({'error': 'Link the seller to their site account before paying out store credit.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                        pm = (request.data.get('payment_method') or '').strip()
+                        if store_credit > 0 and store_credit >= owed:
+                            pm = 'credit'  # whole payout is credit -- no cash method needed
+                        elif pm not in ('eft', 'cash', 'card'):
+                            msg = ('Choose how you paid the seller (EFT, Cash or Card).' if not store_credit else
+                                   f'Choose how you paid the other R{owed - store_credit} (EFT, Cash or Card).')
+                            return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+                        buy.status, buy.payment_made, buy.payment_method = 'paid', True, pm
+                        buy.save()
+                        credit.set_buyin_credit(buy, store_credit, created_by=request.user)
+                        message = 'Marked as paid.'
+                        if store_credit:
+                            message += (f' R{store_credit} added to @{buy.user.username}\'s store credit '
+                                        f'(balance now R{credit.balance(buy.user)}).')
+                    elif action == 'unpay':
+                        if buy.status != 'paid':
+                            return Response({'error': 'Only a Paid invoice can be moved back to Draft.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                        credit.set_buyin_credit(buy, 0, created_by=request.user)
+                        buy.status, buy.payment_made, buy.payment_method = 'draft', False, ''
+                        message = 'Moved back to Draft.' + (' Store credit taken back.' if buy.store_credit_amount else '')
+                        buy.save()
+                    elif action == 'cancel':
+                        credit.set_buyin_credit(buy, 0, created_by=request.user)
+                        buy.status = 'cancelled'
+                        message = 'Cancelled. No stock was added.'
+                        buy.save()
+                    else:
+                        return Response({'error': 'action must be mark_paid, unpay, complete or cancel.'},
                                         status=status.HTTP_400_BAD_REQUEST)
-                    buy.status, buy.payment_made, buy.payment_method = 'draft', False, ''
-                    message = 'Moved back to Draft.'
-                elif action == 'cancel':
-                    buy.status = 'cancelled'
-                    message = 'Cancelled. No stock was added.'
-                else:
-                    return Response({'error': 'action must be mark_paid, unpay, complete or cancel.'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                buy.save()
+            except credit.StoreCreditError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         data = BuyInvoiceSerializer(_buy_invoice_qs().get(pk=pk)).data
         data['message'] = message
@@ -1663,6 +1731,7 @@ def _build_invoice_html(order, show_controls=True):
     {f'<tr><td style="padding:2px 8px;color:#2e7d32">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:2px 8px;text-align:right;color:#2e7d32">-R {discount_amount:.2f}</td></tr>' if discount_amount else ''}
     {f'<tr><td style="padding:2px 8px;color:#555">Shipping</td><td style="padding:2px 8px;text-align:right">R {shipping:.2f}</td></tr>' if shipping else ''}
     <tr style="font-weight:bold;font-size:14px;border-top:2px solid #ff6b35"><td style="padding:5px 8px">TOTAL</td><td style="padding:5px 8px;text-align:right;color:#ff6b35">R {total:.2f}</td></tr>
+    {f'<tr><td style="padding:2px 8px;color:#2e7d32">Paid with store credit</td><td style="padding:2px 8px;text-align:right;color:#2e7d32">-R {float(order.store_credit_applied):.2f}</td></tr><tr style="font-weight:bold"><td style="padding:3px 8px">AMOUNT DUE</td><td style="padding:3px 8px;text-align:right">R {max(total - float(order.store_credit_applied), 0):.2f}</td></tr>' if order.store_credit_applied else ''}
   </table>
 </div>
 <div style="border-top:1px solid #eee;padding-top:8px;font-size:10px;color:#888;text-align:center">

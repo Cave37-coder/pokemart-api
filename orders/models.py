@@ -4,7 +4,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models import F
 from django.db.models.functions import Greatest
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
 from products.models import PokemonProduct
 
@@ -127,6 +127,8 @@ class Order(models.Model):
         ("payfast",    "PayFast"),
         ("eft",        "EFT / Bank Transfer"),
         ("coc",        "Cash on Collection"),
+        # 2026-10-27: whole order paid from the customer's store credit.
+        ("credit",     "Store Credit"),
     ]
 
     SHIPPING_CHOICES = [
@@ -162,6 +164,15 @@ class Order(models.Model):
     discount_amount = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         help_text="Community discount amount applied at checkout (snapshot). Already subtracted from Total price."
+    )
+    # Store credit (2026-10-27) used towards this order. NOT subtracted from
+    # total_price (that stays the full order value, for sales figures);
+    # what the customer still has to pay is amount_due. The credit itself
+    # lives in store_credit.StoreCreditTransaction -- this is the snapshot
+    # shown on invoices. Cancelling the order returns the credit (save()).
+    store_credit_applied = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Store credit used towards this order. Amount due = Total price - this."
     )
 
     # Payment
@@ -221,6 +232,17 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} - {self.user.username} [{self.get_status_display()}]"
 
+    @property
+    def amount_due(self):
+        """What the customer pays by PayFast/EFT/cash after store credit."""
+        due = (self.total_price or Decimal('0')) - (self.store_credit_applied or Decimal('0'))
+        return max(due, Decimal('0.00'))
+
+    @property
+    def paid_by_credit(self):
+        """True when store credit covers the whole order."""
+        return bool(self.store_credit_applied) and self.store_credit_applied >= (self.total_price or 0)
+
     def get_status_display(self):
         """Payment-method-aware label for the shared 'pending' state
         (Michael, 2026-10-06): PayFast -> "Order Confirmed"; EFT -> "EFT
@@ -258,6 +280,20 @@ class Order(models.Model):
             self._adjust_stock(direction=1)
         elif redecrement_stock:
             self._adjust_stock(direction=-1)
+
+        # Store credit follows the same rule as stock: cancelling gives it
+        # back to the customer; un-cancelling takes it again (as much as
+        # they still have). store_credit_applied keeps the original figure
+        # on a cancelled order as a record of what had been used.
+        if (restore_stock or redecrement_stock) and self.store_credit_applied:
+            from store_credit import services as credit
+            if restore_stock:
+                credit.set_order_credit(self, 0)
+            else:
+                used = credit.set_order_credit(self, self.store_credit_applied, cap_to_balance=True)
+                if used != self.store_credit_applied:
+                    Order.objects.filter(pk=self.pk).update(store_credit_applied=used)
+                    self.store_credit_applied = used
 
     def _adjust_stock(self, direction):
         """direction=+1 restores stock (order cancelled), direction=-1
@@ -413,6 +449,8 @@ class ManualInvoice(models.Model):
         ('eft', 'EFT'),
         ('card', 'Card (Payfast)'),
         ('trade', 'Trade-In'),
+        # 2026-10-27: whole invoice settled from the customer's store credit.
+        ('credit', 'Store Credit'),
     ]
 
     # Single yes/no plus a single method -- not independent tick boxes.
@@ -426,12 +464,23 @@ class ManualInvoice(models.Model):
         max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True,
         help_text="Which method was used, if payment has been received."
     )
+    # Store credit (2026-10-27) used towards this invoice -- applied from the
+    # POS screen for a linked customer account. Amount due = total - this.
+    store_credit_applied = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Store credit used towards this invoice (set from the invoice screen)."
+    )
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.invoice_number or 'DRAFT'} - {self.customer_name}"
+
+    @property
+    def amount_due(self):
+        due = self.total - (self.store_credit_applied or Decimal('0'))
+        return max(due, Decimal('0.00'))
 
     def save(self, *args, **kwargs):
         if not self.invoice_number:
@@ -473,6 +522,18 @@ class ManualInvoice(models.Model):
         if self.status in ('payment_confirmed', 'complete'):
             self.payment_received = True
         super().save(*args, **kwargs)
+
+        # Store credit: cancelling returns it, un-cancelling takes it again
+        # (capped at what the customer still has). See Order.save().
+        if self._status_just_changed and self.store_credit_applied and 'cancelled' in (old_status, self.status):
+            from store_credit import services as credit
+            if self.status == 'cancelled':
+                credit.set_invoice_credit(self, 0)
+            else:
+                used = credit.set_invoice_credit(self, self.store_credit_applied, cap_to_balance=True)
+                if used != self.store_credit_applied:
+                    ManualInvoice.objects.filter(pk=self.pk).update(store_credit_applied=used)
+                    self.store_credit_applied = used
 
     @property
     def subtotal(self):
@@ -635,6 +696,8 @@ class BuyOrder(models.Model):
         ('eft', 'EFT'),
         ('cash', 'Cash'),
         ('card', 'Card'),
+        # 2026-10-27: the whole payout went to the seller's store credit.
+        ('credit', 'Store Credit'),
     ]
 
     buy_number = models.CharField(max_length=20, unique=True, blank=True, editable=False)
@@ -717,6 +780,16 @@ class BuyOrder(models.Model):
     # "Premium accepted" (2026-10-17): paid above the invoice on purpose (e.g. to
     # secure stock from a regular supplier). Only changes how the Cost panel
     # reports it -- neutral note instead of red "overpaid" flags. No effect on cost maths.
+    # Store credit payout (2026-10-27, Michael: "using the Buy-in to select
+    # input to 'Store Credit'"). How much of what the seller is owed goes to
+    # their site account as store credit instead of cash/EFT/card. 0 = none,
+    # the full amount = all credit. Issued when the invoice is marked Paid,
+    # reversed on Back to draft / Cancel (store_credit.services). No bonus:
+    # R1 owed = R1 credit.
+    store_credit_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text='Part of the payout given as store credit (needs a linked site account).',
+    )
     premium_accepted = models.BooleanField(
         default=False,
         help_text='Paid above the invoice on purpose (e.g. to secure stock). Only changes how the Cost panel reports it.',
@@ -732,6 +805,16 @@ class BuyOrder(models.Model):
 
     def __str__(self):
         return f"{self.buy_number or 'DRAFT'} - {self.seller_name}"
+
+    @property
+    def amount_owed(self):
+        """What the seller is paid in total (actual amount if entered)."""
+        return self.amount_paid if self.amount_paid is not None else self.total
+
+    @property
+    def cash_portion(self):
+        """Part of the payout paid by cash/EFT/card (owed minus store credit)."""
+        return max(Decimal(self.amount_owed) - (self.store_credit_amount or Decimal('0')), Decimal('0.00'))
 
     @property
     def allocation_factor(self):
@@ -1086,3 +1169,35 @@ def restore_pos_stock_on_buy_order_item_delete(sender, instance, **kwargs):
         PokemonProduct.objects.filter(pk=instance.product_id).update(
             pos_stock=Greatest(F('pos_stock') - instance.quantity, 0)
         )
+
+
+# Store credit safety nets (2026-10-27): deleting a document must not leave
+# its credit stranded. A deleted order / manual invoice gives the credit it
+# used back to the customer; a deleted buying invoice takes back the credit
+# it issued if the customer still has it (otherwise the credit stays with
+# them and the ledger row simply loses its link).
+@receiver(pre_delete, sender=Order)
+def _refund_credit_on_order_delete(sender, instance, **kwargs):
+    from store_credit import services as credit
+    if credit.linked_total(order=instance):
+        credit.set_order_credit(instance, 0)
+
+
+@receiver(pre_delete, sender=ManualInvoice)
+def _refund_credit_on_invoice_delete(sender, instance, **kwargs):
+    from store_credit import services as credit
+    if credit.linked_total(manual_invoice=instance):
+        credit.set_invoice_credit(instance, 0)
+
+
+@receiver(pre_delete, sender=BuyOrder)
+def _reverse_credit_on_buy_order_delete(sender, instance, **kwargs):
+    from store_credit import services as credit
+    if credit.linked_total(buy_order=instance):
+        try:
+            credit.set_buyin_credit(instance, 0)
+        except credit.StoreCreditError:
+            import logging
+            logging.getLogger(__name__).warning(
+                'BuyOrder %s deleted but its store credit was already spent -- left with the customer.',
+                instance.buy_number)

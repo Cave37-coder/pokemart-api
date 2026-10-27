@@ -41,6 +41,11 @@ class PayFastInitView(APIView):
 
         if order.status not in ('pending', 'awaiting_payment', 'payment_failed'):
             return Response({'error': 'Order already paid or processing'}, status=status.HTTP_400_BAD_REQUEST)
+        # Store credit (2026-10-27): PayFast only collects what's left after
+        # the customer's store credit (Order.amount_due).
+        if order.amount_due <= 0:
+            return Response({'error': 'This order is fully paid with store credit -- nothing to pay.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         sandbox = getattr(settings, 'PAYFAST_SANDBOX', False)
         payfast_url = (
@@ -69,7 +74,7 @@ class PayFastInitView(APIView):
         if email:
             data['email_address'] = email
         data['m_payment_id']  = str(order.id)
-        data['amount']        = f'{order.total_price:.2f}'
+        data['amount']        = f'{order.amount_due:.2f}'
         data['item_name']     = f'PokeBulk Order #{order.id}'
 
         passphrase = getattr(settings, 'PAYFAST_PASSPHRASE', '')
@@ -82,7 +87,7 @@ class PayFastInitView(APIView):
         return Response({
             'redirect_url': redirect_url,
             'order_id':     order.id,
-            'amount':       str(order.total_price),
+            'amount':       str(order.amount_due),
         })
 
 
