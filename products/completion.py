@@ -76,7 +76,9 @@ BALL_VARIANTS = frozenset({"PB", "MB", "LB", "FB", "QB", "UB", "DB"})
 # Trade sets (TT22/TT23/TT24) -- see the note above. It's not a ball
 # variant, but it needs to count toward completion the same way N does for
 # a normal set, so it belongs in FULL_VARIANTS.
-OTHER_TRACKED_VARIANTS = frozenset({"TT"})
+# "CH" = Cosmos Holo blister/box print of a normal set card (2026-10-27,
+# Michael: "they are part of the Grand Master sets") -- Full Master only.
+OTHER_TRACKED_VARIANTS = frozenset({"TT", "CH"})
 # ESH = Energy Symbol Holo, ASC's parallel-foil chase print (confirmed with
 # Michael, 2026-08-01). Bonus/chase, same tier scope as ball variants --
 # NOT a hard requirement for Base Set even on cards where it's the only

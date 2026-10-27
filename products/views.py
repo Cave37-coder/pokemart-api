@@ -263,7 +263,7 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
-        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD'}
+        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -708,7 +708,7 @@ def stock_print(request):
         .order_by('card_number', 'variant_sort')
         .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
-    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD'}
+    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
     for c in cards:
         vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -721,7 +721,7 @@ def stock_print(request):
         'PBP': 'PB Pattern', 'MBP': 'MB Pattern',
         'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
         'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
-        'RR': 'Rainbow Rare', 'RAD': 'Radiant',
+        'RR': 'Rainbow Rare', 'RAD': 'Radiant', 'CH': 'Cosmos Holo',
     }
 
     from itertools import groupby as igroup

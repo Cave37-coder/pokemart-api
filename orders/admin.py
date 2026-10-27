@@ -28,6 +28,7 @@ VARIANT_CHOICES = [
     ('N', 'Normal'),
     ('H', 'Holo'),
     ('RH', 'Reverse Holo'),
+    ('CH', 'Cosmos Holo'),
     ('FE', '1st Edition'),
     ('PB', 'Poke Ball'),
     ('MB', 'Master Ball'),

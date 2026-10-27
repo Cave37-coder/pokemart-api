@@ -154,6 +154,9 @@ class PokemonProduct(models.Model):
         "N": 0, "H": 1, "RH": 2, "ESH": 3,
         "PB": 4, "LB": 5, "FB": 6, "QB": 7, "UB": 8, "DB": 9, "MB": 10,
         "TR": 11, "SE": 12, "PBP": 13, "MBP": 14, "CC": 15, "TT": 16,
+        # CH = Cosmos Holo print of a normal set card from a blister / box
+        # (sync_blister_cosmos, 2026-10-27).
+        "CH": 17,
     }
 
     CONDITION_CHOICES = [

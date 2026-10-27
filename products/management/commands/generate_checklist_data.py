@@ -308,6 +308,7 @@ TCGCSV_PID_RE = re.compile(r"TCGCSV-(\d+)")
 
 FULL_VARIANTS = frozenset({
     "N", "H", "RH", "PB", "MB", "LB", "FB", "QB", "UB", "DB", "TT", "ESH",
+    "CH",  # Cosmos Holo blister/box prints (sync_blister_cosmos)
 })
 
 
