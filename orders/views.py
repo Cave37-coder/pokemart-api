@@ -1287,6 +1287,50 @@ class AdminBuyInvoiceActionView(APIView):
         return Response(data)
 
 
+class AdminOrderLabelView(APIView):
+    """40x30 mm thermal label PNG for an order (Volkano LabelPro Duo via Labelnize "Image Printing")."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import order_label_png
+        order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
+        resp = HttpResponse(order_label_png(order), content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="label-order-{order.pk}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
+class AdminOrderThankYouView(APIView):
+    """14x40 mm 'Thank you' sticker with the customer's name. ?portrait=1 rotates it for a roll that feeds the other way."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import thankyou_label_png
+        order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
+        u = order.user
+        name = f"{u.first_name} {u.last_name}".strip() or u.username
+        png = thankyou_label_png(name, portrait=request.query_params.get('portrait') in ('1', 'true'))
+        resp = HttpResponse(png, content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="thankyou-order-{order.pk}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
+class AdminBulkLabelView(APIView):
+    """40x30 mm thermal label PNG for a Bulk Buy-in bundle (BULK-xxxxx)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import bulk_label_png
+        buy = get_object_or_404(BuyOrder.objects.prefetch_related('items'), pk=pk)
+        if buy.kind != 'bulk':
+            return Response({'error': 'Bundle labels are only for Bulk Buy-ins.'}, status=status.HTTP_400_BAD_REQUEST)
+        resp = HttpResponse(bulk_label_png(buy), content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="label-{buy.buy_number}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
 class AdminOrderListView(generics.ListAPIView):
     """Feeds the staff Orders dashboard's changelist-style table (2026-08-12).
     Deliberately lean -- no nested item/product data, just what a
