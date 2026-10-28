@@ -1308,7 +1308,7 @@ class AdminOrderThankYouView(APIView):
         from .labels import thankyou_label_png
         order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
         u = order.user
-        name = f"{u.first_name} {u.last_name}".strip() or u.username
+        name = (u.first_name or "").strip() or u.username  # first name only, per Michael
         png = thankyou_label_png(name, portrait=request.query_params.get('portrait') in ('1', 'true'))
         resp = HttpResponse(png, content_type='image/png')
         resp['Content-Disposition'] = f'inline; filename="thankyou-order-{order.pk}.png"'
