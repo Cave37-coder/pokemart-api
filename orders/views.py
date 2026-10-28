@@ -1596,6 +1596,15 @@ def print_order(request, order_id):
         found = PP.objects.filter(sku__in=null_skus).select_related('card_set', 'card_set__era')
         sku_lookup = {p.sku: p for p in found}
 
+    # Box locations (2026-10-28): the box holding the OLDEST remaining copy of each card (see box_locations.py).
+    from .box_locations import box_locations
+    _pids = set()
+    for _it in items:
+        _pid = _it.product_id or (sku_lookup.get(_it.product_sku).pk if sku_lookup.get(_it.product_sku) else None)
+        if _pid:
+            _pids.add(_pid)
+    box_map = box_locations(list(_pids), ('order', order.id))
+
     def get_set_key(item):
         if item.product and item.product.card_set:
             return (item.product.card_set.name, item.product.card_set.code)
@@ -1651,6 +1660,7 @@ def print_order(request, order_id):
             rows += f'''<tr>
               <td>{i}</td><td>{num}</td><td>{name}</td>
               <td>{variant_cell}</td>
+              <td style="font-weight:bold;white-space:nowrap;font-size:11px">{box_map.get(item.product_id or (sku_lookup.get(item.product_sku).pk if sku_lookup.get(item.product_sku) else 0), '') or '&mdash;'}</td>
               <td>{item.quantity}</td><td>R {item.price_at_purchase:.2f}</td>
               <td style="font-size:13px">[ ]</td>
             </tr>'''
@@ -1668,6 +1678,7 @@ def print_order(request, order_id):
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="60">Card #</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc">Card Name</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="130">Variant</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Box</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">Qty</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Price</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="30">Done</th>
@@ -1712,13 +1723,14 @@ def print_order(request, order_id):
 </div>
 {"<div style='border:1px solid #ff6b35;padding:6px 10px;border-radius:4px;margin-bottom:8px;font-size:11px;line-height:1.3'><strong>Customer Note</strong><br>" + order.customer_note + "</div>" if order.customer_note else ""}
 <h2 style="margin-bottom:4px;font-size:14px">Cards to Pack - Grouped by Set</h2>
+<div style="font-size:9px;color:#777;margin-bottom:4px">Box = where the OLDEST stock of that card is filed (oldest is always pulled first). Old Boxes = stock from before box numbers.</div>
 {sets_html}
 <table style="width:100%;border-collapse:collapse;margin-top:4px">
-  <tr style="font-weight:bold;background:#fff3e8"><td colspan="5" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
-  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
-  {f'<tr style="font-weight:bold;background:#f9f9f9;color:#2e7d32"><td colspan="5" style="text-align:right;padding:4px 8px">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:4px 8px">-R {order.discount_amount:.2f}</td><td></td></tr>' if order.discount_amount else ''}
-  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
-  <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {order.total_price:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#fff3e8"><td colspan="6" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="6" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
+  {f'<tr style="font-weight:bold;background:#f9f9f9;color:#2e7d32"><td colspan="6" style="text-align:right;padding:4px 8px">Community discount ({order.discount_percent:.0f}%)</td><td style="padding:4px 8px">-R {order.discount_amount:.2f}</td><td></td></tr>' if order.discount_amount else ''}
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="6" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;font-size:14px"><td colspan="6" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {order.total_price:.2f}</td><td></td></tr>
 </table>
 <div style="margin-top:10px;border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#666">
   Printed: {printed_at} | PokeBulk SA - Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park | enquiries@pokebulk.co.za

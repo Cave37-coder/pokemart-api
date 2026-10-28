@@ -222,6 +222,9 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
             return item.product.card_set.code
         return ''
 
+    from .box_locations import box_locations
+    box_map = box_locations([_it.product_id for _it in items if _it.product_id], ('manual', invoice.id))
+
     sets_html = ''
     for set_name, group in groupby(sorted_items, key=get_set_key):
         cards = list(group)
@@ -240,6 +243,7 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
             rows += f'''<tr>
               <td>{i}</td><td>{num}</td><td>{name}</td>
               <td><span style="background:{var_style};padding:1px 5px;border-radius:8px;font-size:9px;font-weight:bold">{var_label}</span></td>
+              <td style="font-weight:bold;white-space:nowrap;font-size:11px">{box_map.get(item.product_id, '') or '&mdash;'}</td>
               <td>{item.quantity}</td><td>R {unit_price:.2f}</td>
               <td style="font-size:13px">[ ]</td>
             </tr>'''
@@ -257,6 +261,7 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="60">Card #</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc">Card Name</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="130">Variant</th>
+              <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Box</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">Qty</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="90">Price</th>
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="30">Done</th>
@@ -298,12 +303,13 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
   <strong>Delivery Details</strong><br>{delivery_info}
 </div>
 <h2 style="margin-bottom:4px;font-size:14px">Cards to Pack - Grouped by Set</h2>
+<div style="font-size:9px;color:#777;margin-bottom:4px">Box = where the OLDEST stock of that card is filed (oldest is always pulled first). Old Boxes = stock from before box numbers.</div>
 {sets_html}
 <table style="width:100%;border-collapse:collapse;margin-top:4px">
-  <tr style="font-weight:bold;background:#fff3e8"><td colspan="5" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
-  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
-  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="5" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
-  <tr style="font-weight:bold;font-size:14px"><td colspan="5" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {total:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#fff3e8"><td colspan="6" style="text-align:right;padding:4px 8px">Total Cards to Pack</td><td style="padding:4px 8px;color:#ff6b35">{item_count}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="6" style="text-align:right;padding:4px 8px">Subtotal</td><td style="padding:4px 8px">R {subtotal:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;background:#f9f9f9"><td colspan="6" style="text-align:right;padding:4px 8px">Shipping</td><td style="padding:4px 8px">R {shipping:.2f}</td><td></td></tr>
+  <tr style="font-weight:bold;font-size:14px"><td colspan="6" style="text-align:right;padding:4px 8px">TOTAL</td><td style="padding:4px 8px;color:#ff6b35">R {total:.2f}</td><td></td></tr>
 </table>
 <div style="margin-top:10px;border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#666">
   Printed: {printed_at} | PokeBulk SA - Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park | enquiries@pokebulk.co.za
