@@ -241,10 +241,10 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            shipping_cost = Decimal(str(request.data.get('shipping_cost', 0) or 0))
-        except Exception:
-            shipping_cost = Decimal('0')
+        # Shipping is priced HERE from the method and the number of cards (orders/shipping.py): we decide the
+        # parcel size, not the customer, and the client-sent shipping_cost is ignored.
+        from . import shipping as _shipping
+        shipping_cost = _shipping.shipping_price(shipping_method, sum(i.quantity for i in items))
 
         # Community discount (2026-08-11) -- 5% off for anyone with a public
         # community profile. Snapshotted onto the order (see Order model
@@ -521,6 +521,18 @@ class OrderStatusUpdateView(APIView):
         return Response(OrderSerializer(order).data)
 
 
+class ShippingQuoteView(APIView):
+    """The delivery prices for the signed-in customer's cart (parcel size is decided by card count, see
+    orders/shipping.py). GET -> {cards, size, size_short, up_to_cards, prices{method: price}}."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from . import shipping as _shipping
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        n = sum(i.quantity for i in cart.items.select_related('product').all() if i.product is not None)
+        return Response(_shipping.quote(n))
+
+
 class PudoLockerSearchView(APIView):
     """Public locker/kiosk search for the checkout / profile pickers: GET ?q=sandton -> [{code,name,address,town}]."""
     permission_classes = []
@@ -638,7 +650,8 @@ class OrderDeliveryUpdateView(APIView):
                 return Response({'error': 'shipping_cost must be a number, 0 or more.'},
                                 status=status.HTTP_400_BAD_REQUEST)
         else:
-            new_cost = PUDO_RATES.get(method, Decimal('0')).quantize(Decimal('0.01'))
+            from . import shipping as _shipping
+            new_cost = _shipping.shipping_price(method, sum(i.quantity for i in order.items.all())).quantize(Decimal('0.01'))
 
         old_method_label = order.get_shipping_method_display() or order.shipping_method or '—'
         old_cost = order.shipping_cost or Decimal('0')
@@ -1769,6 +1782,13 @@ def print_order(request, order_id):
     item_count = sum(i.quantity for i in items)
     printed_at = timezone.now().strftime('%d %b %Y %H:%M')
 
+    # Parcel size (2026-10-28): we decide it from the card count -- shown big so the packer boxes it right.
+    from .shipping import parcel_label as _parcel_label
+    _plabel = _parcel_label(item_count, order.shipping_method)
+    parcel_html = (f'<div style="margin-top:6px;display:inline-block;border:2px solid #222;padding:3px 12px;'
+                   f'font-size:16px;font-weight:bold">PUDO PARCEL: {_plabel} &middot; {item_count} cards</div>'
+                   if _plabel and order.delivery_method != 'collection' else '')
+
     html = f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Order #{order.id} - PokeBulk SA</title>
 <style>* {{ margin:0;padding:0;box-sizing:border-box }} body {{ font-family:Arial,sans-serif;font-size:12px;color:#000;padding:14px;line-height:1.2 }} table {{ border-collapse:collapse }} table td {{ padding:2px 8px;border-bottom:1px solid #eee;font-size:11px }} @media print {{ .no-print {{ display:none }} @page {{ margin:10mm;size:A4 }} }}</style>
@@ -1782,6 +1802,7 @@ def print_order(request, order_id):
     <h1 style="font-size:20px;margin-bottom:4px">PokeBulk SA - Packing Slip</h1>
     <div style="font-size:12px;color:#444;margin-top:2px">Order #{order.id} | {order.created_at.strftime("%d %b %Y %H:%M")} | {item_count} cards</div>
     <div style="font-size:12px;color:#444">Customer: <strong>{order.user.username}</strong> ({order.user.email})</div>
+    {parcel_html}
   </div>
   <div style="text-align:right">
     <div style="font-size:24px;font-weight:bold;color:#ff6b35">R {order.total_price:.2f}</div>

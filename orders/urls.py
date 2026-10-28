@@ -10,6 +10,7 @@ urlpatterns = [
     path("orders/<int:pk>/status/", views.OrderStatusUpdateView.as_view(), name="order-status"),
     path("orders/<int:pk>/delivery/", views.OrderDeliveryUpdateView.as_view(), name="order-delivery"),
     path("orders/admin/", views.AdminOrderListView.as_view(), name="admin-order-list"),
+    path("shipping-quote/", views.ShippingQuoteView.as_view(), name="shipping-quote"),
     path("pudo/lockers/", views.PudoLockerSearchView.as_view(), name="pudo-lockers"),
     path("orders/admin/<int:pk>/pudo-book/", views.AdminOrderPudoBookView.as_view(), name="admin-order-pudo-book"),
     path("orders/admin/<int:pk>/pudo-waybill/", views.AdminOrderPudoWaybillView.as_view(), name="admin-order-pudo-waybill"),

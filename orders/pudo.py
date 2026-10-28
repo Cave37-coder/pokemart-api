@@ -159,30 +159,24 @@ def _mobile(raw):
     return '+27' + digits if digits else ''
 
 
-# Parcel size by card count (Michael, 2026-10-28): 1-600 cards = Extra Small, then one size up for every
-# further 600 cards (601-1200 Small, 1201-1800 Medium, 1801-2400 Large, 2401-3000 Extra Large).
-# "Medium/Tins" orders are never booked smaller than Medium. Accessories (binders etc.) aren't sized yet.
-SIZES = ['extra small', 'small', 'medium', 'large', 'extra large']
-SIZE_SHORT = ['XS', 'S', 'M', 'L', 'XL']
+# Parcel size by card count lives in orders/shipping.py (shared with checkout pricing and the pull sheet):
+# 1-600 cards = Extra Small, then one size up for every further 600. Medium/Tins is never smaller than Medium.
+from . import shipping as _shipping
+
+SIZES = [n.lower() for n in _shipping.SIZE_NAMES]
+SIZE_SHORT = _shipping.SIZE_SHORT
 
 
 def cards_per_size():
-    try:
-        return max(1, int(str(_env('PUDO_CARDS_PER_SIZE', '600'))))
-    except ValueError:
-        return 600
+    return _shipping.cards_per_size()
 
 
 def parcel_tier(order):
     """(tier index 0..4, card count) for an order."""
     n = sum(i.quantity for i in order.items.all())
-    per = cards_per_size()
-    if n > per * len(SIZES):
-        raise PudoError(f'{n} cards is more than one parcel ({per * len(SIZES)} max) - split it or book on Pudo yourself.')
-    tier = max(0, (n - 1) // per) if n else 0
-    if order.shipping_method == 'pudo_medium':
-        tier = max(tier, 2)
-    return tier, n
+    if n > _shipping.max_cards():
+        raise PudoError(f'{n} cards is more than one parcel ({_shipping.max_cards()} max) - split it or book on Pudo yourself.')
+    return _shipping.tier_for(n, order.shipping_method), n
 
 
 def _is_size(want, service_name):

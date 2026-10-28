@@ -115,10 +115,13 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     is_paid = serializers.SerializerMethodField()
     paid_via = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
+    parcel_size = serializers.SerializerMethodField()
+    shipping_quotes = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
+            'parcel_size', 'shipping_quotes',
             'id', 'status', 'status_display', 'customer_name', 'customer_email', 'customer_phone',
             'payment_method', 'payment_method_display', 'eft_confirmed', 'cash_confirmed',
             'stripe_payment_intent', 'is_paid', 'paid_via',
@@ -169,6 +172,14 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 
     def get_item_count(self, obj):
         return sum(i.quantity for i in obj.items.all())
+
+    def get_parcel_size(self, obj):
+        from .shipping import parcel_label
+        return parcel_label(sum(i.quantity for i in obj.items.all()), obj.shipping_method)
+
+    def get_shipping_quotes(self, obj):
+        from .shipping import quote
+        return quote(sum(i.quantity for i in obj.items.all()))['prices']
 
 
 # =============================================================================
