@@ -755,6 +755,15 @@ class BuyOrder(models.Model):
     ]
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
     stock_mode = models.CharField(max_length=4, choices=STOCK_MODE_CHOICES, default='site')
+    # 2026-10-28 (Michael): a quick "Bulk Buy-in" -- register how many Commons / Holos /
+    # Reverse Holos were bought and what was paid (e.g. paid out as store credit), and
+    # sort the exact cards into stock LATER. A bulk invoice adds no stock when paid;
+    # stock + real cost are added per batch of sorted cards (BulkSortEntry).
+    KIND_CHOICES = [
+        ('standard', 'Standard buying invoice'),
+        ('bulk', 'Bulk buy-in (sorted later)'),
+    ]
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='standard')
     stock_applied = models.BooleanField(
         default=False, editable=False,
         help_text="True once completing this invoice has added its stock (guards against double-adding)."
@@ -839,6 +848,12 @@ class BuyOrder(models.Model):
             diff = (new_unit - item.cost_unit_applied) * item.cost_units_applied
             adjust_cost_total(item.stock_product_id or item.product_id, diff)
             BuyOrderItem.objects.filter(pk=item.pk).update(cost_unit_applied=new_unit)
+        # Bulk buy-in: cards already sorted into stock get re-priced the same way.
+        for entry in BulkSortEntry.objects.filter(item__buy_order=self).select_related('item'):
+            new_unit = self.effective_unit_cost(entry.item)
+            diff = (new_unit - entry.unit_cost) * entry.quantity
+            adjust_cost_total(entry.stock_product_id, diff)
+            BulkSortEntry.objects.filter(pk=entry.pk).update(unit_cost=new_unit)
 
     def apply_cost_retroactively(self):
         """For invoices completed BEFORE cost tracking existed: record their cost
@@ -899,6 +914,8 @@ class BuyOrder(models.Model):
 
             added = skipped = 0
             for item in items:
+                if item.bundle_type:
+                    continue  # unsorted bulk bundle: recorded on the invoice, adds no stock yet
                 if item.accessory_id and not item.product_id:
                     added += self._complete_accessory_line(locked, item)
                     continue
@@ -970,7 +987,8 @@ class BuyOrder(models.Model):
         if not self.buy_number:
             last = BuyOrder.objects.order_by('-id').first()
             next_num = (last.id + 1) if last else 1
-            self.buy_number = f"BUY-{next_num:05d}"
+            prefix = 'BULK' if self.kind == 'bulk' else 'BUY'
+            self.buy_number = f"{prefix}-{next_num:05d}"
         super().save(*args, **kwargs)
 
     @property
@@ -1071,6 +1089,20 @@ class BuyOrderItem(models.Model):
         max_length=3, choices=CONDITION_CHOICES, default='NM',
         help_text="Condition of the cards bought. Non-NM stock goes to the played copy of the card."
     )
+    # 2026-10-28 (Michael): "Bulk Bundle buy-in -- only Common / Holo / Reverse Holo ... I am
+    # getting big bundles, not going to break all of them up straight away, but need to
+    # show bundle purchased." A line with bundle_type set is an unsorted bulk bundle:
+    # it counts toward the invoice total / cost, but adds NO stock on Complete (the
+    # cards are added later, once sorted). Blank = a normal line.
+    BUNDLE_TYPE_CHOICES = [
+        ('common', 'Commons'),
+        ('holo', 'Holos'),
+        ('reverse', 'Reverse Holos'),
+    ]
+    bundle_type = models.CharField(
+        max_length=10, choices=BUNDLE_TYPE_CHOICES, blank=True, default='',
+        help_text="Set for an unsorted bulk bundle line (adds no stock until it is sorted).",
+    )
     sell_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Optional: price to sell at on the site. Set (and locked) when the invoice is completed."
@@ -1103,6 +1135,15 @@ class BuyOrderItem(models.Model):
     @property
     def line_total(self):
         return (self.unit_price or Decimal('0.00')) * self.quantity
+
+    @property
+    def sorted_qty(self):
+        """Bulk bundle line: how many of its cards have been sorted into stock so far."""
+        return sum(s.quantity for s in self.sorts.all())
+
+    @property
+    def remaining_qty(self):
+        return max(self.quantity - self.sorted_qty, 0)
 
     def save(self, *args, **kwargs):
         if self.accessory_id and not self.product_id:
@@ -1158,6 +1199,31 @@ class BuyOrderItem(models.Model):
                 PokemonProduct.objects.filter(pk=self.product_id).update(
                     pos_stock=F('pos_stock') + self.quantity
                 )
+
+
+class BulkSortEntry(models.Model):
+    """One batch line of cards sorted OUT of a bulk bundle INTO live stock (2026-10-28).
+    The stock was added, and its real cost recorded (the bundle's price per card, scaled to
+    what was actually paid), at the moment this row was created."""
+    item = models.ForeignKey(BuyOrderItem, on_delete=models.CASCADE, related_name='sorts')
+    product = models.ForeignKey(PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    stock_product = models.ForeignKey(
+        PokemonProduct, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+        help_text='The product row that received the stock (the played copy for non-NM cards).',
+    )
+    quantity = models.PositiveIntegerField()
+    condition = models.CharField(max_length=3, default='NM')
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal('0'))
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product} from {self.item}"
 
 
 @receiver(post_delete, sender=BuyOrderItem)

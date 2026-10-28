@@ -185,12 +185,27 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     effective_unit_cost = serializers.SerializerMethodField()
     effective_rate = serializers.SerializerMethodField()
     live_price = serializers.SerializerMethodField()
+    sorted_qty = serializers.IntegerField(read_only=True)
+    remaining_qty = serializers.IntegerField(read_only=True)
+    sorts = serializers.SerializerMethodField()
 
     class Meta:
         model = BuyOrderItem
         fields = ['id', 'product_id', 'accessory_id', 'image_url', 'description', 'set_name', 'card_number', 'variant',
                   'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
-                  'condition', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate']
+                  'condition', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate',
+                  'bundle_type', 'sorted_qty', 'remaining_qty', 'sorts']
+
+    def get_sorts(self, obj):
+        # Bulk buy-in: cards already sorted out of this bundle into stock (newest first).
+        return [{
+            'id': s.id, 'name': s.product.name if s.product else '(deleted card)',
+            'set_name': s.product.card_set.name if s.product and s.product.card_set else '',
+            'card_number': (s.product.card_number if s.product else '') or '',
+            'variant': (s.product.variant_override if s.product else '') or 'N',
+            'quantity': s.quantity, 'condition': s.condition,
+            'unit_cost': str(s.unit_cost.quantize(Decimal('0.01'))), 'created_at': s.created_at.isoformat(),
+        } for s in obj.sorts.all()]
 
     def get_live_stock(self, obj):
         if obj.product:
@@ -237,6 +252,7 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     off_catalogue_units = serializers.SerializerMethodField()
+    bundle_units = serializers.SerializerMethodField()
     user_id = serializers.IntegerField(read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True, default=None)
     analysis = serializers.SerializerMethodField()
@@ -248,17 +264,21 @@ class BuyInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = BuyOrder
         fields = [
-            'id', 'buy_number', 'box_number', 'status', 'status_display', 'stock_mode', 'stock_applied',
+            'id', 'buy_number', 'kind', 'box_number', 'status', 'status_display', 'stock_mode', 'stock_applied',
             'seller_name', 'seller_email', 'seller_phone', 'user_id', 'user_username',
             'seller_note', 'internal_note',
             'payment_made', 'payment_method', 'payment_method_display',
-            'total', 'amount_paid', 'cost_applied', 'premium_accepted', 'analysis', 'item_count', 'off_catalogue_units',
+            'total', 'amount_paid', 'cost_applied', 'premium_accepted', 'analysis', 'item_count', 'off_catalogue_units', 'bundle_units',
             'store_credit_amount', 'amount_owed', 'cash_portion', 'user_credit_balance',
             'created_at', 'completed_at', 'items',
         ]
 
     def get_off_catalogue_units(self, obj):
-        return sum(i.quantity for i in obj.items.all() if not i.product_id and not i.accessory_id)
+        # Bulk bundles are counted separately (bundle_units), not as off-catalogue.
+        return sum(i.quantity for i in obj.items.all() if not i.product_id and not i.accessory_id and not i.bundle_type)
+
+    def get_bundle_units(self, obj):
+        return sum(i.quantity for i in obj.items.all() if i.bundle_type)
 
     def get_user_credit_balance(self, obj):
         if not obj.user_id:

@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from products.models import PokemonProduct
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem, community_discount_percent
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem, BulkSortEntry, community_discount_percent
 from .banking import EFT_BANKING_DETAILS_HTML
 from .serializers import (
     CartSerializer, CartItemSerializer, OrderSerializer,
@@ -646,18 +646,25 @@ class OrderDeliveryUpdateView(APIView):
 
 def _buy_invoice_qs():
     return BuyOrder.objects.select_related('user').prefetch_related(
-        Prefetch('items', queryset=BuyOrderItem.objects.select_related('product', 'accessory'))
+        Prefetch('items', queryset=BuyOrderItem.objects.select_related('product', 'accessory').prefetch_related('sorts__product'))
     )
 
 
-def _parse_buy_lines(raw_items):
-    """-> (lines, error). Validates and normalises the posted item lines."""
+def _parse_buy_lines(raw_items, bulk=False):
+    """-> (lines, error). Validates and normalises the posted item lines.
+    bulk=True: a Bulk Buy-in -- every line must be a bundle (Commons / Holos /
+    Reverse Holos); bulk=False: bundle lines are not allowed."""
     if not isinstance(raw_items, list) or not raw_items:
         return None, 'Add at least one line to the invoice.'
     lines = []
     for n, it in enumerate(raw_items, 1):
         if not isinstance(it, dict):
             return None, f'Line {n} is invalid.'
+        has_bundle = bool((it.get('bundle_type') or '').strip())
+        if bulk and not has_bundle:
+            return None, f'Line {n}: a bulk buy-in only takes bundle lines (Commons, Holos or Reverse Holos).'
+        if has_bundle and not bulk:
+            return None, f'Line {n}: bulk bundles go on a Bulk Buy-in, not a standard buying invoice.'
         product = None
         pid = it.get('product_id')
         if pid:
@@ -675,6 +682,18 @@ def _parse_buy_lines(raw_items):
         description = (it.get('description') or '').strip()
         if accessory and not description:
             description = accessory.name
+        # Bulk bundle (2026-10-28): an unsorted Common / Holo / Reverse Holo bundle.
+        # Never linked to a card or accessory; adds no stock on Complete.
+        bundle_type = (it.get('bundle_type') or '').strip().lower()
+        if bundle_type:
+            if bundle_type not in dict(BuyOrderItem.BUNDLE_TYPE_CHOICES):
+                return None, f'Line {n}: bundle type must be Commons, Holos or Reverse Holos.'
+            product = None
+            accessory = None
+            if not description:
+                label = dict(BuyOrderItem.BUNDLE_TYPE_CHOICES)[bundle_type]
+                where = (it.get('set_name') or '').strip() or 'mixed sets'
+                description = f'Bulk bundle - {label} - {where}'
         if not product and not accessory and not description:
             return None, f'Line {n}: pick a card or type a description.'
         try:
@@ -727,7 +746,7 @@ def _parse_buy_lines(raw_items):
             ))
             continue
         lines.append(dict(
-            sell_pct=sell_pct,
+            sell_pct=sell_pct, bundle_type=bundle_type,
             product=product, description=description,
             set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
             variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,
@@ -992,6 +1011,9 @@ class AdminBuyInvoiceListView(generics.ListAPIView):
         st = self.request.query_params.get('status')
         if st in dict(BuyOrder.STATUS_CHOICES):
             qs = qs.filter(status=st)
+        kind = self.request.query_params.get('kind')
+        if kind in dict(BuyOrder.KIND_CHOICES):
+            qs = qs.filter(kind=kind)
         search = self.request.query_params.get('search', '').strip()
         if search:
             q = (Q(seller_name__icontains=search) | Q(seller_email__icontains=search)
@@ -1006,10 +1028,11 @@ class AdminBuyInvoiceListView(generics.ListAPIView):
         data = request.data
         if not (data.get('seller_name') or '').strip():
             return Response({'error': 'Seller name is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        lines, err = _parse_buy_lines(data.get('items'))
+        is_bulk = (data.get('kind') or '') == 'bulk'
+        lines, err = _parse_buy_lines(data.get('items'), bulk=is_bulk)
         if err:
             return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
-        buy = BuyOrder(stock_mode='site', status='draft', created_by=request.user)
+        buy = BuyOrder(stock_mode='site', status='draft', created_by=request.user, kind='bulk' if is_bulk else 'standard')
         _apply_buy_payload(buy, data)
         buy.save()
         for ln in lines:
@@ -1052,7 +1075,7 @@ class AdminBuyInvoiceDetailView(APIView):
             if buy.status != 'draft':
                 return Response({'error': 'Lines can only be changed while the invoice is a Draft. Un-pay it first.'},
                                 status=status.HTTP_400_BAD_REQUEST)
-            lines, err = _parse_buy_lines(data.get('items'))
+            lines, err = _parse_buy_lines(data.get('items'), bulk=(buy.kind == 'bulk'))
             if err:
                 return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
             buy.items.all().delete()
@@ -1063,8 +1086,80 @@ class AdminBuyInvoiceDetailView(APIView):
         return Response(BuyInvoiceSerializer(_buy_invoice_qs().get(pk=buy.pk)).data)
 
 
+def _sort_bulk(buy_pk, raw_sorts, user):
+    """Move cards sorted OUT of a bulk buy-in's bundles INTO live stock (2026-10-28).
+    raw_sorts: [{item_id, product_id, quantity, condition?}]. Atomic. Each card's real
+    cost is its bundle's price per card scaled to what was actually paid, so the stock
+    carries the right cost for margins. A bundle line can never be over-sorted.
+    Returns a user-facing message; raises ValueError with a user-facing reason."""
+    from products.models import log_stock_movement
+    from products.costing import add_cost
+    from .models import _played_copy_for
+
+    if not isinstance(raw_sorts, list) or not raw_sorts:
+        raise ValueError('Add at least one card to sort.')
+    with transaction.atomic():
+        buy = BuyOrder.objects.select_for_update().get(pk=buy_pk)
+        if buy.kind != 'bulk':
+            raise ValueError('Only a Bulk Buy-in can be sorted.')
+        if buy.status not in ('paid', 'complete'):
+            raise ValueError('Mark the bulk buy-in as paid before sorting its cards into stock.')
+        items = {i.pk: i for i in buy.items.all() if i.bundle_type}
+
+        # Validate every row and total per bundle line first (nothing changes until all pass).
+        planned, per_item = [], {}
+        for n, s in enumerate(raw_sorts, 1):
+            if not isinstance(s, dict):
+                raise ValueError(f'Row {n} is invalid.')
+            try:
+                item = items[int(s.get('item_id'))]
+            except (KeyError, TypeError, ValueError):
+                raise ValueError(f'Row {n}: pick which bundle the card came from.')
+            try:
+                qty = int(s.get('quantity'))
+                if qty < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError(f'Row {n}: quantity must be 1 or more.')
+            prod = PokemonProduct.objects.filter(pk=s.get('product_id')).first()
+            if prod is None:
+                raise ValueError(f'Row {n}: that card no longer exists.')
+            cond = (s.get('condition') or 'NM').strip().upper()
+            if cond not in dict(BuyOrderItem.CONDITION_CHOICES):
+                raise ValueError(f'Row {n}: invalid condition.')
+            per_item[item.pk] = per_item.get(item.pk, 0) + qty
+            planned.append((item, prod, qty, cond))
+        for pk_, total in per_item.items():
+            it = items[pk_]
+            if total > it.remaining_qty:
+                raise ValueError(
+                    f'Too many cards for “{it.description}”: you are adding {total} but only {it.remaining_qty} '
+                    f'of its {it.quantity} are still unsorted.')
+
+        added = 0
+        for item, prod, qty, cond in planned:
+            target = PokemonProduct.objects.select_for_update().get(pk=prod.pk)
+            if cond != 'NM' and target.condition == 'NM':
+                target = _played_copy_for(target, cond, None)
+                target = PokemonProduct.objects.select_for_update().get(pk=target.pk)
+            old = target.stock
+            PokemonProduct.objects.filter(pk=target.pk).update(stock=old + qty)
+            log_stock_movement(target.pk, old, old + qty, source='buyin', user=user)
+            unit = buy.effective_unit_cost(item)
+            add_cost(target.pk, qty, unit)
+            BulkSortEntry.objects.create(
+                item=item, product=prod, stock_product=target, quantity=qty, condition=cond,
+                unit_cost=unit, created_by=user if getattr(user, 'pk', None) else None,
+            )
+            added += qty
+        if not buy.cost_applied:
+            BuyOrder.objects.filter(pk=buy.pk).update(cost_applied=True)
+        remaining = sum(i.remaining_qty for i in BuyOrder.objects.get(pk=buy.pk).items.all() if i.bundle_type)
+    return f'{added} card(s) added to live stock from the bulk buy-in. {remaining} card(s) still unsorted.'
+
+
 class AdminBuyInvoiceActionView(APIView):
-    """POST {action: mark_paid|unpay|complete|cancel, payment_method?}"""
+    """POST {action: mark_paid|unpay|complete|cancel|sort_bulk, payment_method?}"""
     permission_classes = [IsAdminUser]
 
     def post(self, request, pk):
@@ -1108,6 +1203,16 @@ class AdminBuyInvoiceActionView(APIView):
                         message = f'Cost recorded for {units} unit(s) still in stock.'
             except ValueError as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == 'sort_bulk':
+            if buy.kind != 'bulk':
+                return Response({'error': 'Only a Bulk Buy-in can be sorted.'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                message = _sort_bulk(pk, request.data.get('sorts'), request.user)
+            except ValueError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == 'complete' and buy.kind == 'bulk':
+            return Response({'error': 'A Bulk Buy-in has no completion step -- sort its cards into stock instead.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         elif action == 'complete':
             try:
                 added, skipped = buy.complete(completed_by=request.user)
@@ -1116,6 +1221,9 @@ class AdminBuyInvoiceActionView(APIView):
             message = f'Completed. {added} item(s) added to live website stock.'
             if skipped:
                 message += f' {skipped} off-catalogue item(s) were not added to stock.'
+            bundle_cards = sum(i.quantity for i in buy.items.all() if i.bundle_type)
+            if bundle_cards:
+                message += f' {bundle_cards} card(s) in bulk bundles were recorded but not added to stock (add them once sorted).'
         else:
             from store_credit import services as credit
             try:
@@ -1153,11 +1261,17 @@ class AdminBuyInvoiceActionView(APIView):
                         if buy.status != 'paid':
                             return Response({'error': 'Only a Paid invoice can be moved back to Draft.'},
                                             status=status.HTTP_400_BAD_REQUEST)
+                        if BulkSortEntry.objects.filter(item__buy_order=buy).exists():
+                            return Response({'error': 'Cards from this bulk buy-in have already been sorted into stock, so it cannot go back to Draft.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
                         credit.set_buyin_credit(buy, 0, created_by=request.user)
                         buy.status, buy.payment_made, buy.payment_method = 'draft', False, ''
                         message = 'Moved back to Draft.' + (' Store credit taken back.' if buy.store_credit_amount else '')
                         buy.save()
                     elif action == 'cancel':
+                        if BulkSortEntry.objects.filter(item__buy_order=buy).exists():
+                            return Response({'error': 'Cards from this bulk buy-in have already been sorted into stock, so it cannot be cancelled.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
                         credit.set_buyin_credit(buy, 0, created_by=request.user)
                         buy.status = 'cancelled'
                         message = 'Cancelled. No stock was added.'
