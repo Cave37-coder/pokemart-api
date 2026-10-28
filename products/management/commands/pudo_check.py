@@ -30,18 +30,18 @@ class Command(BaseCommand):
         if opts["probe"]:
             self._probe(pudo, sender, (opts["to"] or "CG10").strip().upper())
             return
+        me = None
         try:
             lockers = pudo.get_lockers()
+            self.stdout.write(self.style.SUCCESS(f"Locker list OK     : {len(lockers)} lockers/kiosks"))
+            me = pudo.locker_by_code(sender) if sender else None
+            if sender:
+                self.stdout.write((self.style.SUCCESS if me else self.style.WARNING)(
+                    f"Your drop-off locker: {me['name'] + ' - ' + me['address'] if me else sender + ' not found in the list'}"))
         except pudo.PudoError as e:
-            self.stdout.write(self.style.ERROR(f"Locker list FAILED: {e}"))
-            self.stdout.write("If it says 401/403 the key or header is wrong: set PUDO_AUTH_HEADER / PUDO_AUTH_PREFIX; "
-                              "if it can't connect or 404s, check PUDO_API_BASE.")
-            return
-        self.stdout.write(self.style.SUCCESS(f"Locker list OK     : {len(lockers)} lockers/kiosks"))
-        me = pudo.locker_by_code(sender) if sender else None
-        if sender:
-            self.stdout.write((self.style.SUCCESS if me else self.style.WARNING)(
-                f"Your drop-off locker: {me['name'] + ' - ' + me['address'] if me else sender + ' not found in the list'}"))
+            self.stdout.write(self.style.WARNING(f"Locker list unavailable: {e}"))
+            self.stdout.write("(If it says 5xx that's Pudo's side; the picker falls back to typing the locker code. "
+                              "401/403 = key/header; 404 = PUDO_API_BASE should end in /api/v1.) Carrying on with the rate check...")
         if opts["to"] and sender:
             per = pudo.cards_per_size()
             for tier, short in enumerate(pudo.SIZE_SHORT):

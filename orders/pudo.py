@@ -15,7 +15,8 @@ Docs: https://api-pudo.co.za/ (production) and https://dev.api-pudo.co.za/ (dev)
 Settings (Railway environment variables) -- nothing is hard-coded and booking is OFF unless switched on:
     PUDO_BOOKING_ENABLED   "1" to book automatically (anything else = off, status changes work as before)
     PUDO_API_KEY           your Pudo API key
-    PUDO_API_BASE          default https://api-pudo.co.za (use https://dev.api-pudo.co.za for the dev/test API)
+    PUDO_API_BASE          default https://api-tcg.co.za/api/v1 (live). For a sandbox account use https://sandbox.api-pudo.co.za/api/v1.
+                           NOTE the /api/v1 -- without it every route 404s ("The route rates could not be found").
     PUDO_AUTH_HEADER       default "Authorization"   (header NAME the key is sent in)
     PUDO_AUTH_PREFIX       default "Bearer "         (text put before the key; "" for a bare key)
     PUDO_SENDER_TERMINAL   the locker YOU drop parcels at (code like "CG54")
@@ -25,6 +26,7 @@ Settings (Railway environment variables) -- nothing is hard-coded and booking is
 import logging
 import os
 import re
+import time
 from datetime import timedelta
 
 import requests
@@ -51,7 +53,7 @@ def enabled():
 
 
 def _base():
-    return str(_env('PUDO_API_BASE', 'https://api-pudo.co.za')).rstrip('/')
+    return str(_env('PUDO_API_BASE', 'https://api-tcg.co.za/api/v1')).rstrip('/')
 
 
 def _headers():
@@ -85,26 +87,44 @@ def _call(method, path, **kw):
 
 # ---------------------------------------------------------------- lockers --------------------------
 def get_lockers():
-    """Full locker/kiosk list, cached 12h. [{code, name, address, town, postal}]"""
+    """Full locker/kiosk list, cached 12h (and a 30-day stale copy kept as a fallback when Pudo's
+    /lockers-data errors -- it returned HTTP 500 on 2026-10-28 while /rates worked).
+    [{code, name, address, town, postal, type}]"""
     cached = cache.get('pudo_lockers_v1')
     if cached is not None:
         return cached
-    raw = _call('GET', '/lockers-data')
+    raw, last = None, None
+    for attempt in range(3):
+        try:
+            raw = _call('GET', '/lockers-data')
+            break
+        except PudoError as e:
+            last = e
+            if 'Pudo said 5' not in str(e) and 'Could not reach' not in str(e):
+                raise
+            time.sleep(2)
+    if raw is None:
+        stale = cache.get('pudo_lockers_stale_v1')
+        if stale:
+            return stale
+        raise last
     if isinstance(raw, dict):
         raw = raw.get('data') or raw.get('lockers') or []
     out = []
     for r in raw:
         place = r.get('place') or {}
+        detail = r.get('detailed_address') or {}
         out.append({
             'code': r.get('code') or '',
             'name': r.get('name') or '',
             'address': r.get('address') or '',
-            'town': place.get('town') or '',
-            'postal': place.get('postalCode') or '',
+            'town': detail.get('locality') or place.get('town') or '',
+            'postal': detail.get('postal_code') or place.get('postalCode') or '',
             'type': (r.get('type') or {}).get('name') or '',
         })
     out = [r for r in out if r['code']]
     cache.set('pudo_lockers_v1', out, 60 * 60 * 12)
+    cache.set('pudo_lockers_stale_v1', out, 60 * 60 * 24 * 30)
     return out
 
 
@@ -184,6 +204,8 @@ def _service_for(tier, sender, receiver):
     want = SIZES[tier]
     for r in rates:
         sl = r.get('service_level') or {}
+        if (r.get('can_book') or {}).get('status') is False:
+            continue
         if _is_size(want, sl.get('name')) and sl.get('code'):
             return sl['code'], r.get('rate')
     names = ', '.join((r.get('service_level') or {}).get('name', '?') for r in rates)
