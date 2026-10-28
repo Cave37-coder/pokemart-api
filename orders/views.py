@@ -1316,6 +1316,52 @@ class AdminOrderThankYouView(APIView):
         return resp
 
 
+class AdminManualInvoiceLabelView(APIView):
+    """40x30 mm parcel tag for a manual invoice."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import manual_label_png
+        inv = get_object_or_404(ManualInvoice, pk=pk)
+        resp = HttpResponse(manual_label_png(inv), content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="label-{inv.invoice_number}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
+class AdminManualInvoiceThankYouView(APIView):
+    """14x40 mm Thank-you sticker (first name) for a manual invoice. ?portrait=1 for the standing version."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import thankyou_label_png
+        inv = get_object_or_404(ManualInvoice, pk=pk)
+        first = ((inv.customer_name or "").strip().split() or [""])[0]
+        png = thankyou_label_png(first, portrait=request.query_params.get('portrait') in ('1', 'true'))
+        resp = HttpResponse(png, content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="thankyou-{inv.invoice_number}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
+class AdminBuyBoxLabelView(APIView):
+    """40x30 mm stock-box label for a buy-in. ?i=<k>&n=<total> labels box k of n (frontend loops 1..n)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from .labels import box_label_png
+        buy = get_object_or_404(BuyOrder, pk=pk)
+        try:
+            n = max(1, min(int(request.query_params.get('n', 1)), 50))
+            i = max(1, min(int(request.query_params.get('i', 1)), n))
+        except ValueError:
+            n = i = 1
+        resp = HttpResponse(box_label_png(buy, i, n), content_type='image/png')
+        resp['Content-Disposition'] = f'inline; filename="box-{buy.buy_number}-{i}of{n}.png"'
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
 class AdminBulkLabelView(APIView):
     """40x30 mm thermal label PNG for a Bulk Buy-in bundle (BULK-xxxxx)."""
     permission_classes = [IsAdminUser]

@@ -184,3 +184,37 @@ def bulk_label_png(buy):
     _stack(d, lines)
     _bar(d, f"BULK  {buy.created_at.strftime('%d %b %Y')}")
     return _png(im)
+
+
+def manual_label_png(inv):
+    """Parcel tag for a manual invoice. No structured delivery fields -- the delivery word comes from
+    the free-text delivery_note ('collection' / 'pudo ...') and the shipping cost."""
+    note = (inv.delivery_note or "").strip()
+    low = note.lower()
+    if "collect" in low:
+        word = "COLLECTION"
+    elif "pudo" in low or (inv.shipping_cost or 0) > 0:
+        word = "PUDO"
+    else:
+        word = "COLLECTION"
+    phone = (inv.customer_phone or "").strip()
+    area = " ".join(note.split())[:60] if note and word != "COLLECTION" else ("Collection" if word == "COLLECTION" else "")
+    im, d = _base(inv.invoice_number, f"{SITE}/staff/orders?invoice={inv.invoice_number}")
+    lines = [(inv.customer_name or "—", 26), (f"Cell: {phone}" if phone else "Cell: —", 24)]
+    if area:
+        lines.append((area, 20))
+    _stack(d, lines)
+    _bar(d, word)
+    return _png(im)
+
+
+def box_label_png(buy, index=1, total=1):
+    """Stock-box label for a buy-in: BUY-#, big BOX #, seller, and 'k of n' when several boxes."""
+    im, d = _base(buy.buy_number, f"{SITE}/staff/orders?buy={buy.buy_number}")
+    lines = []
+    if buy.box_number:
+        lines.append((f"BOX {buy.box_number}", 44))
+    lines.append((buy.seller_name or "—", 24))
+    _stack(d, lines)
+    _bar(d, f"{index} of {total}" if total > 1 else buy.created_at.strftime("%d %b %Y"))
+    return _png(im)
