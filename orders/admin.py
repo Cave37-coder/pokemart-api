@@ -162,7 +162,8 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('delivery_address_line1', 'delivery_address_line2', 'delivery_city', 'delivery_province', 'delivery_postal_code')
         }),
         ('Pudo', {
-            'fields': ('pudo_locker_name', 'pudo_locker_address')
+            'fields': ('pudo_locker_name', 'pudo_locker_address', 'pudo_locker_code',
+                       'pudo_shipment_id', 'pudo_pin', 'pudo_booked_at', 'pudo_booking_error')
         }),
         ('Courier', {
             'fields': ('waybill_number', 'courier_name', 'courier_tracking_url')

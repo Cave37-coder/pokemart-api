@@ -205,6 +205,13 @@ class Order(models.Model):
     delivery_postal_code = models.CharField(max_length=20, blank=True)
     pudo_locker_name = models.CharField(max_length=255, blank=True)
     pudo_locker_address = models.CharField(max_length=255, blank=True)
+    # Pudo API (2026-10-28): the locker's code (e.g. "CG54") is what a booking needs; the name/address
+    # above stay as the human-readable text. Booking results are written back here.
+    pudo_locker_code = models.CharField(max_length=50, blank=True)
+    pudo_shipment_id = models.CharField(max_length=50, blank=True)
+    pudo_pin = models.CharField(max_length=20, blank=True, help_text="Drop-off PIN returned by Pudo for the sender.")
+    pudo_booked_at = models.DateTimeField(null=True, blank=True)
+    pudo_booking_error = models.CharField(max_length=300, blank=True)
 
     # Courier
     waybill_number = models.CharField(max_length=100, blank=True)

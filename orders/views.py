@@ -226,6 +226,7 @@ class CheckoutView(APIView):
 
         pudo_locker_name = request.data.get('pudo_locker_name', '')
         pudo_locker_address = request.data.get('pudo_locker_address', '')
+        pudo_locker_code = str(request.data.get('pudo_locker_code', '') or '').strip().upper()[:50]
         # Michael, 2026-08-02: 3 orders came through with a Pudo locker/kiosk
         # method selected but no locker name/address attached -- nothing to
         # actually book the courier against. Reject the order at checkout
@@ -291,6 +292,7 @@ class CheckoutView(APIView):
             delivery_postal_code=request.data.get('postal_code', ''),
             pudo_locker_name=pudo_locker_name,
             pudo_locker_address=pudo_locker_address,
+            pudo_locker_code=pudo_locker_code,
             customer_note=request.data.get('customer_note', ''),
         )
         if credit_to_use > 0:
@@ -450,10 +452,27 @@ class OrderStatusUpdateView(APIView):
         if new_status is not None and new_status not in dict(Order.STATUS_CHOICES):
             return Response({'error': f'Invalid status: {new_status}'}, status=status.HTTP_400_BAD_REQUEST)
 
+        prev_status = order.status
         if new_status is not None:
             order.status = new_status
         if waybill:
             order.waybill_number = waybill
+
+        # Pudo auto-booking (2026-10-28): moving a locker/kiosk order to 'Courier Being Booked' books the
+        # parcel with Pudo and writes the waybill onto the order BEFORE it is saved, so the status email the
+        # customer gets already carries it. A failure leaves the status untouched and tells staff why; typing
+        # a waybill by hand in the same request bypasses the booking (manual fallback).
+        if new_status == 'booked' and prev_status != 'booked' and not waybill:
+            from . import pudo
+            if pudo.enabled() and order.shipping_method in pudo.LOCKER_METHODS and not order.pudo_shipment_id:
+                try:
+                    pudo.apply_booking(order, pudo.book_order(order))
+                except pudo.PudoError as e:
+                    Order.objects.filter(pk=order.pk).update(pudo_booking_error=str(e)[:300])
+                    return Response(
+                        {'error': f'Pudo booking failed - status NOT changed. {e} '
+                                  f'(Fix it and try again, or book on Pudo yourself and type the waybill in.)'},
+                        status=status.HTTP_502_BAD_GATEWAY)
         if courier_name:
             order.courier_name = courier_name
         if courier_url:
@@ -502,6 +521,56 @@ class OrderStatusUpdateView(APIView):
         return Response(OrderSerializer(order).data)
 
 
+class PudoLockerSearchView(APIView):
+    """Public locker/kiosk search for the checkout / profile pickers: GET ?q=sandton -> [{code,name,address,town}]."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        from . import pudo
+        try:
+            return Response({'results': pudo.search_lockers(request.query_params.get('q', ''))})
+        except pudo.PudoError as e:
+            return Response({'results': [], 'error': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+class AdminOrderPudoBookView(APIView):
+    """Book (or re-try booking) this order's Pudo shipment without changing its status."""
+    permission_classes = [IsAdminUser]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        from . import pudo
+        order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
+        if order.pudo_shipment_id:
+            return Response({'error': f'Already booked (waybill {order.waybill_number}).'}, status=status.HTTP_400_BAD_REQUEST)
+        if not pudo.enabled():
+            return Response({'error': 'Pudo booking is switched off (PUDO_BOOKING_ENABLED).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            pudo.apply_booking(order, pudo.book_order(order))
+        except pudo.PudoError as e:
+            Order.objects.filter(pk=order.pk).update(pudo_booking_error=str(e)[:300])
+            return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        order.save(update_fields=['waybill_number', 'courier_name', 'courier_tracking_url', 'pudo_shipment_id',
+                                  'pudo_pin', 'pudo_booked_at', 'pudo_booking_error'])
+        return Response(AdminOrderListSerializer(order).data)
+
+
+class AdminOrderPudoWaybillView(APIView):
+    """Signed PDF url of the Pudo waybill for this order (frontend opens it in a new tab)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, pk):
+        from . import pudo
+        order = get_object_or_404(Order, pk=pk)
+        if not order.pudo_shipment_id:
+            return Response({'error': 'This order has no Pudo booking.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            return Response({'url': pudo.waybill_pdf_url(order.pudo_shipment_id)})
+        except pudo.PudoError as e:
+            return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+
 # Standard Pudo prices -- MUST mirror SHIPPING_OPTIONS in
 # pokemart-frontend/src/app/checkout/page.tsx. Staff can override the price per
 # order (the request's shipping_cost wins), these are just the prefilled default.
@@ -545,6 +614,7 @@ class OrderDeliveryUpdateView(APIView):
 
         locker_name = (request.data.get('pudo_locker_name') or '').strip()
         locker_address = (request.data.get('pudo_locker_address') or '').strip()
+        locker_code = (request.data.get('pudo_locker_code') or '').strip().upper()[:50]
         addr1 = (request.data.get('address_line1') or '').strip()
         addr2 = (request.data.get('address_line2') or '').strip()
         city = (request.data.get('city') or '').strip()
@@ -591,6 +661,7 @@ class OrderDeliveryUpdateView(APIView):
         order.total_price = (order.total_price - old_cost + new_cost).quantize(Decimal('0.01'))
         order.pudo_locker_name = locker_name if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') else ''
         order.pudo_locker_address = locker_address if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') else ''
+        order.pudo_locker_code = locker_code if method in ('pudo_locker', 'pudo_kiosk', 'pudo_medium') else ''
         if method == 'pudo_door':
             order.delivery_address_line1, order.delivery_address_line2 = addr1, addr2
             order.delivery_city, order.delivery_province, order.delivery_postal_code = city, province, postal
