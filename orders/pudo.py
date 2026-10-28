@@ -15,7 +15,7 @@ Docs: https://api-pudo.co.za/ (production) and https://dev.api-pudo.co.za/ (dev)
 Settings (Railway environment variables) -- nothing is hard-coded and booking is OFF unless switched on:
     PUDO_BOOKING_ENABLED   "1" to book automatically (anything else = off, status changes work as before)
     PUDO_API_KEY           your Pudo API key
-    PUDO_API_BASE          default https://api-tcg.co.za (use https://dev.api-pudo.co.za for the dev/test API)
+    PUDO_API_BASE          default https://api-pudo.co.za (use https://dev.api-pudo.co.za for the dev/test API)
     PUDO_AUTH_HEADER       default "Authorization"   (header NAME the key is sent in)
     PUDO_AUTH_PREFIX       default "Bearer "         (text put before the key; "" for a bare key)
     PUDO_SENDER_TERMINAL   the locker YOU drop parcels at (code like "CG54")
@@ -51,7 +51,7 @@ def enabled():
 
 
 def _base():
-    return str(_env('PUDO_API_BASE', 'https://api-tcg.co.za')).rstrip('/')
+    return str(_env('PUDO_API_BASE', 'https://api-pudo.co.za')).rstrip('/')
 
 
 def _headers():
