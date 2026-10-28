@@ -38,9 +38,11 @@ class Command(BaseCommand):
             self.stdout.write((self.style.SUCCESS if me else self.style.WARNING)(
                 f"Your drop-off locker: {me['name'] + ' - ' + me['address'] if me else sender + ' not found in the list'}"))
         if opts["to"] and sender:
-            for method in ("pudo_locker", "pudo_medium"):
+            per = pudo.cards_per_size()
+            for tier, short in enumerate(pudo.SIZE_SHORT):
+                label = f"{short} ({tier * per + 1}-{(tier + 1) * per} cards)"
                 try:
-                    code, rate = pudo._service_for(method, sender, opts["to"].strip().upper())
-                    self.stdout.write(self.style.SUCCESS(f"Rate {method:12}: {code}  R{rate}"))
+                    code, rate = pudo._service_for(tier, sender, opts["to"].strip().upper())
+                    self.stdout.write(self.style.SUCCESS(f"Rate {label:24}: {code}  R{rate}"))
                 except pudo.PudoError as e:
-                    self.stdout.write(self.style.WARNING(f"Rate {method:12}: {e}"))
+                    self.stdout.write(self.style.WARNING(f"Rate {label:24}: {e}"))

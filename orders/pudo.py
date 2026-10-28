@@ -139,20 +139,55 @@ def _mobile(raw):
     return '+27' + digits if digits else ''
 
 
-def _service_for(method, sender, receiver):
-    """Ask Pudo for the L2L rates and choose the service level by size: XS for locker/kiosk, Medium for tins."""
+# Parcel size by card count (Michael, 2026-10-28): 1-600 cards = Extra Small, then one size up for every
+# further 600 cards (601-1200 Small, 1201-1800 Medium, 1801-2400 Large, 2401-3000 Extra Large).
+# "Medium/Tins" orders are never booked smaller than Medium. Accessories (binders etc.) aren't sized yet.
+SIZES = ['extra small', 'small', 'medium', 'large', 'extra large']
+SIZE_SHORT = ['XS', 'S', 'M', 'L', 'XL']
+
+
+def cards_per_size():
+    try:
+        return max(1, int(str(_env('PUDO_CARDS_PER_SIZE', '600'))))
+    except ValueError:
+        return 600
+
+
+def parcel_tier(order):
+    """(tier index 0..4, card count) for an order."""
+    n = sum(i.quantity for i in order.items.all())
+    per = cards_per_size()
+    if n > per * len(SIZES):
+        raise PudoError(f'{n} cards is more than one parcel ({per * len(SIZES)} max) - split it or book on Pudo yourself.')
+    tier = max(0, (n - 1) // per) if n else 0
+    if order.shipping_method == 'pudo_medium':
+        tier = max(tier, 2)
+    return tier, n
+
+
+def _is_size(want, service_name):
+    name = (service_name or '').lower()
+    if want == 'small':
+        return 'small' in name and 'extra' not in name
+    if want == 'large':
+        return 'large' in name and 'extra' not in name
+    return want in name
+
+
+def _service_for(tier, sender, receiver):
+    """Ask Pudo for the L2L rates and pick the service level for this size tier."""
     data = _call('POST', '/rates', json={'collection_address': {'terminal_id': sender},
                                          'delivery_address': {'terminal_id': receiver}})
     rates = data.get('rates') if isinstance(data, dict) else None
     if not rates:
         raise PudoError('Pudo returned no rates for that locker pair.')
-    want = 'medium' if method == 'pudo_medium' else 'extra small'
+    want = SIZES[tier]
     for r in rates:
         sl = r.get('service_level') or {}
-        if want in (sl.get('name') or '').lower() and sl.get('code'):
+        if _is_size(want, sl.get('name')) and sl.get('code'):
             return sl['code'], r.get('rate')
     names = ', '.join((r.get('service_level') or {}).get('name', '?') for r in rates)
-    raise PudoError(f'No "{want}" service level offered for that route (got: {names}).')
+    raise PudoError(f'No "{want}" parcel size offered for that route (got: {names}).')
 
 
 def book_order(order):
@@ -173,7 +208,8 @@ def book_order(order):
     if not rmobile:
         raise PudoError("The customer has no cell number on their profile (Pudo needs it for the locker PIN).")
 
-    code, rate = _service_for(order.shipping_method, sender, receiver)
+    tier, n_cards = parcel_tier(order)
+    code, rate = _service_for(tier, sender, receiver)
     body = {
         'collection_address': {'terminal_id': sender},
         'collection_contact': {
@@ -181,7 +217,7 @@ def book_order(order):
             'email': str(_env('PUDO_SENDER_EMAIL', 'enquiries@pokebulk.co.za')),
             'mobile_number': _mobile(str(_env('PUDO_SENDER_MOBILE', ''))),
         },
-        'special_instructions_collection': f'PokeBulk order #{order.id}',
+        'special_instructions_collection': f'PokeBulk order #{order.id} - {n_cards} cards',
         'delivery_address': {'terminal_id': receiver},
         'delivery_contact': {'name': rname, 'email': user.email or '', 'mobile_number': rmobile},
         'service_level_code': code,
