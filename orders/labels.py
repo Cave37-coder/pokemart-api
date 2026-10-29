@@ -73,6 +73,7 @@ BAR_H = 34                 # black strip along the bottom
 BAR_TOP = H - BAR_H
 TEXT_TOP = 122             # just under the logo/QR band
 TEXT_BOTTOM = BAR_TOP - 8  # always leave a clear gap above the strip
+THANKS_LINE = ("THANK YOU!", 22)   # last line on parcel tags (orders + manual invoices), 2026-10-29
 
 
 def _stack(d, lines, top=TEXT_TOP, bottom=TEXT_BOTTOM, gap=4):
@@ -162,6 +163,7 @@ def order_label_png(order):
     lines = [(name, 26), (f"Cell: {phone}" if phone else "Cell: —", 24)]
     if area:
         lines.append((area, 20))
+    lines.append(THANKS_LINE)
     _stack(d, lines)
     _bar(d, word)
     return _png(im)
@@ -203,6 +205,7 @@ def manual_label_png(inv):
     lines = [(inv.customer_name or "—", 26), (f"Cell: {phone}" if phone else "Cell: —", 24)]
     if area:
         lines.append((area, 20))
+    lines.append(THANKS_LINE)
     _stack(d, lines)
     _bar(d, word)
     return _png(im)
