@@ -70,7 +70,7 @@ class OrderSerializer(serializers.ModelSerializer):
     'delivery_method', 'delivery_address_line1', 'delivery_address_line2',
     'delivery_city', 'delivery_province', 'delivery_postal_code',
     'waybill_number', 'courier_name', 'courier_tracking_url',
-    'customer_note', 'created_at',
+    'customer_note', 'created_at', 'collection_date', 'no_rush',
      ]
         read_only_fields = ['id', 'status', 'total_price', 'created_at', 'shipping_cost', 'discount_percent', 'discount_amount']
 
@@ -117,11 +117,14 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     item_count = serializers.SerializerMethodField()
     parcel_size = serializers.SerializerMethodField()
     shipping_quotes = serializers.SerializerMethodField()
+    pudo_region = serializers.SerializerMethodField()
+    next_send_day = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'parcel_size', 'shipping_quotes',
+            'collection_date', 'no_rush', 'pudo_region', 'next_send_day',
             'id', 'status', 'status_display', 'customer_name', 'customer_email', 'customer_phone',
             'payment_method', 'payment_method_display', 'eft_confirmed', 'cash_confirmed',
             'stripe_payment_intent', 'is_paid', 'paid_via',
@@ -180,6 +183,19 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     def get_shipping_quotes(self, obj):
         from .shipping import quote
         return quote(sum(i.quantity for i in obj.items.all()))['prices']
+
+    # Pudo send-day rules (2026-10-30, orders/schedule.py): KZN/EC Mon-Thu,
+    # Western Cape Mon-Wed + Fri.
+    def get_pudo_region(self, obj):
+        if obj.delivery_method == 'collection' or obj.shipping_method == 'collection':
+            return None
+        from .schedule import pudo_region, REGION_LABELS
+        return REGION_LABELS[pudo_region(obj)]
+
+    def get_next_send_day(self, obj):
+        from .schedule import next_send_day
+        d = next_send_day(obj)
+        return d.isoformat() if d else None
 
 
 # =============================================================================

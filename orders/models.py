@@ -46,7 +46,7 @@ def pending_status_label(status, payment_method, delivery_method="", shipping_me
     if payment_method == "eft":
         return "EFT Received / Order Confirmed"
     if payment_method == "coc" or delivery_method == "collection" or shipping_method == "collection":
-        return "Order Confirmed (24 hours minimum notice for pickup)"
+        return "Order Confirmed (collection day booked)"
     return "Order Confirmed"
 
 
@@ -217,6 +217,13 @@ class Order(models.Model):
     waybill_number = models.CharField(max_length=100, blank=True)
     courier_name = models.CharField(max_length=100, blank=True)
     courier_tracking_url = models.URLField(blank=True)
+
+    # Collection scheduling (2026-10-30, see orders/schedule.py): the day the
+    # customer chose at checkout, or no_rush = "ready whenever it suits you".
+    collection_date = models.DateField(null=True, blank=True,
+        help_text="Collection day the customer booked at checkout.")
+    no_rush = models.BooleanField(default=False,
+        help_text="Customer ticked 'No Rush' -- collect whenever it suits. Left out of the prep-time figure.")
 
     # Notes
     customer_note = models.TextField(blank=True)  # submitted BY the customer at checkout -- staff shouldn't overwrite this
@@ -1274,3 +1281,87 @@ def _reverse_credit_on_buy_order_delete(sender, instance, **kwargs):
             logging.getLogger(__name__).warning(
                 'BuyOrder %s deleted but its store credit was already spent -- left with the customer.',
                 instance.buy_number)
+
+
+class PrepTimeEstimate(models.Model):
+    """Single row: the order preparation time shown on the landing and
+    checkout pages (2026-10-30). Numbers are filled by orders/prep_time.py
+    (daily cron `update_prep_time`); the override fields are for Michael to
+    set by hand in admin on event weekends / when away, and win while set."""
+    low_days = models.PositiveSmallIntegerField(default=2)
+    high_days = models.PositiveSmallIntegerField(default=4)
+    median_days = models.FloatField(null=True, blank=True)
+    p80_days = models.FloatField(null=True, blank=True)
+    sample_size = models.PositiveIntegerField(default=0)
+    open_orders = models.PositiveIntegerField(default=0)
+    oldest_open_days = models.FloatField(default=0)
+    source = models.CharField(max_length=20, default='default', editable=False)
+    computed_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    override_low_days = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text="Set both override days to replace the calculated range (e.g. event weekend).")
+    override_high_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    override_message = models.CharField(
+        max_length=200, blank=True,
+        help_text="Optional note shown with the time, e.g. 'At Collect-a-Con this weekend - orders resume Monday.'")
+    override_until = models.DateField(
+        null=True, blank=True,
+        help_text="Override (days and message) switches itself off after this date. Leave blank to keep it on.")
+
+    class Meta:
+        verbose_name = "Order preparation time"
+        verbose_name_plural = "Order preparation time"
+
+    def __str__(self):
+        lo, hi = self.display_range()
+        return f"Order prep time: {lo}-{hi} days"
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def override_active(self):
+        from django.utils import timezone
+        if self.override_until and timezone.localdate() > self.override_until:
+            return False
+        return bool(self.override_message) or (
+            self.override_low_days is not None and self.override_high_days is not None)
+
+    def display_range(self):
+        if self.override_active() and self.override_low_days is not None and self.override_high_days is not None:
+            return self.override_low_days, max(self.override_low_days, self.override_high_days)
+        return self.low_days, self.high_days
+
+
+
+class CalendarEvent(models.Model):
+    """Days Michael is away / at an event / hosting at Gengar Games
+    (2026-10-30). Shown on the public calendar page, and days with
+    blocks_collection ticked can't be picked as a collection date."""
+    KIND_CHOICES = [
+        ("event", "Event (away)"),
+        ("gengar", "Gengar Games"),
+        ("closed", "Closed / unavailable"),
+    ]
+    title = models.CharField(max_length=120, help_text="e.g. Collect-a-Con, League Challenge")
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default="event")
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True, help_text="Leave blank for a one-day event.")
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    venue = models.CharField(max_length=200, blank=True, help_text="e.g. Gengar Games, Benoni")
+    details = models.TextField(blank=True, help_text="Shown on the public calendar.")
+    blocks_collection = models.BooleanField(default=True,
+        help_text="No collections from home on these days.")
+    public = models.BooleanField(default=True, help_text="Show on the website calendar.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["start_date", "start_time"]
+        verbose_name = "Calendar event"
+
+    def __str__(self):
+        end = f" – {self.end_date:%d %b}" if self.end_date and self.end_date != self.start_date else ""
+        return f"{self.title} ({self.start_date:%d %b %Y}{end})"

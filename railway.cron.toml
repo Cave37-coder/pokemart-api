@@ -6,7 +6,9 @@ builder = "nixpacks"
 # Holo sync -- both commands exit straight away unless it's Monday (SAST),
 # so no second cron service is needed. ";" (not "&&") so a failed price
 # sync doesn't skip the Monday promo run.
-startCommand = "python manage.py sync_prices_only; python manage.py sync_promos --weekly-day mon --email; python manage.py sync_blister_cosmos --weekly-day mon"
+# 2026-10-30: update_prep_time added first -- recalculates the order
+# preparation time shown on the landing/checkout pages (fast, DB only).
+startCommand = "python manage.py update_prep_time; python manage.py sync_prices_only; python manage.py sync_promos --weekly-day mon --email; python manage.py sync_blister_cosmos --weekly-day mon"
 # ROOT CAUSE (2026-09-18, Michael: "the price sync is not working on the
 # site!!!"): this file had a startCommand but no cronSchedule -- Railway's
 # config-as-code cron field lives here (deploy.cronSchedule), sibling to

@@ -45,7 +45,7 @@ VARIANT_CHOICES = [
     ('RR', 'Rainbow Rare'),
     ('RAD', 'Radiant'),
 ]
-from .models import Order, OrderItem, OrderTracking, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
+from .models import Order, OrderItem, OrderTracking, PrepTimeEstimate, CalendarEvent, Cart, CartItem, ManualInvoice, ManualInvoiceItem, BuyOrder, BuyOrderItem
 from .manual_invoice import build_manual_invoice_html, build_manual_invoice_pull_sheet_html, html_to_pdf
 from .manual_invoice_pos import build_pos_html
 from .buy_order_document import build_buy_order_html, html_to_pdf as buy_order_html_to_pdf
@@ -132,7 +132,7 @@ class OrderAdmin(admin.ModelAdmin):
         css = {'all': ('orders/order_admin_compact.css',)}
 
     list_display = ['id', 'customer_name_display', 'status_badge', 'payment_status_display', 'subtotal_display', 'discount_col', 'shipping_col', 'total_price', 'shipping_method', 'waybill_number', 'created_at', 'print_button']
-    list_filter = ['status', PaidFilter, 'payment_method', 'delivery_method']
+    list_filter = ['status', PaidFilter, 'payment_method', 'delivery_method', 'no_rush']
     search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'waybill_number']
     readonly_fields = ['created_at', 'updated_at', 'print_button', 'customer_info', 'shipping_display', 'invoice_total_display', 'payment_status_display', 'store_credit_applied']
     ordering = ['-created_at']
@@ -156,7 +156,7 @@ class OrderAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('Shipping', {
-            'fields': ('delivery_method', 'shipping_method', 'shipping_cost')
+            'fields': ('delivery_method', 'shipping_method', 'shipping_cost', ('collection_date', 'no_rush'))
         }),
         ('Delivery Address', {
             'fields': ('delivery_address_line1', 'delivery_address_line2', 'delivery_city', 'delivery_province', 'delivery_postal_code')
@@ -350,6 +350,47 @@ class OrderAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         return urls
+
+
+@admin.register(CalendarEvent)
+class CalendarEventAdmin(admin.ModelAdmin):
+    """Events / Gengar Games days (2026-10-30). Shown on the website
+    calendar; ticked 'blocks collection' days can't be booked at checkout."""
+    list_display = ['title', 'kind', 'start_date', 'end_date', 'venue', 'blocks_collection', 'public']
+    list_filter = ['kind', 'blocks_collection', 'public']
+    search_fields = ['title', 'venue']
+    date_hierarchy = 'start_date'
+    fields = ['title', 'kind', ('start_date', 'end_date'), ('start_time', 'end_time'),
+              'venue', 'details', 'blocks_collection', 'public']
+
+
+@admin.register(PrepTimeEstimate)
+class PrepTimeEstimateAdmin(admin.ModelAdmin):
+    """Order preparation time shown on the landing + checkout pages. The
+    calculated numbers refresh daily; fill in the Override section for an
+    event weekend or a known backlog, and it switches off after 'until'."""
+    list_display = ['__str__', 'source', 'sample_size', 'open_orders', 'computed_at']
+    readonly_fields = ['low_days', 'high_days', 'median_days', 'p80_days', 'sample_size',
+                       'open_orders', 'oldest_open_days', 'source', 'computed_at']
+    fieldsets = [
+        ('Calculated daily from orders', {'fields': readonly_fields}),
+        ('Override (optional)', {'fields': ['override_low_days', 'override_high_days',
+                                            'override_message', 'override_until']}),
+    ]
+    actions = ['recalculate_now']
+
+    def has_add_permission(self, request):
+        return not PrepTimeEstimate.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description="Recalculate now")
+    def recalculate_now(self, request, queryset):
+        from . import prep_time
+        est = prep_time.refresh()
+        self.message_user(request, f"Recalculated: {est.low_days}-{est.high_days} days "
+                                   f"({est.sample_size} finished orders, {est.open_orders} open).")
 
 
 @admin.register(OrderTracking)

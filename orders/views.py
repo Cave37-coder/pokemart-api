@@ -241,6 +241,18 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Collection date / No Rush (2026-10-30, orders/schedule.py). A date
+        # that's sent must be bookable (not too soon, not an event day). If
+        # neither is sent (an older cached checkout page) the order still goes
+        # through with no date, so a deploy-order mismatch can't block sales.
+        collection_date = None
+        no_rush = request.data.get('no_rush') in (True, 'true', '1', 1)
+        if is_coc and not no_rush and request.data.get('collection_date'):
+            from . import schedule as _schedule
+            collection_date, date_error = _schedule.validate_collection_date(request.data.get('collection_date'))
+            if date_error:
+                return Response({'error': date_error}, status=status.HTTP_400_BAD_REQUEST)
+
         # Shipping is priced HERE from the method and the number of cards (orders/shipping.py): we decide the
         # parcel size, not the customer, and the client-sent shipping_cost is ignored.
         from . import shipping as _shipping
@@ -294,6 +306,8 @@ class CheckoutView(APIView):
             pudo_locker_address=pudo_locker_address,
             pudo_locker_code=pudo_locker_code,
             customer_note=request.data.get('customer_note', ''),
+            collection_date=collection_date,
+            no_rush=no_rush,
         )
         if credit_to_use > 0:
             try:
@@ -531,6 +545,66 @@ class ShippingQuoteView(APIView):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         n = sum(i.quantity for i in cart.items.select_related('product').all() if i.product is not None)
         return Response(_shipping.quote(n))
+
+
+class PrepTimeView(APIView):
+    """Public: the current order preparation time for the landing and
+    checkout pages (2026-10-30, see orders/prep_time.py).
+    GET -> {low_days, high_days, label, message, open_orders, updated_at}."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        from . import prep_time
+        est = prep_time.current()
+        low, high = est.display_range()
+        label = f"{low} day" + ("" if low == 1 else "s") if low == high else f"{low}\u2013{high} days"
+        resp = Response({
+            'low_days': low,
+            'high_days': high,
+            'label': label,
+            'message': est.override_message if est.override_active() else '',
+            'open_orders': est.open_orders,
+            'updated_at': est.computed_at,
+        })
+        resp['Cache-Control'] = 'public, max-age=600'
+        return resp
+
+
+class CollectionCalendarView(APIView):
+    """Public: which days can be booked for collection + upcoming public
+    events (2026-10-30, orders/schedule.py). Feeds the checkout date picker
+    and the /calendar page."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        from django.utils import timezone
+        from . import schedule
+        from .models import CalendarEvent
+        earliest, days = schedule.collection_days()
+        today = timezone.localdate()
+        events = CalendarEvent.objects.filter(public=True).exclude(
+            end_date__lt=today).exclude(end_date__isnull=True, start_date__lt=today)[:50]
+        resp = Response({
+            'earliest': earliest.isoformat(),
+            'days': days,
+            'hours': {'weekday': '\u2013'.join(schedule.WEEKDAY_HOURS),
+                      'weekend': '\u2013'.join(schedule.WEEKEND_HOURS)},
+            'whatsapp': schedule.WHATSAPP_NUMBER,
+            'whatsapp_link': schedule.WHATSAPP_LINK,
+            'events': [{
+                'id': e.id, 'title': e.title, 'kind': e.kind, 'kind_display': e.get_kind_display(),
+                'start_date': e.start_date.isoformat(),
+                'end_date': (e.end_date or e.start_date).isoformat(),
+                'start_time': e.start_time.strftime('%H:%M') if e.start_time else None,
+                'end_time': e.end_time.strftime('%H:%M') if e.end_time else None,
+                'venue': e.venue, 'details': e.details,
+                'blocks_collection': e.blocks_collection,
+            } for e in events],
+        })
+        resp['Cache-Control'] = 'public, max-age=300'
+        return resp
 
 
 class PudoLockerSearchView(APIView):
@@ -1502,6 +1576,11 @@ class AdminOrderListView(generics.ListAPIView):
                 | Q(waybill_number__icontains=search)
             )
 
+        # ?sort=collection (2026-10-30): "who needs what when" -- booked
+        # collection dates first (soonest first), then undated, No Rush last.
+        if self.request.query_params.get('sort') == 'collection':
+            from django.db.models import F
+            return qs.order_by('no_rush', F('collection_date').asc(nulls_last=True), 'created_at')
         return qs.order_by('-created_at')
 
 
@@ -1813,6 +1892,7 @@ def print_order(request, order_id):
 <div style="border:1px solid #ccc;padding:6px 10px;border-radius:4px;margin-bottom:8px;font-size:11px;line-height:1.3">
   <strong>Delivery Details</strong><br>{delivery_info}
 </div>
+{"<div style='border:2px solid #111;padding:6px 10px;border-radius:4px;margin-bottom:8px;font-size:13px;line-height:1.3'><strong>Collection day:</strong> " + _collection_day_text(order) + "</div>" if _collection_day_text(order) else ""}
 {"<div style='border:1px solid #ff6b35;padding:6px 10px;border-radius:4px;margin-bottom:8px;font-size:11px;line-height:1.3'><strong>Customer Note</strong><br>" + order.customer_note + "</div>" if order.customer_note else ""}
 <h2 style="margin-bottom:4px;font-size:14px">Cards to Pack - Grouped by Set</h2>
 <div style="font-size:9px;color:#777;margin-bottom:4px">Box = where the OLDEST stock of that card is filed (oldest is always pulled first). Old Boxes = stock from before box numbers.</div>
@@ -1902,6 +1982,20 @@ body {{ font-family:Arial,sans-serif;color:#000;padding:6mm;line-height:1.25 }}
     return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
+def _collection_day_text(order):
+    """'Tue 03 Nov, 18:15-20:30' / 'No Rush' / '' -- for invoices and pull
+    sheets (2026-10-30 collection calendar, orders/schedule.py)."""
+    if order.delivery_method != 'collection':
+        return ''
+    if order.no_rush:
+        return 'No Rush (collect when it suits)'
+    if order.collection_date:
+        from .schedule import collection_hours
+        a, b = collection_hours(order.collection_date)
+        return f"{order.collection_date:%a %d %b}, {a}\u2013{b}"
+    return ''
+
+
 def _build_invoice_html(order, show_controls=True):
     """Builds the full invoice HTML for an order. Shared by the browser
     print view and the email-send view. show_controls=False strips the
@@ -1971,6 +2065,8 @@ def _build_invoice_html(order, show_controls=True):
     if order.delivery_method == 'collection':
         delivery_label = 'Local Collection'
         delivery_detail = 'Unit 4, Sunkist Village, 11 Heliose Street, Birchleigh North, Kempton Park'
+        if _collection_day_text(order):
+            delivery_detail += f'<br><strong>Collection day: {_collection_day_text(order)}</strong>'
     elif order.pudo_locker_name:
         delivery_label = order.get_shipping_method_display()
         delivery_detail = f'{order.pudo_locker_name}<br>{order.pudo_locker_address or ""}'
