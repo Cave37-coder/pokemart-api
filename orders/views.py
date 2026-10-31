@@ -607,6 +607,38 @@ class CollectionCalendarView(APIView):
         return resp
 
 
+class AdminCalendarEventListView(generics.ListCreateAPIView):
+    """Staff Calendar tab (2026-10-30): GET upcoming (or ?past=1 for all),
+    POST to add. Same rules as Django admin's CalendarEvent."""
+    permission_classes = [IsAdminUser]
+    pagination_class = None
+
+    def get_serializer_class(self):
+        from .serializers import CalendarEventSerializer
+        return CalendarEventSerializer
+
+    def get_queryset(self):
+        from django.utils import timezone
+        from .models import CalendarEvent
+        qs = CalendarEvent.objects.all()
+        if self.request.query_params.get('past') != '1':
+            today = timezone.localdate()
+            qs = qs.exclude(end_date__lt=today).exclude(end_date__isnull=True, start_date__lt=today)
+        return qs.order_by('start_date', 'start_time')
+
+
+class AdminCalendarEventDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+
+    def get_serializer_class(self):
+        from .serializers import CalendarEventSerializer
+        return CalendarEventSerializer
+
+    def get_queryset(self):
+        from .models import CalendarEvent
+        return CalendarEvent.objects.all()
+
+
 class PudoLockerSearchView(APIView):
     """Public locker/kiosk search for the checkout / profile pickers: GET ?q=sandton -> [{code,name,address,town}]."""
     permission_classes = []

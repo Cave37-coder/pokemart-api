@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem, OrderTracking, ManualInvoice, BuyOrder, BuyOrderItem
+from .models import Cart, CartItem, Order, OrderItem, OrderTracking, CalendarEvent, ManualInvoice, BuyOrder, BuyOrderItem
 from products.serializers import PokemonProductSerializer
 
 
@@ -372,3 +372,22 @@ class ManualInvoiceListSerializer(serializers.ModelSerializer):
             'item_count', 'payment_received', 'payment_method', 'payment_method_display',
             'created_at',
         ]
+
+
+
+class CalendarEventSerializer(serializers.ModelSerializer):
+    """Staff Calendar tab (2026-10-30): add/edit event + Gengar Games days."""
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
+
+    class Meta:
+        model = CalendarEvent
+        fields = ['id', 'title', 'kind', 'kind_display', 'start_date', 'end_date', 'start_time', 'end_time',
+                  'venue', 'details', 'blocks_collection', 'public', 'created_at']
+        read_only_fields = ['created_at']
+
+    def validate(self, attrs):
+        start = attrs.get('start_date', getattr(self.instance, 'start_date', None))
+        end = attrs.get('end_date', getattr(self.instance, 'end_date', None))
+        if start and end and end < start:
+            raise serializers.ValidationError({'end_date': 'End date can\'t be before the start date.'})
+        return attrs
