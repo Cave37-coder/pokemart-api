@@ -83,13 +83,17 @@ RARITY_MAP = {
     "Trainer Gallery Ultra Rare":   "ultra_rare",
     "Trainer Gallery Secret Rare":  "secret_rare",
     "Classic Collection":           "holo_rare",
-    "ACE SPEC Rare":                "ultra_rare",
-    "Mega Hyper Rare":              "hyper_rare",
-    "Mega Attack Rare":             "ultra_rare",
+    # 2026-11-02 (Delta Reign prep): these four used to collapse into other tiers even though
+    # products/models.py already has their own choices -- so Mega Rayquaza ex #141 (Mega Hyper Rare,
+    # the set's most expensive card) would have been filed as plain Hyper Rare. products/completion.py
+    # (Master Set counting) and the import_bible / import_card commands all use the dedicated keys.
+    "ACE SPEC Rare":                "ace_spec",
+    "Mega Hyper Rare":              "mega_hyper_rare",
+    "Mega Attack Rare":             "mega_attack_rare",
     "Promo":                        "common",
     "Legend":                       "holo_rare",
-    "Shining":                      "holo_rare",
-    "Gold Star":                    "ultra_rare",
+    "Shining":                      "shining",
+    "Gold Star":                    "gold_star",
 }
 
 def clean(val, default=''):

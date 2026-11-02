@@ -27,13 +27,30 @@ class PokemonProductFilter(django_filters.FilterSet):
     # too, not just cards where Zekrom is the PRIMARY (pokedex_number) one.
     pokedex = django_filters.NumberFilter(method='filter_pokedex')
     card_number = django_filters.NumberFilter(field_name='card_number', lookup_expr='exact')
-    subtype = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='icontains')
+    subtype = django_filters.CharFilter(method='filter_subtype')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
     in_stock = django_filters.BooleanFilter(field_name='stock', method='filter_in_stock')
     legal_standard = django_filters.BooleanFilter(field_name='legal_standard', method='filter_legal_standard')
     legality = django_filters.CharFilter(method='filter_legality')
     prize_pack_series = django_filters.CharFilter(field_name='prize_pack_series', lookup_expr='icontains')
+
+    # Card "mechanic" tokens (Michael, 2026-11-02: EX, GX, V, VMAX, VSTAR and V-UNION all have to be
+    # searchable). The old filter was a case-INSENSITIVE substring on card_subtypes, so "EX" (2008-2016
+    # cards) and "ex" (Scarlet & Violet / Mega era) returned the very same cards, "V" also swept in VMAX /
+    # VSTAR / V-UNION, and V-UNION had no button at all. These tokens are now matched as a whole word in
+    # the card NAME (case-sensitive for EX vs ex), which is how Pokemon prints them: "Charizard EX",
+    # "Mega Golisopod ex", "Pikachu & Zekrom-GX", "Zacian V", "Zacian VMAX", "Arceus VSTAR", "Zacian V-UNION".
+    _MECHANIC_TOKENS = {'EX', 'ex', 'GX', 'V', 'VMAX', 'VSTAR', 'V-UNION'}
+
+    def filter_subtype(self, queryset, name, value):
+        value = (value or '').strip()
+        if value in self._MECHANIC_TOKENS:
+            # plain "V" must NOT also match V-UNION / VMAX / VSTAR, so it is only followed by space or end
+            tail = r'($|\s)' if value == 'V' else r'($|[\s-])'
+            pattern = r'(^|[\s-])' + re.escape(value) + tail
+            return queryset.filter(name__regex=pattern)
+        return queryset.filter(card_subtypes__icontains=value)
 
     def filter_pokedex(self, queryset, name, value):
         return queryset.filter(Q(pokedex_number=value) | Q(pokedex_number_2=value))

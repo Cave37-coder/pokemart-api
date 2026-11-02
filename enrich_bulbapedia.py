@@ -104,6 +104,13 @@ def clean_name(name):
     # Detect Delta Species BEFORE stripping anything
     is_delta = '(Delta Species' in name
 
+    # 2026-11-02, Delta Reign "Legendary Stadium" cards: TCGCSV names the two halves of one combined
+    # illustration "Legendary Pyroduct - 094/103 (Left)" / "... - 095/103 (Right)". The trailing
+    # "(Left)"/"(Right)" stopped the " - N/total" strip below from matching, so every half came back
+    # NOT FOUND. Strip the half marker first. (Bulbapedia has ONE page per stadium, e.g.
+    # "Legendary Pyroduct (Delta Reign 94)"; the Right-half number redirects to it.)
+    name = re.sub(r'\s*\((?:Left|Right)(?:\s+Half)?\)\s*$', '', name, flags=re.IGNORECASE).strip()
+
     # Strip TCGCSV disambiguation suffix " - N/total" or " - 0N/total"
     name = re.sub(r'\s*-\s*0*\d+[a-z]?/\d+\s*$', '', name).strip()
     name = re.sub(r'\s*-\s*0*\d+\s*$', '', name).strip()
@@ -379,6 +386,12 @@ def enrich_card(name_raw, set_code, number_raw):
             continue
         parsed    = parse_wikitext(wikitext)
         image_url = ''
+        # Left/Right halves of a combined-illustration card share ONE Bulbapedia page and ONE image (the
+        # whole combined art). Each half is its own product/card, so do NOT use that shared image: blank
+        # it, and the R2 step falls back to the half's own TCGplayer product image.
+        is_half = bool(re.search(r'\((?:Left|Right)(?:\s+Half)?\)\s*$', name_raw, flags=re.IGNORECASE))
+        if is_half:
+            parsed['bulba_image_filename'] = ''
         if parsed['bulba_image_filename']:
             image_url = resolve_image_url(parsed['bulba_image_filename'])
             time.sleep(DELAY)
