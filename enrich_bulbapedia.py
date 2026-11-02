@@ -392,6 +392,15 @@ def enrich_card(name_raw, set_code, number_raw):
         is_half = bool(re.search(r'\((?:Left|Right)(?:\s+Half)?\)\s*$', name_raw, flags=re.IGNORECASE))
         if is_half:
             parsed['bulba_image_filename'] = ''
+        # STRICT sets (Delta Reign): pre-release Bulbapedia pages for alternate prints often just reuse the
+        # normal card's image (e.g. #138/#141 -> ...DeltaReign84.jpg) or another set's file. Only trust an
+        # image whose filename ends in this set's name + THIS card's own number; otherwise blank it so the
+        # R2 step uses the card's own TCGplayer product image.
+        if set_code in STRICT_NUMBER_SETS and parsed['bulba_image_filename']:
+            _n = str(int(re.match(r'\d+', str(number_raw).strip()).group(0))) if re.match(r'\d+', str(number_raw).strip()) else ''
+            _stem = re.sub(r'\.\w+$', '', parsed['bulba_image_filename'])
+            if not (_n and re.search(r'DeltaReign' + _n + r'$', _stem)):
+                parsed['bulba_image_filename'] = ''
         if parsed['bulba_image_filename']:
             image_url = resolve_image_url(parsed['bulba_image_filename'])
             time.sleep(DELAY)
