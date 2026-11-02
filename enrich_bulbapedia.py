@@ -85,9 +85,13 @@ BULBA_SET_NAMES = {
     'MEG':'Mega_Evolution','PFL':'Phantasmal_Flames','ASC':'Ascended_Heroes',
     'POR':'Perfect_Order','CRI':'Chaos_Rising','PBL':'Pitch_Black','ME05':'Pitch_Black',
     'MEP':'Mega_Evolution_Promo','MEE':'Mega_Evolution_Energies',
+    'DLR':'Delta_Reign','ME06':'Delta_Reign',
     'PRIZEPACK':'Prize_Pack_Series',
     'TK1':'Trick_or_Trade','TK2':'Trick_or_Trade_2023','TK24':'Trick_or_Trade_2024',
 }
+
+# Sets where a card name has several prints: only ever accept the page that carries the card's own number.
+STRICT_NUMBER_SETS = {'DLR', 'ME06'}
 
 # ── NAME CLEANER (COMPLETE) ───────────────────────────────────────────────────
 
@@ -244,8 +248,12 @@ def build_titles(name_raw, set_code, number_raw):
     else:
         # Standard card
         titles.append(f"{url_name}_({set_name}_{num})")
-        # Fallback: without number
-        titles.append(f"{url_name}_({set_name})")
+        # Fallback: without number -- NOT for STRICT_NUMBER_SETS. In Delta Reign ~28 Pokemon/Trainers have
+        # 2-3 prints (e.g. Mega Rayquaza ex #84/#138/#141, Energy IRs #132-134), so a number-less page
+        # could hand a full-art/SIR card the BASE print's image (the "copy" bug). No numbered page =
+        # not_found, and the card falls back to its own product-unique TCGplayer image instead.
+        if set_code not in STRICT_NUMBER_SETS:
+            titles.append(f"{url_name}_({set_name})")
         # Fallback: with accented é
         if 'e' in name and 'é' not in name:
             accented = name.replace('e', 'é', 1)

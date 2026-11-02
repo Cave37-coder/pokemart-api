@@ -67,6 +67,16 @@ VARIANT_CODE_MAP = {
 }
 
 
+# Per-product rarity corrections, applied every run so a re-run of this script never undoes them.
+# TCGCSV lists these as "Ultra Rare", but they are Illustration Rares (Michael, 2026-11-02).
+# Delta Reign (group 24831): Bubbly W / Growing G / Nitro R Energy, #132-134.
+RARITY_OVERRIDES = {
+    '728057': 'Illustration Rare',
+    '728058': 'Illustration Rare',
+    '728059': 'Illustration Rare',
+}
+
+
 def fetch_json(url):
     req = urllib.request.Request(url, headers={'User-Agent': 'PokeBulkSA-BibleFormatFetch/1.0'})
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -165,6 +175,8 @@ def build_rows(product, prices_by_id, set_code, era, set_name, group_id, unmappe
             'tcgplayer_modified': product.get('modifiedOn', ''),
             'bible_built_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         })
+        if pid in RARITY_OVERRIDES and is_card:
+            row['rarity'] = RARITY_OVERRIDES[pid]
         rows.append(row)
     return rows
 
