@@ -30,6 +30,7 @@
 import csv
 import argparse
 import os
+import re
 
 # rarity string (as it appears in the 'rarity' column, i.e. TCGCSV's raw
 # ext_Rarity value) -> list of (variant_code, variant_label) that SHOULD
@@ -98,6 +99,12 @@ def main():
             continue
 
         if rarity not in RH_ELIGIBLE_RARITIES:
+            skipped_no_rule += 1
+            continue
+
+        # Double-card Stadiums (Delta Reign Legendary Pyroduct/Summit/Trench) come as Left/Right halves
+        # and only exist as Normal -- no Reverse Holo print (Michael, 2026-11-02).
+        if re.search(r'\((?:Left|Right)(?:\s+Half)?\)\s*$', product_rows[0].get('name', ''), flags=re.IGNORECASE):
             skipped_no_rule += 1
             continue
 
