@@ -136,6 +136,35 @@ def candidates_for(raw_name):
     return [clean_candidate(base)]
 
 
+# 2026-11-03 (Michael: "I want every Pokemon card available in the Pokedex"): real Pokemon cards whose
+# names the generic cleaner can't reduce to a species -- promo costumes, Worlds/Prerelease decorations
+# with broken brackets, RGB Mews, cloak forms. Checked against the first full coverage audit
+# (audit_pokedex_coverage.py). Matched on the START of the lower-cased name; first hit wins.
+MANUAL_OVERRIDES = [
+    (r"^pretend (?:magikarp|gyarados) pikachu", 25),
+    (r"^(?:flying|surfing) pikachu", 25),
+    (r"^cool porygon", 137),
+    (r"^chesnaught\b", 652),
+    (r"^ash-greninja", 658),
+    (r"^gigalith\b", 526),
+    (r"^shellos east sea", 422),
+    (r"^drifloon\b", 425),
+    (r"^mew - [a-z]/rgb", 151),
+    (r"^glameow\b", 431),
+    (r"^wormadam\b", 413),
+    (r"^burmy\b", 412),
+    (r"^flabebe\b", 669),
+]
+
+
+def manual_override(raw_name):
+    low = raw_name.strip().lower()
+    for pat, num in MANUAL_OVERRIDES:
+        if re.search(pat, low):
+            return num
+    return None
+
+
 class Command(BaseCommand):
     help = (
         "Backfill pokedex_number (+ pokedex_number_2 for tag-team cards) for every "
@@ -178,6 +207,11 @@ class Command(BaseCommand):
         for p in products:
             cands = candidates_for(p.name)
             nums = [by_name.get(c.lower()) for c in cands]
+            if nums[0] is None:
+                forced = manual_override(p.name)
+                if forced:
+                    nums = [forced] + nums[1:]
+                    cands = [f"(manual #{forced})"] + cands[1:]
             if nums[0] is None:
                 no_match.append((p, cands))
                 continue
