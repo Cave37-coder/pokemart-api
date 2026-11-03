@@ -51,7 +51,7 @@ from products import card_info as info
 
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
 HEADERS = {"User-Agent": "PokeBulkSA-BlisterSync/1.0 (enquiries@pokebulk.co.za)"}
-DEFAULT_GROUPS = [2289]  # Blister Exclusives
+DEFAULT_GROUPS = [2289, 1840]  # Blister Exclusives + Deck Exclusives (added 2026-11-03)
 VARIANT = "CH"
 WEEKDAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 # Never treat these as a "parent" set for a blister card.
@@ -147,6 +147,14 @@ class Command(BaseCommand):
 
                 base, num, den = parse_blister_name(name, number_raw)
                 parent, why = self.find_parent(base, num, den, code_to_gid)
+                if parent is None:
+                    # TCGplayer's Number field and the card name sometimes disagree on the printed total
+                    # (Furfrou: name "114/146", Number "114/116"). Retry with the total in the name.
+                    m_name = re.search(r"(\d+)\s*/\s*(\d+)", name)
+                    if m_name and int(m_name.group(1)) == num and int(m_name.group(2)) != den:
+                        parent, why2 = self.find_parent(base, num, int(m_name.group(2)), code_to_gid)
+                        if parent is None:
+                            why = f"{why}; name total {m_name.group(2)}: {why2}"
                 if parent is None:
                     counts["unmatched"] += 1
                     unmatched.append(f"{name} [{number_raw}] (TCGCSV {pid}): {why}")
