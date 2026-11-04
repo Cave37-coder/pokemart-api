@@ -18,6 +18,7 @@ sold through the Pile / checkout / stock / invoices exactly like cards, and be t
   python manage.py sync_sealed_catalog                       # + images (re-runnable; skips ones already on R2)
   python manage.py sync_sealed_catalog --group 24831         # one set only (TCGCSV groupId)
 """
+import re
 import time
 from decimal import Decimal, ROUND_UP
 
@@ -54,7 +55,8 @@ TYPES = [
 def product_type(name):
     n = name.lower()
     for label, words in TYPES:
-        if any(w in n for w in words):
+        # whole-word match so "Showcase" is not a "case" and "Pinsir" is not a "pin"
+        if any(re.search(r"(?<![a-z])" + re.escape(w) + r"s?(?![a-z])", n) for w in words):
             return label
     return "Sealed"
 
@@ -68,7 +70,7 @@ def is_sealed(product):
     name = (product.get("name") or "").lower()
     if name.startswith("code card"):
         return False
-    return any(w in name for w in SEALED_WORDS)
+    return any(re.search(r"(?<![a-z])" + re.escape(w) + r"s?(?![a-z])", name) for w in SEALED_WORDS)
 
 
 def price_zar(usd, rate):
