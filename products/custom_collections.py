@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import CustomCollection, CustomCollectionItem, PokemonProduct
@@ -176,6 +176,23 @@ def collection_summary(request):
         for k in custom:
             custom[k] += t[k]
 
-    st = sealed_totals(list(SealedCollectionItem.objects.filter(user=request.user).select_related('accessory')))
+    st = sealed_totals(list(SealedCollectionItem.objects.filter(user=request.user).select_related('product')))
     sealed = {'cards': st['count'], 'value': st['value'], 'paid': st['paid'], 'gain_loss': st['gain_loss']}
     return Response({'pokedex': pdx, 'mypokemon': mp, 'collections': custom, 'sealed': sealed})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def sealed_shop_facets(request):
+    """Public: sets and product types that have sealed product, for the /sealed shop filters.
+    ?in_stock=1 limits to what is currently in stock."""
+    from django.db.models import Count
+    qs = PokemonProduct.objects.filter(supertype='Sealed', is_active=True)
+    if request.GET.get('in_stock') in ('1', 'true'):
+        qs = qs.filter(stock__gt=0)
+    sets = list(qs.exclude(sealed_set_name='').values('sealed_set_name').annotate(n=Count('id')).order_by('sealed_set_name'))
+    types = list(qs.exclude(card_subtypes='').values('card_subtypes').annotate(n=Count('id')).order_by('card_subtypes'))
+    return Response({
+        'sets': [{'name': s['sealed_set_name'], 'count': s['n']} for s in sets],
+        'types': [{'name': t['card_subtypes'], 'count': t['n']} for t in types],
+    })

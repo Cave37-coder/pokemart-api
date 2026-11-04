@@ -1,4 +1,5 @@
-"""Sealed Collection -- sealed products (category 'sealed') a customer owns. Separate from card collections."""
+"""Sealed Collection -- sealed products a customer owns. Separate from card collections (Michael, 2026-11-04).
+Sealed products are PokemonProduct rows with supertype 'Sealed' -- the same rows the shop sells."""
 from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
@@ -6,7 +7,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Accessory, SealedCollectionItem
+from products.models import PokemonProduct
+from .models import SealedCollectionItem
 
 
 def _f(d):
@@ -14,25 +16,30 @@ def _f(d):
 
 
 def sealed_totals(items):
-    cards = value = paid = delta = 0
+    count = value = paid = delta = 0
     for it in items:
-        price = it.accessory.price or Decimal('0')
+        price = it.product.price or Decimal('0')
         q = it.quantity
-        cards += q
+        count += q
         value += price * q
         if it.price_paid is not None:
             paid += it.price_paid * q
         base = it.price_paid if it.price_paid is not None else it.value_when_added
         if base is not None:
             delta += (price - base) * q
-    return {'count': cards, 'value': float(value), 'paid': float(paid), 'gain_loss': float(delta)}
+    return {'count': count, 'value': float(value), 'paid': float(paid), 'gain_loss': float(delta)}
+
+
+def _sealed_qs():
+    return PokemonProduct.objects.filter(supertype='Sealed', is_active=True)
 
 
 def _item(it):
-    a = it.accessory
+    p = it.product
     return {
-        'id': it.id, 'accessory_id': a.id, 'name': a.name, 'set_name': a.set_name, 'image_url': a.image_url or '',
-        'quantity': it.quantity, 'price': float(a.price or 0),
+        'id': it.id, 'product_id': p.id, 'name': p.name, 'set_name': p.sealed_set_name,
+        'type': p.card_subtypes, 'image_url': p.image_url or '',
+        'quantity': it.quantity, 'price': float(p.price or 0), 'stock': p.stock, 'in_stock': p.stock > 0,
         'value_when_added': _f(it.value_when_added), 'price_paid': _f(it.price_paid),
     }
 
@@ -40,48 +47,49 @@ def _item(it):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def sealed_list(request):
-    items = list(SealedCollectionItem.objects.filter(user=request.user).select_related('accessory'))
+    items = list(SealedCollectionItem.objects.filter(user=request.user).select_related('product'))
     return Response({**sealed_totals(items), 'items': [_item(i) for i in items]})
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def sealed_sets(request):
-    """Sets that have sealed product in the catalog, A-Z."""
-    names = (Accessory.objects.filter(category='sealed').exclude(set_name='')
-             .values_list('set_name', flat=True).distinct().order_by('set_name'))
+    names = (_sealed_qs().exclude(sealed_set_name='').values_list('sealed_set_name', flat=True)
+             .distinct().order_by('sealed_set_name'))
     return Response(list(names))
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def sealed_search(request):
-    """Sealed products we know of (in stock or not -- customers may own ones we no longer carry).
+    """Every sealed product we know of (in stock or not -- customers may own ones we no longer carry).
     ?q= name search, ?set= exact set name (browse a whole set)."""
     q = (request.GET.get('q') or '').strip()
     set_name = (request.GET.get('set') or '').strip()
-    qs = Accessory.objects.filter(category='sealed')
+    qs = _sealed_qs()
     if set_name:
-        qs = qs.filter(set_name=set_name)
+        qs = qs.filter(sealed_set_name=set_name)
     if q:
-        qs = qs.filter(name__icontains=q) | qs.filter(set_name__icontains=q)
-    qs = qs.order_by('-price', 'name')
+        from django.db.models import Q
+        qs = qs.filter(Q(name__icontains=q) | Q(sealed_set_name__icontains=q))
+    qs = qs.order_by('-stock', '-price', 'name')
     return Response([
-        {'id': a.id, 'name': a.name, 'set_name': a.set_name, 'image_url': a.image_url or '', 'price': float(a.price or 0)}
-        for a in qs[:300 if set_name else 80]
+        {'id': p.id, 'name': p.name, 'set_name': p.sealed_set_name, 'type': p.card_subtypes,
+         'image_url': p.image_url or '', 'price': float(p.price or 0), 'in_stock': p.stock > 0}
+        for p in qs[:300 if set_name else 80]
     ])
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def sealed_add(request):
-    a = get_object_or_404(Accessory, pk=request.data.get('accessory_id'), category='sealed')
+    p = get_object_or_404(_sealed_qs(), pk=request.data.get('product_id'))
     try:
         qty = max(1, min(999, int(request.data.get('quantity') or 1)))
     except (TypeError, ValueError):
         qty = 1
     it, created = SealedCollectionItem.objects.get_or_create(
-        user=request.user, accessory=a, defaults={'quantity': qty, 'value_when_added': a.price})
+        user=request.user, product=p, defaults={'quantity': qty, 'value_when_added': p.price})
     if not created:
         it.quantity = min(999, it.quantity + qty)
         it.save(update_fields=['quantity'])

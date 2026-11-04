@@ -15,6 +15,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     energy_type = django_filters.CharFilter(field_name='pokemon_types__name', lookup_expr='iexact')
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
+    sealed_set = django_filters.CharFilter(field_name='sealed_set_name', lookup_expr='iexact')
     category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
     def filter_card_set(self, queryset, name, value):
         # Home set OR a set this card is shared with (also_in_sets) -- e.g. the
@@ -141,7 +142,7 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     # verify_search_fixes.py on 2026-08-03.
     # 2026-10-18: + ability and attack NAMES (short fields, so no flood of matches from
     # long rules text). HP is handled by CardSearchFilter ("HP 30").
-    search_fields = ['name', 'card_set__name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number',
+    search_fields = ['name', 'card_set__name', 'sealed_set_name', 'description', 'artist', '=pokedex_number', '=pokedex_number_2', '=card_number',
                      'ability_name', 'ability_2_name', 'attack_1_name', 'attack_2_name', 'attack_3_name']
     # Michael, 2026-09-29: "sorting order must be done on release date of
     # set, the pokemon are all over the place!" -- root cause: DRF's
@@ -181,6 +182,14 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
     # with zero special-casing per set pair.
     ordering_fields = ['price', 'created_at', 'name', 'card_number', 'pokedex_number', 'card_set__release_date', 'card_set__code', 'variant_sort']
     ordering = ['-card_set__release_date', 'card_set__code', 'card_number', 'variant_sort']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Sealed product (supertype 'Sealed') only ever appears when explicitly asked for with ?supertype=Sealed
+        # (the /sealed shop page) -- never in Browse Cards, Pokedex, set pages or search.
+        if self.action == 'list' and (self.request.query_params.get('supertype') or '').strip().lower() != 'sealed':
+            qs = qs.exclude(supertype='Sealed')
+        return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

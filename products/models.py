@@ -230,6 +230,10 @@ class PokemonProduct(models.Model):
     hp = models.PositiveIntegerField(null=True, blank=True)
     artist = models.CharField(max_length=200, blank=True)
     supertype = models.CharField(max_length=50, blank=True)
+    # Sealed product (2026-11-04): supertype == 'Sealed' rows are ETBs/boxes/tins etc. They have NO card_set (so
+    # checklists, completion and Pokedex logic never see them) -- the set they belong to lives here instead, and
+    # card_subtypes holds the product type (Booster Box, Elite Trainer Box ...).
+    sealed_set_name = models.CharField(max_length=120, blank=True, db_index=True)
     card_subtypes = models.CharField(max_length=200, blank=True)
     weakness_type = models.CharField(max_length=50, blank=True)
     weakness_value = models.CharField(max_length=10, blank=True)

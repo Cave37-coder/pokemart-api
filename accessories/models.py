@@ -45,10 +45,6 @@ class Accessory(models.Model):
     manufacturer = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
 
-    # Sealed catalog only (sync_sealed_catalog): which set/expansion a sealed product belongs to, so the
-    # Sealed Collection can "browse a whole set" the way card collections do. Blank for ordinary accessories.
-    set_name = models.CharField(max_length=120, blank=True, db_index=True)
-
     image_url = models.URLField(max_length=500, blank=True)
     # Where image_url was originally taken from (TCGplayer CDN etc.) before it
     # was re-hosted on R2 -- kept so a re-host can be re-run, never shown to
@@ -114,14 +110,15 @@ class Accessory(models.Model):
 
 class SealedCollectionItem(models.Model):
     """A sealed product (ETB, booster box, tin...) a customer owns -- their "Sealed Collection".
-    2026-11-04, Michael: tracked on its own, separate from card collections. Value = our current price."""
+    2026-11-04, Michael: tracked on its own, separate from card collections. The product is a PokemonProduct row
+    with supertype "Sealed" (the same rows the shop sells). Value = our current price."""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sealed_items")
-    accessory = models.ForeignKey(Accessory, on_delete=models.CASCADE, related_name="sealed_collection_items")
+    product = models.ForeignKey("products.PokemonProduct", on_delete=models.CASCADE, related_name="sealed_collection_items")
     quantity = models.PositiveIntegerField(default=1)
     value_when_added = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["user", "accessory"], name="unique_sealed_collection_item")]
+        constraints = [models.UniqueConstraint(fields=["user", "product"], name="unique_sealed_collection_item")]
         ordering = ["-added_at"]
