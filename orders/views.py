@@ -1495,11 +1495,14 @@ class AdminOrderThankYouView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request, pk):
-        from .labels import thankyou_label_png
+        from .labels import thankyou_label_png, thankyou_sticker_png
         order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
         u = order.user
         name = (u.first_name or "").strip() or u.username  # first name only, per Michael
-        png = thankyou_label_png(name, portrait=request.query_params.get('portrait') in ('1', 'true'))
+        if request.query_params.get('size') == '40x30':
+            png = thankyou_sticker_png(name)
+        else:
+            png = thankyou_label_png(name, portrait=request.query_params.get('portrait') in ('1', 'true'))
         resp = HttpResponse(png, content_type='image/png')
         resp['Content-Disposition'] = f'inline; filename="thankyou-order-{order.pk}.png"'
         resp['Cache-Control'] = 'no-store'
@@ -1524,10 +1527,13 @@ class AdminManualInvoiceThankYouView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request, pk):
-        from .labels import thankyou_label_png
+        from .labels import thankyou_label_png, thankyou_sticker_png
         inv = get_object_or_404(ManualInvoice, pk=pk)
         first = ((inv.customer_name or "").strip().split() or [""])[0]
-        png = thankyou_label_png(first, portrait=request.query_params.get('portrait') in ('1', 'true'))
+        if request.query_params.get('size') == '40x30':
+            png = thankyou_sticker_png(first)
+        else:
+            png = thankyou_label_png(first, portrait=request.query_params.get('portrait') in ('1', 'true'))
         resp = HttpResponse(png, content_type='image/png')
         resp['Content-Disposition'] = f'inline; filename="thankyou-{inv.invoice_number}.png"'
         resp['Cache-Control'] = 'no-store'

@@ -130,6 +130,26 @@ def thankyou_label_png(name, portrait=False):
     return _png(im)
 
 
+def thankyou_sticker_png(name):
+    """40 x 30 mm 'Thank you' sticker (2026-11-04): big centred logo, THANK YOU!, customer's name."""
+    im = Image.new("1", (W, H), 1)
+    d = ImageDraw.Draw(im)
+    name = (name or "").strip()
+    logo = Image.open(os.path.join(_ASSETS, "label_logo.png")).convert("L")
+    logo.thumbnail((W - 20, 138 if name else 160), Image.LANCZOS)
+    y = 4
+    im.paste(logo.point(lambda v: 255 if v > 128 else 0).convert("1"), ((W - logo.width) // 2, y))
+    y += logo.height + 2
+    for text, start, lo in (("THANK YOU!", 40, 20), (name, 30, 14)):
+        if not text:
+            continue
+        t, f = _fit(d, text, W - 16, start, lo)
+        l, tp, r, bt = d.textbbox((0, 0), t, font=f)
+        d.text(((W - (r - l)) // 2 - l, y - tp), t, font=f, fill=0)
+        y += (bt - tp) + 6
+    return _png(im)
+
+
 def _png(im):
     buf = io.BytesIO()
     im.save(buf, format="PNG", dpi=(203, 203))
