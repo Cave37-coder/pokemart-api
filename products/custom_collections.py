@@ -129,3 +129,53 @@ def collection_item(request, pk, item_id):
     if fields:
         it.save(update_fields=fields)
     return Response({'id': it.id, 'quantity': it.quantity, 'price_paid': _f(it.price_paid)})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def collection_summary(request):
+    """Per-type money totals for the My Collection banner. Each type is counted on its own (Michael, 2026-11-04:
+    nothing is thrown together). Sets are totalled in the browser from the static checklist data."""
+    from .models import ChecklistEntry, PokedexCollectionEntry
+    from accessories.sealed_collection import sealed_totals
+    from accessories.models import SealedCollectionItem
+
+    def blank():
+        return {'cards': 0, 'value': 0.0, 'paid': 0.0, 'gain_loss': 0.0}
+
+    # My Pokemon = ChecklistEntry rows under card_set "DEX-<n>", card_key = product id
+    mp = blank()
+    rows = list(ChecklistEntry.objects.filter(user=request.user, card_set__startswith='DEX-'))
+    ids = [int(r.card_key) for r in rows if r.card_key.isdigit()]
+    prices = {p['id']: (p['price'] or Decimal('0')) for p in PokemonProduct.objects.filter(id__in=ids).values('id', 'price')}
+    v = paid = delta = Decimal('0')
+    for r in rows:
+        if not r.card_key.isdigit() or int(r.card_key) not in prices:
+            continue
+        price = prices[int(r.card_key)]
+        mp['cards'] += 1
+        v += price
+        if r.price_paid is not None:
+            paid += r.price_paid
+        base = r.price_paid if r.price_paid is not None else r.value_when_added
+        if base is not None:
+            delta += price - base
+    mp.update(value=float(v), paid=float(paid), gain_loss=float(delta))
+
+    # Pokedex has no price-paid tracking yet -> value only
+    pdx = blank()
+    pv = Decimal('0')
+    for e in PokedexCollectionEntry.objects.filter(user=request.user).select_related('product'):
+        pdx['cards'] += 1
+        pv += e.product.price or Decimal('0')
+    pdx['value'] = float(pv)
+
+    custom = blank()
+    for c in CustomCollection.objects.filter(user=request.user).prefetch_related('items__product'):
+        t = _totals(list(c.items.all()))
+        for k in custom:
+            custom[k] += t[k]
+
+    st = sealed_totals(list(SealedCollectionItem.objects.filter(user=request.user).select_related('accessory')))
+    sealed = {'cards': st['count'], 'value': st['value'], 'paid': st['paid'], 'gain_loss': st['gain_loss']}
+    return Response({'pokedex': pdx, 'mypokemon': mp, 'collections': custom, 'sealed': sealed})

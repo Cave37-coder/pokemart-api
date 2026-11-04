@@ -33,6 +33,7 @@ urlpatterns = [
     path("checklists/price-check/", views.checklist_price_check, name="checklist-price-check"),
     path("checklists/admin/customer/<int:user_id>/", views.checklist_admin_customer, name="checklist-admin-customer"),
     path("checklists/toggle/", views.checklist_toggle, name="checklist-toggle"),
+    path("collection-summary/", custom_collections.collection_summary, name="collection-summary"),
     path("custom-collections/", custom_collections.collections_list, name="custom-collections"),
     path("custom-collections/<int:pk>/", custom_collections.collection_detail, name="custom-collection-detail"),
     path("custom-collections/<int:pk>/items/", custom_collections.collection_add_item, name="custom-collection-add"),

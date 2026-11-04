@@ -16,6 +16,7 @@
 # this goes straight to TCGCSV, matching the pattern already prototyped in
 # pull_pokemon_sleeves.py from an earlier session.
 
+from django.conf import settings
 from django.db import models
 
 
@@ -105,3 +106,18 @@ class Accessory(models.Model):
         if not self.sku:
             self.sku = self.generate_sku()
         super().save(*args, **kwargs)
+
+
+class SealedCollectionItem(models.Model):
+    """A sealed product (ETB, booster box, tin...) a customer owns -- their "Sealed Collection".
+    2026-11-04, Michael: tracked on its own, separate from card collections. Value = our current price."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sealed_items")
+    accessory = models.ForeignKey(Accessory, on_delete=models.CASCADE, related_name="sealed_collection_items")
+    quantity = models.PositiveIntegerField(default=1)
+    value_when_added = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "accessory"], name="unique_sealed_collection_item")]
+        ordering = ["-added_at"]
