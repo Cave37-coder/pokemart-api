@@ -5,6 +5,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet, SiteAnnouncementViewSet
 from . import views
+from . import custom_collections
 from .views_lookup import card_lookup, card_search
 
 router = DefaultRouter()
@@ -32,6 +33,10 @@ urlpatterns = [
     path("checklists/price-check/", views.checklist_price_check, name="checklist-price-check"),
     path("checklists/admin/customer/<int:user_id>/", views.checklist_admin_customer, name="checklist-admin-customer"),
     path("checklists/toggle/", views.checklist_toggle, name="checklist-toggle"),
+    path("custom-collections/", custom_collections.collections_list, name="custom-collections"),
+    path("custom-collections/<int:pk>/", custom_collections.collection_detail, name="custom-collection-detail"),
+    path("custom-collections/<int:pk>/items/", custom_collections.collection_add_item, name="custom-collection-add"),
+    path("custom-collections/<int:pk>/items/<int:item_id>/", custom_collections.collection_item, name="custom-collection-item"),
     path("checklists/portfolio/", views.checklist_portfolio, name="checklist-portfolio"),
     path("checklists/entry-meta/", views.checklist_entry_meta, name="checklist-entry-meta"),
     path("checklists/clear-set/", views.checklist_clear_set, name="checklist-clear-set"),

@@ -458,6 +458,33 @@ class ChecklistEntry(models.Model):
         return f"{self.user.username}: {self.card_set}/{self.card_key}"
 
 
+class CustomCollection(models.Model):
+    """A customer's free-form collection ("Trade binder", "Favourite art"). 2026-11-04, Michael: Sets, Pokedex,
+    My Pokemon and custom collections are counted SEPARATELY -- no shared data, so each gives a true figure."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="custom_collections")
+    name = models.CharField(max_length=60)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user_id}: {self.name}"
+
+
+class CustomCollectionItem(models.Model):
+    collection = models.ForeignKey(CustomCollection, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey("PokemonProduct", on_delete=models.CASCADE, related_name="custom_collection_items")
+    quantity = models.PositiveIntegerField(default=1)
+    value_when_added = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["collection", "product"], name="unique_custom_collection_item")]
+        ordering = ["-added_at"]
+
+
 class SetCompletionEvent(models.Model):
     """
     One row = one customer hit 100% on one tier of one set, for the first
