@@ -441,6 +441,10 @@ class ChecklistEntry(models.Model):
     card_set = models.CharField(max_length=20, help_text="CardSet.code, e.g. 'ASC', 'TK22'")
     card_key = models.CharField(max_length=64, help_text="Checklist item key, e.g. '001/217_N'")
     checked_at = models.DateTimeField(auto_now_add=True)
+    # 2026-11-04, Michael: collectors track gain/loss. value_when_added = the card's site price (ZAR)
+    # at the moment it was ticked; price_paid = what the customer actually paid (optional, entered by them).
+    value_when_added = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         constraints = [

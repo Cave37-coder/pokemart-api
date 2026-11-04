@@ -1478,6 +1478,62 @@ def checklist_admin_customer(request, user_id):
     })
 
 
+def _money(v):
+    """Parse an optional money value from a request body; None for blank/invalid/negative."""
+    from decimal import Decimal, InvalidOperation
+    if v in (None, ''):
+        return None
+    try:
+        d = Decimal(str(v)).quantize(Decimal('0.01'))
+    except (InvalidOperation, ValueError):
+        return None
+    return d if 0 <= d < Decimal('10000000') else None
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checklist_portfolio(request):
+    """The customer's tracked values. Optional ?set=CODE. Returns
+    [{"card_set","card_key","value_when_added","price_paid","checked_at"}, ...]."""
+    qs = ChecklistEntry.objects.filter(user=request.user)
+    if request.GET.get('set'):
+        qs = qs.filter(card_set=request.GET['set'])
+    return Response([
+        {
+            'card_set': e.card_set, 'card_key': e.card_key,
+            'value_when_added': float(e.value_when_added) if e.value_when_added is not None else None,
+            'price_paid': float(e.price_paid) if e.price_paid is not None else None,
+            'checked_at': e.checked_at.isoformat(),
+        } for e in qs
+    ])
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def checklist_entry_meta(request):
+    """Set the price paid (and/or the starting value) on a card the customer already ticked.
+    Body: {"card_set","card_key","price_paid"?: number|null,"value_when_added"?: number}.
+    Send price_paid: null (or "") to clear it."""
+    card_set = (request.data.get('card_set') or '').strip()
+    card_key = (request.data.get('card_key') or '').strip()
+    entry = ChecklistEntry.objects.filter(user=request.user, card_set=card_set, card_key=card_key).first()
+    if not entry:
+        return Response({'error': 'Tick the card first'}, status=404)
+    fields = []
+    if 'price_paid' in request.data:
+        entry.price_paid = _money(request.data.get('price_paid'))
+        fields.append('price_paid')
+    if 'value_when_added' in request.data:
+        entry.value_when_added = _money(request.data.get('value_when_added'))
+        fields.append('value_when_added')
+    if fields:
+        entry.save(update_fields=fields)
+    return Response({
+        'value_when_added': float(entry.value_when_added) if entry.value_when_added is not None else None,
+        'price_paid': float(entry.price_paid) if entry.price_paid is not None else None,
+    })
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def checklist_toggle(request):
@@ -1492,7 +1548,8 @@ def checklist_toggle(request):
         existing.delete()
         return Response({'checked': False})
 
-    ChecklistEntry.objects.create(user=request.user, card_set=card_set, card_key=card_key)
+    ChecklistEntry.objects.create(user=request.user, card_set=card_set, card_key=card_key,
+                                  value_when_added=_money(request.data.get('value')))
 
     # Checking a card (never un-checking -- that can only ever move you
     # AWAY from 100%) might have just pushed a tier to complete. Scan for
