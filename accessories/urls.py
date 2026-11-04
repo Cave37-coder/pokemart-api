@@ -8,6 +8,7 @@ router.register(r"accessories", AccessoryViewSet, basename="accessory")
 
 urlpatterns = [
     path("sealed-collection/", sealed_collection.sealed_list, name="sealed-collection"),
+    path("sealed-collection/sets/", sealed_collection.sealed_sets, name="sealed-collection-sets"),
     path("sealed-collection/search/", sealed_collection.sealed_search, name="sealed-collection-search"),
     path("sealed-collection/items/", sealed_collection.sealed_add, name="sealed-collection-add"),
     path("sealed-collection/items/<int:item_id>/", sealed_collection.sealed_item, name="sealed-collection-item"),

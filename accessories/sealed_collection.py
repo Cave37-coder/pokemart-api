@@ -31,7 +31,7 @@ def sealed_totals(items):
 def _item(it):
     a = it.accessory
     return {
-        'id': it.id, 'accessory_id': a.id, 'name': a.name, 'image_url': a.image_url or '',
+        'id': it.id, 'accessory_id': a.id, 'name': a.name, 'set_name': a.set_name, 'image_url': a.image_url or '',
         'quantity': it.quantity, 'price': float(a.price or 0),
         'value_when_added': _f(it.value_when_added), 'price_paid': _f(it.price_paid),
     }
@@ -46,17 +46,29 @@ def sealed_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def sealed_sets(request):
+    """Sets that have sealed product in the catalog, A-Z."""
+    names = (Accessory.objects.filter(category='sealed').exclude(set_name='')
+             .values_list('set_name', flat=True).distinct().order_by('set_name'))
+    return Response(list(names))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def sealed_search(request):
-    """Every sealed product we know of (in stock or not -- customers may own ones we no longer carry)."""
+    """Sealed products we know of (in stock or not -- customers may own ones we no longer carry).
+    ?q= name search, ?set= exact set name (browse a whole set)."""
     q = (request.GET.get('q') or '').strip()
+    set_name = (request.GET.get('set') or '').strip()
     qs = Accessory.objects.filter(category='sealed')
+    if set_name:
+        qs = qs.filter(set_name=set_name)
     if q:
-        qs = qs.filter(name__icontains=q)
-    elif len(q) < 2:
-        qs = qs.order_by('-created_at')
+        qs = qs.filter(name__icontains=q) | qs.filter(set_name__icontains=q)
+    qs = qs.order_by('-price', 'name')
     return Response([
-        {'id': a.id, 'name': a.name, 'image_url': a.image_url or '', 'price': float(a.price or 0)}
-        for a in qs[:60]
+        {'id': a.id, 'name': a.name, 'set_name': a.set_name, 'image_url': a.image_url or '', 'price': float(a.price or 0)}
+        for a in qs[:300 if set_name else 80]
     ])
 
 

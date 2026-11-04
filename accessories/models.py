@@ -45,6 +45,10 @@ class Accessory(models.Model):
     manufacturer = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
 
+    # Sealed catalog only (sync_sealed_catalog): which set/expansion a sealed product belongs to, so the
+    # Sealed Collection can "browse a whole set" the way card collections do. Blank for ordinary accessories.
+    set_name = models.CharField(max_length=120, blank=True, db_index=True)
+
     image_url = models.URLField(max_length=500, blank=True)
     # Where image_url was originally taken from (TCGplayer CDN etc.) before it
     # was re-hosted on R2 -- kept so a re-host can be re-run, never shown to
