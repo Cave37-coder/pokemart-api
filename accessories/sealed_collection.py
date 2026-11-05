@@ -66,7 +66,10 @@ def sealed_search(request):
     ?q= name search, ?set= exact set name (browse a whole set)."""
     q = (request.GET.get('q') or '').strip()
     set_name = (request.GET.get('set') or '').strip()
+    ptype = (request.GET.get('type') or '').strip()
     qs = _sealed_qs()
+    if ptype:
+        qs = qs.filter(card_subtypes=ptype)
     if set_name:
         qs = qs.filter(sealed_set_name=set_name)
     if q:
@@ -76,7 +79,7 @@ def sealed_search(request):
     return Response([
         {'id': p.id, 'name': p.name, 'set_name': p.sealed_set_name, 'type': p.card_subtypes,
          'image_url': p.image_url or '', 'price': float(p.price or 0), 'in_stock': p.stock > 0}
-        for p in qs[:300 if set_name else 80]
+        for p in qs[:300 if (set_name or ptype) else 80]
     ])
 
 

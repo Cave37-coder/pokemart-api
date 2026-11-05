@@ -184,15 +184,20 @@ def collection_summary(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def sealed_shop_facets(request):
-    """Public: sets and product types that have sealed product, for the /sealed shop filters.
-    ?in_stock=1 limits to what is currently in stock."""
+    """Public: sets and product types that have sealed product, for the /sealed shop.
+    Cross-scoped so the counts always match what you will see: sets are counted within the chosen ?type=,
+    types within the chosen ?set=. ?in_stock=1 limits everything to what is currently in stock."""
     from django.db.models import Count
-    qs = PokemonProduct.objects.filter(supertype='Sealed', is_active=True)
+    base = PokemonProduct.objects.filter(supertype='Sealed', is_active=True)
     if request.GET.get('in_stock') in ('1', 'true'):
-        qs = qs.filter(stock__gt=0)
-    sets = list(qs.exclude(sealed_set_name='').values('sealed_set_name').annotate(n=Count('id')).order_by('sealed_set_name'))
-    types = list(qs.exclude(card_subtypes='').values('card_subtypes').annotate(n=Count('id')).order_by('card_subtypes'))
+        base = base.filter(stock__gt=0)
+    set_name = (request.GET.get('set') or '').strip()
+    ptype = (request.GET.get('type') or '').strip()
+    sets_qs = base.filter(card_subtypes=ptype) if ptype else base
+    types_qs = base.filter(sealed_set_name=set_name) if set_name else base
+    sets = sets_qs.exclude(sealed_set_name='').values('sealed_set_name').annotate(n=Count('id')).order_by('sealed_set_name')
+    types = types_qs.exclude(card_subtypes='').values('card_subtypes').annotate(n=Count('id')).order_by('card_subtypes')
     return Response({
-        'sets': [{'name': s['sealed_set_name'], 'count': s['n']} for s in sets],
+        'sets': [{'name': x['sealed_set_name'], 'count': x['n']} for x in sets],
         'types': [{'name': t['card_subtypes'], 'count': t['n']} for t in types],
     })

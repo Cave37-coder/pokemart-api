@@ -16,6 +16,7 @@ class PokemonProductFilter(django_filters.FilterSet):
     supertype = django_filters.CharFilter(field_name='supertype', lookup_expr='icontains')
     rarity = django_filters.CharFilter(field_name='rarity', lookup_expr='iexact')
     sealed_set = django_filters.CharFilter(field_name='sealed_set_name', lookup_expr='iexact')
+    sealed_type = django_filters.CharFilter(field_name='card_subtypes', lookup_expr='iexact')
     category_slug = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
     def filter_card_set(self, queryset, name, value):
         # Home set OR a set this card is shared with (also_in_sets) -- e.g. the
