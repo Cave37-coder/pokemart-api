@@ -205,9 +205,9 @@ class PokemonProductAdmin(admin.ModelAdmin):
     # here, no separate reporting page needed. Annotated in get_queryset so
     # it's a real DB-level count (sortable via admin_order_field), not a
     # per-row Python query.
-    list_display = ["name", "card_set", "variant_override", "price", "stock", "pos_stock", "is_active", "wanted_by_count"]
-    list_filter = ["card_set__era", "card_set", "variant_override", "is_active"]
-    search_fields = ["name", "sku", "card_set__name", "card_set__code"]
+    list_display = ["name", "card_set", "sealed_set_name", "variant_override", "price", "stock", "pos_stock", "is_active", "wanted_by_count"]
+    list_filter = ["supertype", "card_set__era", "card_set", "variant_override", "is_active"]
+    search_fields = ["name", "sku", "card_set__name", "card_set__code", "sealed_set_name"]
     list_editable = ["price", "stock"]
     ordering = ["-card_set__release_date", "card_number"]
 
