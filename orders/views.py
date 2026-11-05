@@ -174,6 +174,29 @@ class CartAddView(APIView):
         return Response(CartSerializer(cart).data)
 
 
+class CartFixStockView(APIView):
+    """Bring the customer's pile in line with what is actually in stock: sold-out items are removed, items
+    with fewer in stock than asked for are reduced to what is left. POST -> {removed: [...], reduced: [...]}."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        removed, reduced = [], []
+        for item in cart.items.select_related('product'):
+            if item.product is None:
+                item.delete()
+                continue
+            avail = max(item.product.stock, 0)
+            if avail == 0:
+                removed.append(item.product.name)
+                item.delete()
+            elif item.quantity > avail:
+                reduced.append({'name': item.product.name, 'now': avail})
+                item.quantity = avail
+                item.save(update_fields=['quantity'])
+        return Response({'removed': removed, 'reduced': reduced})
+
+
 class CartRemoveView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -212,12 +235,23 @@ class CheckoutView(APIView):
         items = [i for i in items if i.product is not None]
         if not items:
             return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
-        for item in items:
-            if item.product.stock < item.quantity:
-                return Response(
-                    {'error': f'Insufficient stock for {item.product.name}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Every short item in one go, with a plain-English message the checkout page can act on
+        # (2026-11-05: a customer left cards in his pile for days, one sold out, and the bare
+        # "Insufficient stock for X" left him stuck).
+        short = [i for i in items if i.product.stock < i.quantity]
+        if short:
+            lines = []
+            for i in short:
+                avail = max(i.product.stock, 0)
+                lines.append(f"{i.product.name} ({'sold out' if avail == 0 else f'only {avail} left'})")
+            return Response(
+                {
+                    'error': 'Sorry, some cards in your pile were sold while they were waiting: ' + '; '.join(lines)
+                             + '. Tap "Fix my pile" to remove them and carry on.',
+                    'stock_issues': [{'item_id': i.id, 'name': i.product.name, 'available': max(i.product.stock, 0)} for i in short],
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
         subtotal = sum(item.subtotal for item in items)
         payment_method = request.data.get('payment_method', 'payfast')
         shipping_method = request.data.get('shipping_method', 'pudo_locker')
@@ -1507,6 +1541,64 @@ class AdminOrderThankYouView(APIView):
         resp['Content-Disposition'] = f'inline; filename="thankyou-order-{order.pk}.png"'
         resp['Cache-Control'] = 'no-store'
         return resp
+
+
+class AdminOrderStoreCreditView(APIView):
+    """Staff: use a customer's store credit on an order that already exists (e.g. one placed before store credit
+    was introduced). GET -> what is available; POST {"amount": 150.00} -> make the credit used on this order equal
+    that amount (0 returns it). The amount comes off the customer's balance through the ledger, is capped at the
+    order total, and a fully covered order that was waiting for payment is confirmed (same as checkout)."""
+    permission_classes = [IsAdminUser]
+
+    def _state(self, order):
+        from store_credit import services as credit
+        u = order.user
+        return {
+            'customer': (f"{u.first_name} {u.last_name}".strip() or u.username),
+            'balance': str(credit.balance(u)),
+            'applied': str(order.store_credit_applied or 0),
+            'total': str(order.total_price),
+            'amount_due': str(order.amount_due),
+            'status': order.status,
+        }
+
+    def get(self, request, pk):
+        order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
+        return Response(self._state(order))
+
+    def post(self, request, pk):
+        from store_credit import services as credit
+        order = get_object_or_404(Order.objects.select_related('user'), pk=pk)
+        if order.status == 'cancelled':
+            return Response({'error': 'This order is cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            target = Decimal(str(request.data.get('amount'))).quantize(Decimal('0.01'))
+        except Exception:
+            return Response({'error': 'Enter an amount.'}, status=status.HTTP_400_BAD_REQUEST)
+        if target < 0 or target > order.total_price:
+            return Response({'error': f'Amount must be between 0 and the order total (R{order.total_price}).'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                used = credit.set_order_credit(order, target, created_by=request.user)
+                order.store_credit_applied = used
+                note = f'Store credit on this order set to R{used} by staff.'
+                if used > 0 and used >= order.total_price:
+                    order.payment_method = 'credit'
+                    if order.status in ('awaiting_payment', 'pending_eft'):
+                        order.status = 'pending'
+                        note += ' Fully paid with store credit -- order confirmed.'
+                    order._tracking_note = note
+                    order._tracking_waybill = ''
+                    order._tracking_created_by = request.user
+                    order.save()
+                else:
+                    order.save()
+                    OrderTracking.objects.create(order=order, status=order.status, note=note, created_by=request.user)
+        except credit.StoreCreditError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        order.refresh_from_db()
+        return Response({**self._state(order), 'note': note})
 
 
 class AdminManualInvoiceLabelView(APIView):

@@ -3,6 +3,7 @@ from . import views
 urlpatterns = [
     path("cart/", views.CartView.as_view(), name="cart"),
     path("cart/add/", views.CartAddView.as_view(), name="cart-add"),
+    path("cart/fix-stock/", views.CartFixStockView.as_view(), name="cart-fix-stock"),
     path("cart/remove/<int:item_id>/", views.CartRemoveView.as_view(), name="cart-remove"),
     path("checkout/", views.CheckoutView.as_view(), name="checkout"),
     path("orders/", views.OrderListView.as_view(), name="order-list"),
@@ -19,6 +20,7 @@ urlpatterns = [
     path("orders/admin/<int:pk>/pudo-book/", views.AdminOrderPudoBookView.as_view(), name="admin-order-pudo-book"),
     path("orders/admin/<int:pk>/pudo-waybill/", views.AdminOrderPudoWaybillView.as_view(), name="admin-order-pudo-waybill"),
     path("orders/admin/<int:pk>/label/", views.AdminOrderLabelView.as_view(), name="admin-order-label"),
+    path("orders/admin/<int:pk>/store-credit/", views.AdminOrderStoreCreditView.as_view(), name="admin-order-store-credit"),
     path("orders/admin/<int:pk>/thankyou/", views.AdminOrderThankYouView.as_view(), name="admin-order-thankyou"),
     path("orders/admin/manual-invoices/<int:pk>/label/", views.AdminManualInvoiceLabelView.as_view(), name="admin-manual-label"),
     path("orders/admin/manual-invoices/<int:pk>/thankyou/", views.AdminManualInvoiceThankYouView.as_view(), name="admin-manual-thankyou"),
