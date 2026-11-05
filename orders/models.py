@@ -1365,3 +1365,29 @@ class CalendarEvent(models.Model):
     def __str__(self):
         end = f" – {self.end_date:%d %b}" if self.end_date and self.end_date != self.start_date else ""
         return f"{self.title} ({self.start_date:%d %b %Y}{end})"
+
+
+class WeightCalibration(models.Model):
+    """Average weight of one card, per era (or per specific set) and card type -- used by the Bulk Buy-in
+    weight counter to turn a pile's weight into a card count (2026-11-05, Michael: weigh by era/set and type
+    because print runs differ). A set-specific row beats the era row."""
+    SCOPE_CHOICES = [('era', 'Era'), ('set', 'Specific set')]
+    TYPE_CHOICES = [
+        ('common', 'Commons'), ('uncommon', 'Uncommons'), ('holo', 'Holos'),
+        ('reverse', 'Reverse Holos'), ('energy', 'Basic Energy'),
+    ]
+    scope = models.CharField(max_length=3, choices=SCOPE_CHOICES)
+    scope_key = models.CharField(max_length=20, help_text="Era code (SV, SWSH...) or set code")
+    card_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    grams_per_card = models.DecimalField(max_digits=7, decimal_places=4)
+    sample_cards = models.PositiveIntegerField(default=0, help_text="Hand-counted cards behind this average")
+    sample_grams = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['scope', 'scope_key', 'card_type'], name='unique_weight_calibration')]
+        ordering = ['scope', 'scope_key', 'card_type']
+
+    def __str__(self):
+        return f"{self.scope_key} {self.card_type}: {self.grams_per_card} g"

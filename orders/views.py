@@ -1601,6 +1601,60 @@ class AdminOrderStoreCreditView(APIView):
         return Response({**self._state(order), 'note': note})
 
 
+class AdminWeightCalibrationView(APIView):
+    """Staff: the weight-counter calibrations used on the Bulk Buy-in screen.
+    GET  -> [{scope, scope_key, card_type, grams_per_card, sample_cards, updated_at}, ...]
+    POST {scope: 'era'|'set', scope_key, card_type, sample_cards, sample_grams, mode: 'replace'|'add'}
+         -> sets (replace) or pools into (add) the average for that era/set and type.
+    DELETE ?scope=&scope_key=&card_type= -> removes one."""
+    permission_classes = [IsAdminUser]
+
+    @staticmethod
+    def _row(c):
+        return {'scope': c.scope, 'scope_key': c.scope_key, 'card_type': c.card_type,
+                'grams_per_card': float(c.grams_per_card), 'sample_cards': c.sample_cards,
+                'updated_at': c.updated_at.isoformat()}
+
+    def get(self, request):
+        from .models import WeightCalibration
+        return Response([self._row(c) for c in WeightCalibration.objects.all()])
+
+    def post(self, request):
+        from .models import WeightCalibration
+        d = request.data
+        scope, key, ctype = d.get('scope'), (d.get('scope_key') or '').strip(), d.get('card_type')
+        if scope not in ('era', 'set') or not key or ctype not in dict(WeightCalibration.TYPE_CHOICES):
+            return Response({'error': 'Pick an era or set and a card type.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            n = int(d.get('sample_cards'))
+            g = Decimal(str(d.get('sample_grams'))).quantize(Decimal('0.01'))
+        except Exception:
+            return Response({'error': 'Enter the number of cards counted and their weight in grams.'}, status=status.HTTP_400_BAD_REQUEST)
+        if n < 10 or g <= 0:
+            return Response({'error': 'Use a sample of at least 10 hand-counted cards (50 or more is better).'}, status=status.HTTP_400_BAD_REQUEST)
+        avg_new = g / n
+        if not (Decimal('0.5') <= avg_new <= Decimal('10')):
+            return Response({'error': f'{avg_new:.2f} g per card looks wrong for a Pokemon card -- check the count and weight.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cal = WeightCalibration.objects.filter(scope=scope, scope_key=key, card_type=ctype).first()
+        if cal and d.get('mode') == 'add':
+            n += cal.sample_cards
+            g += cal.sample_grams
+        if not cal:
+            cal = WeightCalibration(scope=scope, scope_key=key, card_type=ctype)
+        cal.sample_cards, cal.sample_grams = n, g
+        cal.grams_per_card = (g / n).quantize(Decimal('0.0001'))
+        cal.updated_by = request.user
+        cal.save()
+        return Response(self._row(cal))
+
+    def delete(self, request):
+        from .models import WeightCalibration
+        n, _ = WeightCalibration.objects.filter(
+            scope=request.GET.get('scope'), scope_key=request.GET.get('scope_key'), card_type=request.GET.get('card_type')).delete()
+        return Response({'deleted': n})
+
+
 class AdminManualInvoiceLabelView(APIView):
     """40x30 mm parcel tag for a manual invoice."""
     permission_classes = [IsAdminUser]

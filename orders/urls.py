@@ -26,6 +26,7 @@ urlpatterns = [
     path("orders/admin/manual-invoices/<int:pk>/thankyou/", views.AdminManualInvoiceThankYouView.as_view(), name="admin-manual-thankyou"),
     path("orders/admin/buy-invoices/<int:pk>/box-label/", views.AdminBuyBoxLabelView.as_view(), name="admin-buy-box-label"),
     path("orders/admin/buy-invoices/<int:pk>/label/", views.AdminBulkLabelView.as_view(), name="admin-bulk-label"),
+    path("orders/admin/weight-calibrations/", views.AdminWeightCalibrationView.as_view(), name="admin-weight-calibrations"),
     path("orders/admin/buy-invoices/trace/", views.AdminCardTraceView.as_view(), name="admin-card-trace"),
     path("orders/admin/buy-invoices/browse/", views.AdminBuyCardBrowseView.as_view(), name="admin-buy-card-browse"),
     path("orders/admin/buy-invoices/accessories/", views.AdminBuyAccessoryBrowseView.as_view(), name="admin-buy-accessory-browse"),
