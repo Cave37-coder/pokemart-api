@@ -139,7 +139,7 @@ class Command(BaseCommand):
             # Round UP to nearest R0.10
             return (Decimal(str(zar)) * 10).to_integral_value(rounding=ROUND_UP) / 10
 
-        updated = skipped = no_match = ambiguous = suspicious = 0
+        updated = skipped = no_match = ambiguous = suspicious = tbc = 0
         suspicious_examples = []
         to_update = []
         group_fetch_failures = 0
@@ -184,6 +184,7 @@ class Command(BaseCommand):
                 # that ambiguous case is skipped and counted instead of
                 # guessed.
                 p = pid_variant_map.get((pid, db_variant))
+                exact = p is not None
                 if p is None:
                     if pid_counts.get(pid) == 1:
                         p = pid_map.get(pid)
@@ -203,6 +204,18 @@ class Command(BaseCommand):
                 # is missing, not preferred over it.
                 usd = row.get("marketPrice") or row.get("midPrice") or row.get("lowPrice")
                 if not usd or float(usd) <= 0:
+                    # TBC (2026-11-06): TCGCSV lists this exact printing with
+                    # no price at all. If our row only holds a placeholder
+                    # (<= the R1.80 floor), isn't stocked and isn't following
+                    # a buying-invoice %, set it to 0 so the site shows "TBC"
+                    # instead of a fake R1.80. Exact (pid, variant) matches
+                    # only -- never via the single-pid fallback. A real price
+                    # from before is kept.
+                    if (exact and p.price and Decimal("0") < p.price <= MIN_PRICE
+                            and p.stock == 0 and not p.sell_pct):
+                        p.price = Decimal("0")
+                        to_update.append(p)
+                        tbc += 1
                     continue
 
                 base_price = round_up_10c(Decimal(str(usd)) * rate * MARKUP)
@@ -264,6 +277,7 @@ class Command(BaseCommand):
             f"Done. Updated={updated:,} Skipped(no change)={skipped:,} "
             f"No match={no_match:,} Ambiguous pid (skipped)={ambiguous:,} "
             f"Suspicious jump (skipped)={suspicious:,} "
+            f"Set to TBC (no TCGCSV price)={tbc:,} "
             f"Group fetch failures={group_fetch_failures:,}/{len(groups):,}"
         )
         if suspicious_examples:

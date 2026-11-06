@@ -256,18 +256,58 @@ GROUP_CONFIG = {
     "ME06":     (24831, "Delta Reign",                         "B9"),
 }
 
+# 2026-11-06, Michael: "the base set cards have different variants ... 1st
+# edition, Shadowless and Shadowed ... need to be defined 100% correctly".
+# This map used to send BOTH "1st Edition" and "Unlimited" to "N" (and both
+# holo subtypes to "H"). TCGCSV gives the two printings the SAME productId,
+# so they collided on (productId, "N"): only one row per card was ever made,
+# the 1st Edition printing could not be stocked/ticked/caught, and the row's
+# price was whichever subtype happened to be processed last.
+# Now 1st Edition gets its own code "FE" -- the code the site already used
+# for 1st Edition (orders/admin.py VARIANT_CHOICES, buying invoices, manual
+# invoices, sync_prices_only). One code covers holo and non-holo: in these
+# sets a holo and a non-holo are always different card numbers/productIds,
+# so (productId, "FE") is unique. Full spec: project doc
+# claude/wotc_print_runs_spec.md.
+#   Base Set (Unlimited)  = group 604  -> "Normal"/"Holofoil"   -> N / H (shadowed)
+#   Base Set (1st Ed & Shadowless) = group 1663:
+#       "1st Edition"/"1st Edition Holofoil" -> FE
+#       "Unlimited"/"Unlimited Holofoil"     -> N / H  (= SHADOWLESS in this set)
+#   Jungle, Fossil, TR, Gym, Neo: 1st Edition -> FE, Unlimited -> N/H
 SUBTYPE_MAP = {
     "Normal":               "N",
     "Holofoil":             "H",
     "Reverse Holofoil":     "RH",
-    "1st Edition Normal":   "N",
-    "1st Edition Holofoil": "H",
+    "1st Edition Normal":   "FE",
+    "1st Edition Holofoil": "FE",
+    "1st Edition":          "FE",
     "Unlimited Normal":     "N",
     "Unlimited Holofoil":   "H",
-    "":                     "H",
-    "1st Edition":          "N",
     "Unlimited":            "N",
+    "":                     "H",
 }
+FIRST_EDITION_VARIANTS = {"FE"}
+
+# "TBC" price (2026-11-06, Michael: "site wide, if there is no price
+# available ... please put 'TBC' in place of the R1.50"). price = 0 is the
+# site-wide sentinel for "no price yet": the frontend shows "TBC" and the
+# cart refuses it, and sync_prices_only already treats 0 as "never priced"
+# and fills in the first real TCGCSV price uncapped. Existing rows only get
+# turned into TBC when they still carry a placeholder-level price (at or
+# below this) -- a real price from before is never thrown away.
+PLACEHOLDER_MAX = Decimal("1.80")
+
+# Pricing: 1st Edition rows use TCGCSV exactly like every other row (market
+# price, falling back to the lowest listing). Michael, 2026-11-06: "use the
+# pricing from TCGCSV, some are crazy, but the cards are stupidly priced!" --
+# no guard, no automatic price lock. Lock individual cards by hand in admin
+# if ever needed.
+
+# Every 1st Edition row touched in a run is written here (dry run or live)
+# so Michael can review/price them -- see _write_first_edition_report().
+FIRST_EDITION_REPORT = []
+PRICE_DRIFT_REPORT = []
+
 
 
 # 2026-09-29: moved to PokemonProduct.VARIANT_SORT_ORDER (products/models.py)
@@ -423,6 +463,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
         return dict(created=0, skipped=0, no_price=0, non_card=0)
 
     prices = {}
+    raw_prices = {}  # (pid, sub) -> (market, low), for the reliability guard
     try:
         r = requests.get(f"{TCGCSV_BASE}/{group_id}/prices", headers=HEADERS, timeout=30)
         r.raise_for_status()
@@ -432,6 +473,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             mkt = row.get("marketPrice")
             low = row.get("lowPrice")
             prices[(pid, sub)] = mkt or low
+            raw_prices[(pid, sub)] = (mkt or row.get("midPrice"), low)
     except Exception as e:
         print(f"  [prices] fetch failed: {e}")
 
@@ -528,6 +570,19 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             # of this file).
             pb_id = f"TCGCSV-{pid}-{variant}"
 
+            mkt_raw, low_raw = raw_prices.get((pid, sub), (None, None))
+            is_first_ed = variant in FIRST_EDITION_VARIANTS
+
+            if is_first_ed:
+                FIRST_EDITION_REPORT.append({
+                    "set": set_code, "number": number_raw, "name": name,
+                    "variant": variant, "tcgcsv_product_id": pid,
+                    "market_usd": mkt_raw, "low_usd": low_raw,
+                    "proposed_zar": str(_zar_price(usd, rate)) if usd else "",
+                    "action": "exists" if (pid, variant) in existing else "create",
+                    "flag": "TBC (no TCGCSV price)" if not usd else "",
+                })
+
             if (pid, variant) in existing:
                 # Update price and image on existing record
                 obj = existing_map.get((pid, variant))
@@ -539,15 +594,40 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                     new_price = obj.apply_price_lock(Decimal(str(new_price)))  # R600+ cards: never below 90% of our cost
                     new_img = card_image_url if ptcgio_set and number_raw else None
                     if obj.price != new_price or (new_img and obj.image_url != new_img):
-                        obj.price = new_price
-                        if new_img:
-                            obj.image_url = new_img
-                        obj.save(update_fields=['price', 'image_url', 'updated_at'])
+                        if obj.price != new_price:
+                            PRICE_DRIFT_REPORT.append({
+                                "set": set_code, "number": number_raw, "name": name,
+                                "variant": variant, "subtype": sub, "pb_id": obj.pb_id,
+                                "current_zar": str(obj.price), "new_zar": str(new_price),
+                                "stock": obj.stock,
+                            })
+                        # 2026-11-06: dry runs used to SAVE these price updates
+                        # (the dry_run check only guarded creates). Never write
+                        # in a dry run.
+                        if not dry_run:
+                            obj.price = new_price
+                            if new_img:
+                                obj.image_url = new_img
+                            obj.save(update_fields=['price', 'image_url', 'updated_at'])
+                elif (obj and not usd and not obj.price_locked
+                      and (pid, sub) in raw_prices and not any(raw_prices[(pid, sub)])
+                      and Decimal("0") < obj.price <= PLACEHOLDER_MAX and obj.stock == 0):
+                    # TCGCSV lists this exact printing but has no price at
+                    # all -> show TBC instead of a fake R1.50/R1.80.
+                    PRICE_DRIFT_REPORT.append({
+                        "set": set_code, "number": number_raw, "name": name,
+                        "variant": variant, "subtype": sub, "pb_id": obj.pb_id,
+                        "current_zar": str(obj.price), "new_zar": "TBC",
+                        "stock": obj.stock,
+                    })
+                    if not dry_run:
+                        obj.price = Decimal("0")
+                        obj.save(update_fields=['price', 'updated_at'])
                 skipped += 1
                 continue
 
             if dry_run:
-                print(f"    [DRY] {pb_id} | {name} | {variant} | R{zar}")
+                print(f"    [DRY] {pb_id} | {name} | {variant} | {('R' + str(zar)) if zar else 'TBC'}")
                 created += 1
                 continue
 
@@ -566,7 +646,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 variant_sort=VARIANT_SORT_ORDER.get(variant, 9),
                 rarity=rarity,
                 image_url=card_image_url,
-                price=zar if zar is not None else Decimal("1.50"),
+                price=zar if zar is not None else Decimal("0"),  # 0 = TBC
                 stock=0,
             ))
 
@@ -579,6 +659,30 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 skipped += 1
 
     return dict(created=created, skipped=skipped, no_price=no_price, non_card=non_card)
+
+
+def _write_first_edition_report(dry_run, stdout, set_filter=None):
+    import csv
+    tag = ("dryrun" if dry_run else "live") + (f"_{set_filter}" if set_filter else "")
+    stamp = time.strftime("%Y%m%d_%H%M")
+    if FIRST_EDITION_REPORT:
+        fn = f"first_edition_rows_{tag}_{stamp}.csv"
+        with open(fn, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(FIRST_EDITION_REPORT[0].keys()))
+            w.writeheader(); w.writerows(FIRST_EDITION_REPORT)
+        by = {}
+        for r in FIRST_EDITION_REPORT:
+            k = (r["variant"], r["action"])
+            by[k] = by.get(k, 0) + 1
+        stdout.write(f"1st Edition rows: {by}  -> {fn}")
+        stdout.write(f"  with no TCGCSV price at all: {sum(1 for r in FIRST_EDITION_REPORT if r['flag'])}")
+    if PRICE_DRIFT_REPORT:
+        fn = f"price_changes_{tag}_{stamp}.csv"
+        with open(fn, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(PRICE_DRIFT_REPORT[0].keys()))
+            w.writeheader(); w.writerows(PRICE_DRIFT_REPORT)
+        verb = "would change" if dry_run else "changed"
+        stdout.write(f"Existing rows whose price {verb}: {len(PRICE_DRIFT_REPORT)}  -> {fn}")
 
 
 class Command(BaseCommand):
@@ -653,3 +757,4 @@ class Command(BaseCommand):
             f"  no_price={grand['no_price']}  non_card={grand['non_card']}"
         )
         self.stdout.write(f"Net new cards in DB: {grand['created']}")
+        _write_first_edition_report(dry_run, self.stdout, set_filter)

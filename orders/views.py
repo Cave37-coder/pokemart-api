@@ -161,6 +161,11 @@ class CartAddView(APIView):
         # Checkout then correctly rejected it, but with a confusing error
         # that only "fixed itself" once the item was removed and re-added
         # fresh. Now checks against what the cart quantity would BECOME.
+        # TBC (2026-11-06): price 0 means "price to be confirmed" -- never
+        # sellable through the site until it has a real price.
+        if not product.price or product.price <= 0:
+            return Response({'error': 'Price to be confirmed -- please contact us for this card'}, status=status.HTTP_400_BAD_REQUEST)
+
         existing_qty = CartItem.objects.filter(cart=cart, product=product).values_list('quantity', flat=True).first() or 0
         if product.stock < existing_qty + quantity:
             return Response({'error': 'Insufficient stock'}, status=status.HTTP_400_BAD_REQUEST)
@@ -250,6 +255,13 @@ class CheckoutView(APIView):
                              + '. Tap "Fix my pile" to remove them and carry on.',
                     'stock_issues': [{'item_id': i.id, 'name': i.product.name, 'available': max(i.product.stock, 0)} for i in short],
                 },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # TBC (2026-11-06): a card whose price is 0 ("to be confirmed") can't be checked out.
+        tbc = [i.product.name for i in items if not i.product.price or i.product.price <= 0]
+        if tbc:
+            return Response(
+                {'error': 'These cards have no confirmed price yet, please remove them from your pile: ' + '; '.join(tbc)},
                 status=status.HTTP_400_BAD_REQUEST
             )
         subtotal = sum(item.subtotal for item in items)

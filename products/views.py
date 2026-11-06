@@ -290,7 +290,7 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
-        VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
+        VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -735,13 +735,13 @@ def stock_print(request):
         .order_by('card_number', 'variant_sort')
         .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
-    VALID_VARIANTS = {'N','H','RH','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
+    VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
     for c in cards:
         vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
 
     VARIANT_LABEL = {
-        'N': 'Normal', 'H': 'Holo', 'RH': 'Rev Holo',
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Rev Holo', 'FE': '1st Edition',
         'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',

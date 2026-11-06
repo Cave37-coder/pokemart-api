@@ -151,6 +151,9 @@ class PokemonProduct(models.Model):
     # command) computes variant_sort from the exact same table instead of
     # each keeping its own copy that can drift.
     VARIANT_SORT_ORDER = {
+        # 1st Edition printings (WotC era) sort before Unlimited/Shadowless:
+        # oldest printing first (2026-11-06, see sync_tcgcsv SUBTYPE_MAP).
+        "FE": -1,
         "N": 0, "H": 1, "RH": 2, "ESH": 3,
         "PB": 4, "LB": 5, "FB": 6, "QB": 7, "UB": 8, "DB": 9, "MB": 10,
         "TR": 11, "SE": 12, "PBP": 13, "MBP": 14, "CC": 15, "TT": 16,
