@@ -1933,7 +1933,7 @@ def print_order(request, order_id):
     from itertools import groupby
 
     VARIANT_LABEL_FULL = {
-        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo', 'FE': '1st Edition',
         'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',
@@ -2197,7 +2197,7 @@ def _build_invoice_html(order, show_controls=True):
     print view and the email-send view. show_controls=False strips the
     Print/Close buttons (no point emailing those to a customer)."""
     VARIANT_LABEL_FULL = {
-        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo',
+        'N': 'Normal', 'H': 'Holo', 'RH': 'Reverse Holo', 'FE': '1st Edition',
         'PB': 'Poke Ball', 'MB': 'Master Ball', 'LB': 'Love Ball',
         'FB': 'Friend Ball', 'QB': 'Quick Ball', 'UB': 'Ultra Ball',
         'DB': 'Dusk Ball', 'TR': 'Team Rocket', 'SE': 'Secret',

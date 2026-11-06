@@ -198,6 +198,56 @@ class ProductAutocompleteJsonView(AutocompleteJsonView):
         return super().serialize_result(obj, to_field_name)
 
 
+# --- Promo linking (2026-11-05): show promo cards on the checklist of the set they belong to -------------------
+def _promo_link_page(modeladmin, request, queryset, title, form_html):
+    from django.http import HttpResponse
+    from django.middleware.csrf import get_token
+    ids = "".join(f'<input type="hidden" name="_selected_action" value="{pk}">' for pk in queryset.values_list("pk", flat=True))
+    names = "<br>".join(f"{p.name} <span style='color:#888'>({p.card_set.code if p.card_set else '-'})</span>" for p in queryset[:40])
+    more = f"<br>… and {queryset.count() - 40} more" if queryset.count() > 40 else ""
+    return HttpResponse(
+        f"<html><body style='font-family:sans-serif;max-width:760px;margin:30px auto'>"
+        f"<h2>{title}</h2><p>{queryset.count()} promo card(s):</p>"
+        f"<div style='background:#f4f4f4;padding:10px;border-radius:6px;font-size:13px;max-height:260px;overflow:auto'>{names}{more}</div>"
+        f"<form method='post'><input type='hidden' name='csrfmiddlewaretoken' value='{get_token(request)}'>"
+        f"<input type='hidden' name='action' value='{request.POST.get('action')}'>{ids}{form_html}"
+        f"<p><button type='submit' name='apply' value='1' style='padding:8px 18px'>Confirm</button> "
+        f"<a href='' style='margin-left:10px'>Cancel</a></p></form></body></html>"
+    )
+
+
+@admin.action(description="Link selected promos to a set (shows on that set's checklist)")
+def link_promos_to_set(modeladmin, request, queryset):
+    from django.contrib import messages
+    if request.POST.get("apply"):
+        target = CardSet.objects.filter(pk=request.POST.get("target_set")).first()
+        if not target:
+            messages.error(request, "Pick a set.")
+            return None
+        n = 0
+        for p in queryset:
+            if p.card_set_id == target.pk:
+                continue
+            p.also_in_sets.add(target)
+            n += 1
+        messages.success(request, f"Linked {n} promo(s) to {target.name} [{target.code}]. Regenerate the checklist data to show them.")
+        return None
+    options = "".join(f"<option value='{s.pk}'>{s.name} [{s.code}]</option>"
+                      for s in CardSet.objects.exclude(code__startswith=("PR-", "SVP", "MEP", "SMP")).order_by("-release_date", "name"))
+    return _promo_link_page(modeladmin, request, queryset, "Link promos to a set",
+                            f"<p>Belongs to: <select name='target_set'>{options}</select></p>")
+
+
+@admin.action(description="Unlink selected promos from every set they were linked to")
+def unlink_promos(modeladmin, request, queryset):
+    from django.contrib import messages
+    n = 0
+    for p in queryset:
+        n += p.also_in_sets.count()
+        p.also_in_sets.clear()
+    messages.success(request, f"Removed {n} link(s). Regenerate the checklist data.")
+
+
 @admin.register(PokemonProduct)
 class PokemonProductAdmin(admin.ModelAdmin):
     # wanted_by_count: 2026-08-07, community wishlist feature -- lets Michael
@@ -209,6 +259,7 @@ class PokemonProductAdmin(admin.ModelAdmin):
     list_filter = ["supertype", "card_set__era", "card_set", "variant_override", "is_active"]
     search_fields = ["name", "sku", "card_set__name", "card_set__code", "sealed_set_name"]
     list_editable = ["price", "stock"]
+    actions = [link_promos_to_set, unlink_promos]
     ordering = ["-card_set__release_date", "card_number"]
 
     def get_queryset(self, request):

@@ -69,7 +69,13 @@ from .models import PokemonProduct, CardSet, ChecklistEntry
 
 EXCLUDED_ERA_NAMES = {"Prize Pack Series"}
 
-BROKE_BASE_VARIANTS = frozenset({"N", "H"})
+# FE = 1st Edition print of a WotC-era card (2026-11-06, Michael: "We need
+# to sort checklists!"). Any ONE print of a card satisfies Broke Base, so a
+# 1st Edition copy counts there; Master Set and Full Master want every print
+# (1st Edition AND Unlimited/Shadowless). Base Set / Special Set Base stay
+# N/H/RH, i.e. the Unlimited (Base Set: Shadowless) run.
+FIRST_EDITION_VARIANTS = frozenset({"FE"})
+BROKE_BASE_VARIANTS = frozenset({"N", "H"}) | FIRST_EDITION_VARIANTS
 BASE_SET_VARIANTS = frozenset({"N", "H", "RH"})
 BALL_VARIANTS = frozenset({"PB", "MB", "LB", "FB", "QB", "UB", "DB"})
 # "TT" is the single real print variant for every card in the Trick or
@@ -87,13 +93,13 @@ OTHER_TRACKED_VARIANTS = frozenset({"TT", "CH"})
 # _tier_progress below); a card with no separate plain RH print correctly
 # just won't require RH.
 PATTERN_VARIANTS = frozenset({"ESH"})
-FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PATTERN_VARIANTS  # Full Master scope
+FULL_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | OTHER_TRACKED_VARIANTS | PATTERN_VARIANTS | FIRST_EDITION_VARIANTS  # Full Master scope
 # Master Set's own variant scope -- same prints as Base Set/Special Set
 # Base (N/H/RH), but Michael, 2026-09-11 explicitly carved Pokeballs/
 # Masterballs back OUT of Master Set (they're still required for Special
 # Set Base, just not Master Set) in favour of Illustration Rares instead
 # -- see the rarity split below.
-MASTER_SET_VARIANTS = BASE_SET_VARIANTS
+MASTER_SET_VARIANTS = BASE_SET_VARIANTS | FIRST_EDITION_VARIANTS
 # Michael, 2026-09-16 (round 6): "Special Set - N&H, Rev Holo or Energy
 # Symbol, EX's..., Pokeball, Master ball" -- Special Set Base now also
 # requires a card's Energy Symbol Holo print (ASC's own reverse-holo-style
@@ -176,6 +182,9 @@ def is_set_eligible(card_set: CardSet) -> bool:
     return era_name not in EXCLUDED_ERA_NAMES
 
 
+from .promo_links import is_promo_home, promo_display_num
+
+
 def _fallback_display_num(card_number: int, total_cards: int) -> str:
     """Used only when PokemonProduct.number is blank (the normal case for
     ordinary numbered sets). Must match the frontend exactly -- see
@@ -201,7 +210,8 @@ def _grouped_card_rows(card_set: CardSet):
     products = (
         PokemonProduct.objects
         .filter(Q(card_set=card_set) | Q(id__in=card_set.shared_products.values("id")), is_active=True)
-        .values("id", "card_number", "variant_override", "number", "name", "rarity", "stock", "price")
+        .values("id", "card_number", "variant_override", "number", "name", "rarity", "stock", "price",
+                "card_set_id", "card_set__code")
     )
     total_cards = card_set.total_cards or 0
 
@@ -214,6 +224,9 @@ def _grouped_card_rows(card_set: CardSet):
         if not raw_number and p["card_number"] is None:
             continue  # nothing to key this row on at all
         display_num = raw_number or _fallback_display_num(p["card_number"], total_cards)
+        # Linked promo from a promo set: its own extra card "PR-<number>" (same rule as generate_checklist_data).
+        if p["card_set_id"] != card_set.id and is_promo_home(p["card_set__code"]):
+            display_num = promo_display_num(raw_number, p["card_number"])
         rows_by_display_num[display_num].append((p, variant))
 
     for display_num, rows in rows_by_display_num.items():

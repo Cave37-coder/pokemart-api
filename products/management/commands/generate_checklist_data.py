@@ -309,7 +309,11 @@ TCGCSV_PID_RE = re.compile(r"TCGCSV-(\d+)")
 FULL_VARIANTS = frozenset({
     "N", "H", "RH", "PB", "MB", "LB", "FB", "QB", "UB", "DB", "TT", "ESH",
     "CH",  # Cosmos Holo blister/box prints (sync_blister_cosmos)
+    "FE",  # 1st Edition print of a WotC-era card (2026-11-06)
 })
+
+
+from products.promo_links import is_promo_home, promo_display_num
 
 
 def fallback_display_num(card_number: int, total_cards: int) -> str:
@@ -347,7 +351,8 @@ def build_set_cards(card_set: CardSet) -> list:
         PokemonProduct.objects
         .filter(Q(card_set=card_set) | Q(id__in=card_set.shared_products.values("id")), is_active=True)
         .order_by("variant_sort")
-        .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price")
+        .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price",
+                "card_set_id", "card_set__code")
     )
     total_cards = card_set.total_cards or 0
 
@@ -360,6 +365,10 @@ def build_set_cards(card_set: CardSet) -> list:
         if not raw_number and p["card_number"] is None:
             continue
         display_num = raw_number or fallback_display_num(p["card_number"], total_cards)
+        # A promo linked in from a promo set (SVP, MEP, PR-XY ...) is its own extra card, keyed "PR-<number>".
+        # Must match products/completion.py (see products/promo_links.py).
+        if p["card_set_id"] != card_set.id and is_promo_home(p["card_set__code"]):
+            display_num = promo_display_num(raw_number, p["card_number"])
         rows_by_display_num[display_num].append((p, variant))
 
     entries = {}
