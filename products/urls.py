@@ -7,6 +7,7 @@ from .views import PokemonProductViewSet, CategoryViewSet, PokemonTypeViewSet, S
 from . import views
 from . import custom_collections
 from .views_lookup import card_lookup, card_search
+from .views_trade import trade_search, trade_prices
 
 router = DefaultRouter()
 router.register(r"products", PokemonProductViewSet, basename="product")
@@ -59,4 +60,7 @@ urlpatterns = [
     path("manage/", views.manage_set, name="manage-set"),
     path("cards/lookup/", card_lookup, name="card-lookup"),
     path("cards/search/", card_search, name="card-search"),
+    # Poke-Trade phone app (2026-11-07): public, read-only.
+    path("trade/search/", trade_search, name="trade-search"),
+    path("trade/prices/", trade_prices, name="trade-prices"),
 ]

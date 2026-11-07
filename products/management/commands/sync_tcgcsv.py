@@ -572,6 +572,8 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
 
             mkt_raw, low_raw = raw_prices.get((pid, sub), (None, None))
             is_first_ed = variant in FIRST_EDITION_VARIANTS
+            # Poke-Trade: plain market price in Rand, no markup.
+            market_zar = (Decimal(str(usd)) * rate).quantize(Decimal("0.01")) if usd else None
 
             if is_first_ed:
                 FIRST_EDITION_REPORT.append({
@@ -586,6 +588,9 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
             if (pid, variant) in existing:
                 # Update price and image on existing record
                 obj = existing_map.get((pid, variant))
+                if obj and not dry_run and obj.tcg_market_zar != market_zar:
+                    obj.tcg_market_zar = market_zar
+                    obj.save(update_fields=['tcg_market_zar'])
                 if obj and usd and not obj.price_locked:
                     new_price = _zar_price(usd, rate)
                     if obj.sell_pct:
@@ -647,6 +652,7 @@ def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
                 rarity=rarity,
                 image_url=card_image_url,
                 price=zar if zar is not None else Decimal("0"),  # 0 = TBC
+                tcg_market_zar=market_zar,
                 stock=0,
             ))
 

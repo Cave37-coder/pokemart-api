@@ -295,6 +295,11 @@ class PokemonProduct(models.Model):
 
     # Pricing
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    # Plain TCG market price in Rand -- market USD x that night's exchange
+    # rate, NO 10% markup, no floor, no lock (2026-11-07, for Poke-Trade:
+    # "relative values, based purely on current tcg price"). Written by the
+    # nightly sync_prices_only and by sync_tcgcsv. Null until first synced.
+    tcg_market_zar = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     price_normal = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_reverse_holo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

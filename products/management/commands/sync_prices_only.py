@@ -140,6 +140,15 @@ class Command(BaseCommand):
             return (Decimal(str(zar)) * 10).to_integral_value(rounding=ROUND_UP) / 10
 
         updated = skipped = no_match = ambiguous = suspicious = tbc = 0
+        # Poke-Trade (2026-11-07): plain TCG market price in Rand, stored for
+        # every matched NM row -- including price-locked ones, since the
+        # trade app values cards purely on the market, not on our shop price.
+        market_updates = []
+        market_written = 0
+        market_map = {}
+        for p in PokemonProduct.objects.exclude(tcgcsv_product_id__isnull=True).filter(condition='NM').only(
+                "id", "tcgcsv_product_id", "variant_override", "tcg_market_zar"):
+            market_map[(p.tcgcsv_product_id, p.variant_override or 'N')] = p
         suspicious_examples = []
         to_update = []
         group_fetch_failures = 0
@@ -203,6 +212,17 @@ class Command(BaseCommand):
                 # unusual about it). midPrice now only used when marketPrice
                 # is missing, not preferred over it.
                 usd = row.get("marketPrice") or row.get("midPrice") or row.get("lowPrice")
+                mp = market_map.get((pid, db_variant))
+                if mp is not None:
+                    new_market = (Decimal(str(usd)) * rate).quantize(Decimal("0.01")) if usd and float(usd) > 0 else None
+                    if mp.tcg_market_zar != new_market:
+                        mp.tcg_market_zar = new_market
+                        market_updates.append(mp)
+                        market_written += 1
+                    if len(market_updates) >= 2000:
+                        with transaction.atomic():
+                            PokemonProduct.objects.bulk_update(market_updates, ["tcg_market_zar"])
+                        market_updates = []
                 if not usd or float(usd) <= 0:
                     # TBC (2026-11-06): TCGCSV lists this exact printing with
                     # no price at all. If our row only holds a placeholder
@@ -272,6 +292,10 @@ class Command(BaseCommand):
         if to_update:
             with transaction.atomic():
                 PokemonProduct.objects.bulk_update(to_update, ["price"])
+        if market_updates:
+            with transaction.atomic():
+                PokemonProduct.objects.bulk_update(market_updates, ["tcg_market_zar"])
+        self.stdout.write(f"TCG market price (Rand, for Poke-Trade) written on {market_written:,} product(s)")
 
         self.stdout.write(
             f"Done. Updated={updated:,} Skipped(no change)={skipped:,} "
