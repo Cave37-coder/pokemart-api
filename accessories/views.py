@@ -23,6 +23,10 @@ class AccessoryViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        # Pile sales move the linked product's stock -- copy it back first so
+        # sold-out accessories drop off the page (accessories/cart_link.py).
+        from .cart_link import refresh_accessory_stock
+        refresh_accessory_stock()
         return Accessory.objects.filter(is_active=True, stock__gt=0)
 
     def get_permissions(self):

@@ -989,6 +989,10 @@ class BuyOrder(models.Model):
             fields['price'] = item.sell_price
             fields['price_locked'] = True
         Accessory.objects.filter(pk=acc.pk).update(**fields)
+        # Same stock + price onto the product row the Pile sells (accessories/cart_link.py).
+        from accessories.cart_link import push_to_product
+        acc.refresh_from_db()
+        push_to_product(acc, stock_delta=item.quantity)
         unit_cost = locked.effective_unit_cost(item)
         BuyOrderItem.objects.filter(pk=item.pk).update(
             cost_unit_applied=unit_cost, cost_units_applied=item.quantity)

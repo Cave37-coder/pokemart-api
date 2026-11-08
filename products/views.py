@@ -190,6 +190,9 @@ class PokemonProductViewSet(viewsets.ModelViewSet):
         # (the /sealed shop page) -- never in Browse Cards, Pokedex, set pages or search.
         if self.action == 'list' and (self.request.query_params.get('supertype') or '').strip().lower() != 'sealed':
             qs = qs.exclude(supertype='Sealed')
+        # Accessories' Pile product rows (accessories/cart_link.py) are never listed as cards.
+        if self.action == 'list':
+            qs = qs.exclude(supertype='Accessory')
         return qs
 
     def get_permissions(self):

@@ -84,6 +84,12 @@ class AccessoryAdmin(admin.ModelAdmin):
         }),
     ]
 
+    def get_queryset(self, request):
+        # Show staff the live stock (Pile sales move the linked product row).
+        from .cart_link import refresh_accessory_stock
+        refresh_accessory_stock()
+        return super().get_queryset(request)
+
     @admin.display(description="In Stock", boolean=True)
     def in_stock_display(self, obj):
         return obj.in_stock

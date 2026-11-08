@@ -81,6 +81,14 @@ class Accessory(models.Model):
     tcgplayer_url = models.URLField(max_length=500, blank=True)
     source_price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
+    # The product row My Pile / checkout sell this accessory through
+    # (2026-11-08) -- see accessories/cart_link.py. Once linked, THAT row's
+    # stock is the real stock; Accessory.stock is kept as a copy.
+    cart_product = models.OneToOneField(
+        "products.PokemonProduct", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="accessory_listing", editable=False,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -105,7 +113,14 @@ class Accessory(models.Model):
             self.barcode = None  # blank -> NULL so unique=True ignores it
         if not self.sku:
             self.sku = self.generate_sku()
+        old_stock = None
+        if self.pk:
+            old_stock = Accessory.objects.filter(pk=self.pk).values_list("stock", flat=True).first()
         super().save(*args, **kwargs)
+        # Keep the Pile's product row in step (accessories/cart_link.py). A
+        # changed stock here is a staff edit -> it becomes the live stock.
+        from .cart_link import push_to_product
+        push_to_product(self, set_stock=(old_stock is not None and old_stock != self.stock))
 
 
 class SealedCollectionItem(models.Model):
