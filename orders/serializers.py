@@ -177,12 +177,14 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         return sum(i.quantity for i in obj.items.all())
 
     def get_parcel_size(self, obj):
-        from .shipping import parcel_label
-        return parcel_label(sum(i.quantity for i in obj.items.all()), obj.shipping_method)
+        from .shipping import parcel_label, min_tier_for_items
+        its = list(obj.items.all())
+        return parcel_label(sum(i.quantity for i in its), obj.shipping_method, min_tier_for_items(its))
 
     def get_shipping_quotes(self, obj):
-        from .shipping import quote
-        return quote(sum(i.quantity for i in obj.items.all()))['prices']
+        from .shipping import quote, min_tier_for_items
+        its = list(obj.items.all())
+        return quote(sum(i.quantity for i in its), min_tier_for_items(its))['prices']
 
     # Pudo send-day rules (2026-10-30, orders/schedule.py): KZN/EC Mon-Thu,
     # Western Cape Mon-Wed + Fri.

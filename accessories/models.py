@@ -59,6 +59,14 @@ class Accessory(models.Model):
     barcode = models.CharField(max_length=50, blank=True, null=True, unique=True)
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    # 2026-11-11: smallest Pudo parcel this item needs (orders/shipping.py
+    # min_tier_for_items). Michael: 1280 binder = Large, 480 binder = Medium,
+    # everything else Extra Small.
+    PUDO_SIZE_CHOICES = [("xs", "Extra Small"), ("s", "Small"), ("m", "Medium"), ("l", "Large"), ("xl", "Extra Large")]
+    pudo_size = models.CharField(
+        max_length=2, choices=PUDO_SIZE_CHOICES, default="xs",
+        help_text="Smallest Pudo parcel this item needs. An order is never shipped in a smaller size.",
+    )
     # Drives "customers only see what is in Stock" (Michael, 2026-08-07) --
     # unlike PokemonProduct, where an out-of-stock card still shows
     # (greyed-out) so customers can see it exists, an out-of-stock accessory

@@ -59,11 +59,11 @@ class AccessoryAdmin(admin.ModelAdmin):
     Buying Invoice (Accessories & sealed tab) so the cost is recorded --
     editing stock here is for counts/corrections."""
     form = AccessoryAdminForm
-    list_display = ["thumb", "sku", "name", "category", "manufacturer", "price", "price_locked", "stock", "in_stock_display", "is_active"]
+    list_display = ["thumb", "sku", "name", "category", "manufacturer", "price", "price_locked", "stock", "pudo_size", "in_stock_display", "is_active"]
     list_display_links = ["sku", "name"]
-    list_filter = ["category", "is_active", "price_locked", "manufacturer"]
+    list_filter = ["category", "is_active", "price_locked", "pudo_size", "manufacturer"]
     search_fields = ["sku", "name", "manufacturer", "description", "barcode", "=tcgcsv_product_id"]
-    list_editable = ["price", "stock", "is_active"]
+    list_editable = ["price", "stock", "pudo_size", "is_active"]
     ordering = ["-created_at"]
     actions = [rehost_images_to_r2]
     readonly_fields = ["image_preview", "sku", "image_source_url", "tcgcsv_product_id", "tcgcsv_category_id", "tcgplayer_url", "source_price_usd", "created_at", "updated_at"]
@@ -76,7 +76,7 @@ class AccessoryAdmin(admin.ModelAdmin):
             "fields": ["image_preview", "image_file", "image_url"],
         }),
         ("Pricing & Stock", {
-            "fields": ["price", "price_locked", "stock", "is_active"],
+            "fields": ["price", "price_locked", "stock", "pudo_size", "is_active"],
         }),
         ("Import Info (read-only)", {
             "fields": ["sku", "tcgcsv_product_id", "tcgcsv_category_id", "tcgplayer_url", "source_price_usd", "image_source_url", "created_at", "updated_at"],

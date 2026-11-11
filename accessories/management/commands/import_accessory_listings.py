@@ -9,7 +9,7 @@ accessories/data/temu_nov2026_listings.csv). Dry run by default.
     python manage.py import_accessory_listings --apply --file path/to.csv
 
 CSV columns: name, category, manufacturer, description, landed_cost,
-markup_pct, price, stock, is_active (yes/no). Matched on exact name, so a
+markup_pct, price, stock, is_active (yes/no), pudo_size (xs/s/m/l/xl), image_file. Matched on exact name, so a
 re-run updates description/price/stock instead of duplicating. Rows with
 price 0 are created inactive (set the price in admin, then tick Active).
 
@@ -64,6 +64,7 @@ class Command(BaseCommand):
                     category=cat, manufacturer=r["manufacturer"].strip(),
                     description=r["description"].strip(), price=price,
                     stock=stock, is_active=active,
+                    pudo_size=(r.get("pudo_size") or "xs").strip().lower() or "xs",
                     price_locked=True,  # hand-set price: TCGCSV sync leaves it alone
                 )
                 obj = Accessory.objects.filter(name=name).first()

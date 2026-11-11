@@ -302,7 +302,8 @@ class CheckoutView(APIView):
         # Shipping is priced HERE from the method and the number of cards (orders/shipping.py): we decide the
         # parcel size, not the customer, and the client-sent shipping_cost is ignored.
         from . import shipping as _shipping
-        shipping_cost = _shipping.shipping_price(shipping_method, sum(i.quantity for i in items))
+        shipping_cost = _shipping.shipping_price(shipping_method, sum(i.quantity for i in items),
+                                                 _shipping.min_tier_for_items(items))
 
         # Community discount (2026-08-11) -- 5% off for anyone with a public
         # community profile. Snapshotted onto the order (see Order model
@@ -589,8 +590,9 @@ class ShippingQuoteView(APIView):
     def get(self, request):
         from . import shipping as _shipping
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        n = sum(i.quantity for i in cart.items.select_related('product').all() if i.product is not None)
-        return Response(_shipping.quote(n))
+        live = [i for i in cart.items.select_related('product').all() if i.product is not None]
+        n = sum(i.quantity for i in live)
+        return Response(_shipping.quote(n, _shipping.min_tier_for_items(live)))
 
 
 class PrepTimeView(APIView):
@@ -803,7 +805,9 @@ class OrderDeliveryUpdateView(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
         else:
             from . import shipping as _shipping
-            new_cost = _shipping.shipping_price(method, sum(i.quantity for i in order.items.all())).quantize(Decimal('0.01'))
+            _oi = list(order.items.select_related('product').all())
+            new_cost = _shipping.shipping_price(method, sum(i.quantity for i in _oi),
+                                                _shipping.min_tier_for_items(_oi)).quantize(Decimal('0.01'))
 
         old_method_label = order.get_shipping_method_display() or order.shipping_method or '—'
         old_cost = order.shipping_cost or Decimal('0')
@@ -2058,8 +2062,8 @@ def print_order(request, order_id):
     printed_at = timezone.now().strftime('%d %b %Y %H:%M')
 
     # Parcel size (2026-10-28): we decide it from the card count -- shown big so the packer boxes it right.
-    from .shipping import parcel_label as _parcel_label
-    _plabel = _parcel_label(item_count, order.shipping_method)
+    from .shipping import parcel_label as _parcel_label, min_tier_for_items as _min_tier
+    _plabel = _parcel_label(item_count, order.shipping_method, _min_tier(items))
     parcel_html = (f'<div style="margin-top:6px;display:inline-block;border:2px solid #222;padding:3px 12px;'
                    f'font-size:16px;font-weight:bold">PUDO PARCEL: {_plabel} &middot; {item_count} cards</div>'
                    if _plabel and order.delivery_method != 'collection' else '')

@@ -42,44 +42,66 @@ def max_cards():
     return cards_per_size() * len(SIZE_NAMES)
 
 
-def tier_for(n_cards, method=''):
-    """Size tier 0..4 for a number of cards (tins / 'pudo_medium' are never smaller than Medium)."""
+def min_tier_for_items(items):
+    """Smallest parcel tier the ITEMS force, regardless of card count (2026-11-11).
+    Each accessory carries a pudo_size (Accessory.pudo_size: a 480-pocket binder
+    is Medium, a 1,280 album Large, small stuff XS), so one big binder can't be
+    shipped in an XS. `items` are cart or order items (anything with .product)."""
+    from django.core.exceptions import ObjectDoesNotExist
+    tier = 0
+    for i in items:
+        p = getattr(i, 'product', None)
+        if p is None:
+            continue
+        try:
+            acc = p.accessory_listing
+        except ObjectDoesNotExist:
+            continue
+        code = (getattr(acc, 'pudo_size', '') or 'xs').upper()
+        if code in SIZE_SHORT:
+            tier = max(tier, SIZE_SHORT.index(code))
+    return tier
+
+
+def tier_for(n_cards, method='', min_tier=0):
+    """Size tier 0..4 for a number of cards (tins / 'pudo_medium' are never smaller than Medium;
+    min_tier is the floor forced by bulky accessories, see min_tier_for_items)."""
     per = cards_per_size()
     n = max(0, int(n_cards or 0))
     tier = min(len(SIZE_NAMES) - 1, max(0, (n - 1) // per)) if n else 0
     if method == 'pudo_medium':
         tier = max(tier, MEDIUM_TIER)
-    return tier
+    return max(tier, min(len(SIZE_NAMES) - 1, int(min_tier or 0)))
 
 
-def shipping_price(method, n_cards):
+def shipping_price(method, n_cards, min_tier=0):
     """What the customer is charged for delivery by `method` for an order of n_cards cards."""
     if method not in BASE_PRICE:
         return Decimal('0')
     base = BASE_PRICE[method]
     if method == 'collection':
         return base
-    tier = tier_for(n_cards, method)
+    tier = tier_for(n_cards, method, min_tier)
     floor = MEDIUM_TIER if method == 'pudo_medium' else 0
     return base + SIZE_EXTRA[tier] - SIZE_EXTRA[floor]
 
 
-def quote(n_cards):
+def quote(n_cards, min_tier=0):
     """Everything the checkout needs for a cart of n_cards cards."""
-    tier = tier_for(n_cards)
+    tier = tier_for(n_cards, '', min_tier)
     per = cards_per_size()
     return {
         'cards': int(n_cards or 0),
         'size': SIZE_NAMES[tier],
         'size_short': SIZE_SHORT[tier],
         'up_to_cards': per * (tier + 1),
-        'prices': {m: str(shipping_price(m, n_cards)) for m in BASE_PRICE},
+        'prices': {m: str(shipping_price(m, n_cards, min_tier)) for m in BASE_PRICE},
     }
 
 
-def parcel_label(n_cards, method=''):
+def parcel_label(n_cards, method='', min_tier=0):
     """e.g. 'Extra Small (L2LXS)' for the pull sheet / staff views; '' for collection."""
     if method == 'collection':
         return ''
-    tier = tier_for(n_cards, method)
+    tier = tier_for(n_cards, method, min_tier)
     return f"{SIZE_NAMES[tier]} ({SIZE_CODES[tier].split(' ')[0]})"

@@ -31,7 +31,7 @@ def _row(a):
         "category_display": a.get_category_display(), "manufacturer": a.manufacturer,
         "description": a.description, "image_url": a.image_url,
         "price": str(a.price), "stock": a.stock, "is_active": a.is_active,
-        "price_locked": a.price_locked,
+        "price_locked": a.price_locked, "pudo_size": a.pudo_size,
     }
 
 
@@ -48,6 +48,7 @@ def staff_accessories(request):
         qs = qs.filter(category=cat)
     return Response({
         "categories": [{"value": v, "label": l} for v, l in Accessory.CATEGORY_CHOICES],
+        "pudo_sizes": [{"value": v, "label": l} for v, l in Accessory.PUDO_SIZE_CHOICES],
         "results": [_row(a) for a in qs],
     })
 
@@ -89,6 +90,10 @@ def staff_accessory_detail(request, pk):
         if d["category"] not in {c for c, _ in Accessory.CATEGORY_CHOICES}:
             return Response({"detail": "Unknown category."}, status=400)
         a.category = d["category"]
+    if "pudo_size" in d:
+        if d["pudo_size"] not in {c for c, _ in Accessory.PUDO_SIZE_CHOICES}:
+            return Response({"detail": "Unknown Pudo size."}, status=400)
+        a.pudo_size = d["pudo_size"]
     if not a.name:
         return Response({"detail": "Name can't be empty."}, status=400)
     a.save()

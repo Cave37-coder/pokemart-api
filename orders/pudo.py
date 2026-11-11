@@ -173,10 +173,11 @@ def cards_per_size():
 
 def parcel_tier(order):
     """(tier index 0..4, card count) for an order."""
-    n = sum(i.quantity for i in order.items.all())
+    its = list(order.items.all())
+    n = sum(i.quantity for i in its)
     if n > _shipping.max_cards():
         raise PudoError(f'{n} cards is more than one parcel ({_shipping.max_cards()} max) - split it or book on Pudo yourself.')
-    return _shipping.tier_for(n, order.shipping_method), n
+    return _shipping.tier_for(n, order.shipping_method, _shipping.min_tier_for_items(its)), n
 
 
 def _is_size(want, service_name):
