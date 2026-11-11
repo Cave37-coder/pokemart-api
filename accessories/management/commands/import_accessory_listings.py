@@ -44,6 +44,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--file", default=str(DEFAULT))
         parser.add_argument("--apply", action="store_true")
+        parser.add_argument("--replace-images", action="store_true",
+                            help="Re-upload every CSV image, replacing photos already set")
 
     def handle(self, *args, **o):
         path = Path(o["file"])
@@ -84,7 +86,7 @@ class Command(BaseCommand):
                         created += 1
                     # Upload the picture to R2 (CLAUDE.md: always R2) unless it
                     # already has one -- never overwrites a photo you uploaded.
-                    if img and not obj.image_url:
+                    if img and (o["replace_images"] or not obj.image_url):
                         p = path.parent / "images" / img
                         if p.exists():
                             from accessories.r2 import upload_bytes
