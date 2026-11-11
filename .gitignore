@@ -29,6 +29,8 @@ Thumbs.db
 desktop.ini
 .vercel
 *.csv
+# accessory listing data is source, not a dump (import_accessory_listings reads it)
+!accessories/data/*.csv
 tcgcsv_*.py
 show_ambiguous_sealed.py
 # Google Cloud service account keys - never commit
