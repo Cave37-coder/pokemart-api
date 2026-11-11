@@ -47,17 +47,16 @@ def min_tier_for_items(items):
     Each accessory carries a pudo_size (Accessory.pudo_size: a 480-pocket binder
     is Medium, a 1,280 album Large, small stuff XS), so one big binder can't be
     shipped in an XS. `items` are cart or order items (anything with .product)."""
-    from django.core.exceptions import ObjectDoesNotExist
+    # ONE query per call (not per item): the staff orders list serializes many
+    # orders, and a per-item product + accessory lookup made it time out.
+    ids = {i.product_id for i in items if getattr(i, 'product_id', None)}
+    if not ids:
+        return 0
+    from accessories.models import Accessory
     tier = 0
-    for i in items:
-        p = getattr(i, 'product', None)
-        if p is None:
-            continue
-        try:
-            acc = p.accessory_listing
-        except ObjectDoesNotExist:
-            continue
-        code = (getattr(acc, 'pudo_size', '') or 'xs').upper()
+    for code in (Accessory.objects.filter(cart_product_id__in=ids)
+                 .exclude(pudo_size='xs').values_list('pudo_size', flat=True)):
+        code = (code or 'xs').upper()
         if code in SIZE_SHORT:
             tier = max(tier, SIZE_SHORT.index(code))
     return tier
