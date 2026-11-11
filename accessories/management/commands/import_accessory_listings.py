@@ -15,8 +15,8 @@ price 0 are created inactive (set the price in admin, then tick Active).
 
 Images: none are set here. Upload each in Django admin (or paste a URL and
 run rehost_accessory_images) so it ends up on R2 -- see CLAUDE.md.
-Re-running with --apply resets stock to the CSV value; skip rows you have
-already sold from by deleting them from the CSV first.
+Existing listings keep their live stock on re-run (sales are not undone); pass
+--reset-stock to force the CSV stock. New listings take the CSV stock.
 """
 import csv
 from decimal import Decimal
@@ -44,6 +44,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--file", default=str(DEFAULT))
         parser.add_argument("--apply", action="store_true")
+        parser.add_argument("--reset-stock", action="store_true",
+                            help="Also reset stock on EXISTING listings to the CSV value (off by default so sales are not undone)")
         parser.add_argument("--replace-images", action="store_true",
                             help="Re-upload every CSV image, replacing photos already set")
 
@@ -71,13 +73,16 @@ class Command(BaseCommand):
                 )
                 obj = Accessory.objects.filter(name=name).first()
                 tag = "UPDATE" if obj else "CREATE"
-                self.stdout.write(f"  {tag}: {name}  R{price}  stock {stock}  {'active' if active else 'INACTIVE'}")
+                shown = obj.stock if (obj and not o["reset_stock"]) else stock
+                self.stdout.write(f"  {tag}: {name}  R{price}  stock {shown}{' (kept)' if obj and not o['reset_stock'] else ''}  {'active' if active else 'INACTIVE'}")
                 img = (r.get("image_file") or "").strip()
                 if img:
                     self.stdout.write(f"      image: {img}")
                 if o["apply"]:
                     if obj:
                         for k, v in fields.items():
+                            if k == "stock" and not o["reset_stock"]:
+                                continue  # keep live stock: sales since the last import must not be undone
                             setattr(obj, k, v)
                         obj.save()
                         updated += 1
