@@ -19,6 +19,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="weightcalibration", name="card_type",
-            field=models.CharField(max_length=20, choices=_TYPES + [("uncommon", "Uncommons")]),
+            field=models.CharField(max_length=20, choices=[
+                ("common", "Commons"), ("uncommon", "Uncommons"), ("holo", "Holos"), ("reverse", "Reverse Holos"),
+                ("cosmos", "Cosmos Holo"), ("energy", "Energy - Common"), ("energy_holo", "Energy - Holo"),
+                ("deck", "Deck Exclusive - Common"), ("deck_holo", "Deck Exclusive - Holo"),
+                ("deck_cosmos", "Deck Exclusive - Cosmos Holo")]),
         ),
     ]
