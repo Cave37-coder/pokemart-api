@@ -1112,13 +1112,21 @@ class BuyOrderItem(models.Model):
     # show bundle purchased." A line with bundle_type set is an unsorted bulk bundle:
     # it counts toward the invoice total / cost, but adds NO stock on Complete (the
     # cards are added later, once sorted). Blank = a normal line.
+    # 2026-11-14 (Michael): Energies (common + holo, per era) and Deck Exclusives (common,
+    # holo, Cosmos holo) added as bundle types.
     BUNDLE_TYPE_CHOICES = [
         ('common', 'Commons'),
         ('holo', 'Holos'),
         ('reverse', 'Reverse Holos'),
+        ('cosmos', 'Cosmos Holo'),
+        ('energy', 'Energy - Common'),
+        ('energy_holo', 'Energy - Holo'),
+        ('deck', 'Deck Exclusive - Common'),
+        ('deck_holo', 'Deck Exclusive - Holo'),
+        ('deck_cosmos', 'Deck Exclusive - Cosmos Holo'),
     ]
     bundle_type = models.CharField(
-        max_length=10, choices=BUNDLE_TYPE_CHOICES, blank=True, default='',
+        max_length=20, choices=BUNDLE_TYPE_CHOICES, blank=True, default='',
         help_text="Set for an unsorted bulk bundle line (adds no stock until it is sorted).",
     )
     sell_price = models.DecimalField(
@@ -1378,11 +1386,13 @@ class WeightCalibration(models.Model):
     SCOPE_CHOICES = [('era', 'Era'), ('set', 'Specific set')]
     TYPE_CHOICES = [
         ('common', 'Commons'), ('uncommon', 'Uncommons'), ('holo', 'Holos'),
-        ('reverse', 'Reverse Holos'), ('energy', 'Basic Energy'),
+        ('reverse', 'Reverse Holos'), ('cosmos', 'Cosmos Holo'), ('energy', 'Energy - Common'), ('energy_holo', 'Energy - Holo'),
+        ('deck', 'Deck Exclusive - Common'), ('deck_holo', 'Deck Exclusive - Holo'),
+        ('deck_cosmos', 'Deck Exclusive - Cosmos Holo'),
     ]
     scope = models.CharField(max_length=3, choices=SCOPE_CHOICES)
     scope_key = models.CharField(max_length=20, help_text="Era code (SV, SWSH...) or set code")
-    card_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    card_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     grams_per_card = models.DecimalField(max_digits=7, decimal_places=4)
     sample_cards = models.PositiveIntegerField(default=0, help_text="Hand-counted cards behind this average")
     sample_grams = models.DecimalField(max_digits=10, decimal_places=2, default=0)

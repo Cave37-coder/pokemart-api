@@ -902,7 +902,7 @@ def _parse_buy_lines(raw_items, bulk=False):
             return None, f'Line {n} is invalid.'
         has_bundle = bool((it.get('bundle_type') or '').strip())
         if bulk and not has_bundle:
-            return None, f'Line {n}: a bulk buy-in only takes bundle lines (Commons, Holos or Reverse Holos).'
+            return None, f'Line {n}: a bulk buy-in only takes bundle lines (Commons, Holos, Reverse Holos, Energies or Deck Exclusives).'
         if has_bundle and not bulk:
             return None, f'Line {n}: bulk bundles go on a Bulk Buy-in, not a standard buying invoice.'
         product = None
@@ -927,7 +927,7 @@ def _parse_buy_lines(raw_items, bulk=False):
         bundle_type = (it.get('bundle_type') or '').strip().lower()
         if bundle_type:
             if bundle_type not in dict(BuyOrderItem.BUNDLE_TYPE_CHOICES):
-                return None, f'Line {n}: bundle type must be Commons, Holos or Reverse Holos.'
+                return None, f'Line {n}: pick a valid bundle type.'
             product = None
             accessory = None
             if not description:

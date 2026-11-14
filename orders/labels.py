@@ -189,7 +189,9 @@ def order_label_png(order):
     return _png(im)
 
 
-_BUNDLE_WORD = {"common": "Commons", "holo": "Holos", "reverse": "Rev Holos"}
+_BUNDLE_WORD = {"common": "Commons", "holo": "Holos", "reverse": "Rev Holos", "cosmos": "Cosmos Holo", "energy": "Energy",
+                "energy_holo": "Energy Holo", "deck": "Deck Excl", "deck_holo": "Deck Excl Holo",
+                "deck_cosmos": "Deck Cosmos"}
 
 
 def bulk_label_png(buy):
@@ -198,8 +200,9 @@ def bulk_label_png(buy):
         if it.bundle_type:
             totals[it.bundle_type] = totals.get(it.bundle_type, 0) + it.quantity
     im, d = _base(buy.buy_number, f"{SITE}/staff/orders?bulk={buy.buy_number}")
-    short = {"common": "Com", "holo": "Holo", "reverse": "Rev"}
-    parts = [f"{totals[k]} {short[k]}" for k in ("common", "holo", "reverse") if k in totals]
+    short = {"common": "Com", "holo": "Holo", "reverse": "Rev", "cosmos": "Cosmos", "energy": "En", "energy_holo": "EnH",
+             "deck": "Deck", "deck_holo": "DeckH", "deck_cosmos": "Cosmos"}
+    parts = [f"{totals[k]} {short[k]}" for k in short if k in totals]
     lines = [(buy.seller_name or "—", 26)]
     if parts:
         lines += [("  ".join(parts), 24), (f"= {sum(totals.values())} cards", 26)]
