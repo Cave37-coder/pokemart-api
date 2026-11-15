@@ -1,22 +1,40 @@
 # upload_era_images.py
-# Uploads ERA-level logos + symbols from Michael's local "ERA" folder to R2,
-# then updates Railway DB with the CDN URLs.
+# Uploads ONE image per era from Michael's local "ERA" folder to R2, then
+# points BOTH Era.logo_url and Era.symbol_url at it in the Railway DB.
 #
 # Why this exists (2026-09-16): the live Era.logo_url values for most eras
 # turned out to be Bulbapedia WIKI PAGE links (e.g. ".../wiki/Base_Set_(TCG)
 # #/media/File:Pok%C3%A9mon_TCG_logo_old.png"), not direct image files --
 # that's a page URL, not image bytes, so every era card on /checklists fell
 # back to its coloured text pill (the onError handler in EraHome silently
-# swallows the broken <img>, see page.tsx eraBadge()). Re-hosting those via
-# the admin's "Upload logo(s) to R2" action (products/admin.py) would have
-# just saved the wiki page's HTML as if it were image bytes -- same
-# underlying bug. This script sidesteps all of that by uploading straight
-# from real local image files instead of re-fetching a pasted URL.
+# swallows the broken <img>, see page.tsx eraBadge()). This script sidesteps
+# that by uploading straight from real local image files instead of
+# re-fetching a pasted URL.
 #
-# Also adds Era.symbol_url (new field, migration 0035) -- a smaller per-era
-# icon, parallel to CardSet.symbol_url, for the compact era-selection cards
-# on /checklists (Michael, 2026-09-16: "the era symbols... so we can add
-# them to the page for era selection").
+# 2026-09-16, round 5 -- COLLAPSED to one image per era. Rounds 3-4 treated
+# logo_url (era-detail-page banner) and symbol_url (compact home-screen
+# card icon) as two potentially-different assets. In reality Michael only
+# ever has ONE image per era -- confirmed by listing the ERA folder and
+# finding every "... Symbol.png" file is byte-identical to an older
+# "... Era.png" file of the exact same size, just renamed. There never was
+# a second, different asset.
+#
+# Round 4's "clean fix" (clear whichever field ERA_MAP didn't supply a file
+# for) was therefore wrong: for the 9 eras that only had a "symbol" file
+# listed, it wiped their logo_url to '' -- which blanked the banner at the
+# top of those eras' detail pages ([era]/page.tsx reads ONLY logo_url for
+# that header), even though the same image Michael wanted was sitting
+# right there as the symbol. That's the "where are the images we agreed on"
+# regression.
+#
+# The actual fix: ERA_MAP is now `label -> single filename` (or None for an
+# era with no image yet). Each file is uploaded ONCE and the resulting CDN
+# url is written to BOTH logo_url and symbol_url -- so the one clean image
+# Michael sent shows up everywhere an era's picture is used, home screen
+# card and detail-page banner alike. Re-running is idempotent (same file ->
+# same R2 key -> same url, no-op save) and self-cleaning (an era mapped to
+# None here has both fields explicitly cleared, so a removed/retired image
+# can't linger as a stale value the way Mega Evolution's did).
 #
 # The Era table has legacy DUPLICATE rows per era (multiple `code`s sharing
 # the same conceptual era, inconsistent " Era" suffix -- see
@@ -38,34 +56,29 @@ R2_BUCKET = "pokebulkcards"
 R2_CDN    = "https://images.pokebulk.co.za"
 
 # ── Mapping: canonical era label (matched by normalized NAME, so it applies
-# to every duplicate Era row for that era) → (logo_filename, symbol_filename)
-# logo   = wide wordmark banner (era card's "big" slot)
-# symbol = small icon (what actually shows on the compact era-selection
-#          card today -- see eraBadge() preferring symbol_url)
-# Set either to None if this era doesn't have that asset in the folder yet.
+# to every duplicate Era row for that era) → single image filename, or None
+# if this era doesn't have an image in the folder yet (both logo_url and
+# symbol_url get explicitly cleared in that case, never left stale).
 ERA_MAP = {
-    "WotC Base":        ("Base Set logo.png",      "original_series.png"),
-    "WotC Neo":         (None,                      "neo_series.png"),
-    "WotC Legendary":   ("Legendary Logo.png",      "legendary_collection.png"),
+    "WotC Base":        "Wizards of the Coast Logo.jpg",
+    "WotC Neo":         "Neo Symbol.png",
+    "WotC Legendary":   "Legendary Collection Symbol.png",
     # "WotC Other" covers the e-Card era sets (Expedition/Aquapolis/Skyridge)
-    # in this catalog's bucketing -- ecard_series.png is the closest match
-    # in the folder. No dedicated wordmark logo file found for this bucket.
-    "WotC Other":       (None,                      "ecard_series.png"),
-    "EX Era":           ("Ruby & Sapphire logo.png", "ex_series.png"),
-    "Diamond & Pearl":  (None,                      "diamond_pearl_series.png"),
-    "HG&SS":            (None,                      "heartgold_soulsilver_series.png"),
-    "Black & White":    ("B&W Logo.png",            "black_white_series.png"),
-    "XY Era":           ("XY Logo.png",             "xy_series.png"),
-    "Sun & Moon":       ("S&M logo.png",             "sun_moon_series.png"),
-    "Sword & Shield":   ("SWSH logo.png",            "sword_shield_series.png"),
-    "Scarlet & Violet": ("S&V logo.png",             "scarlet_violet_series.png"),
-    "Mega Evolution":   (None,                      "mega_evolution_series.png"),
-    # Special Sets aren't wired up to a specific era's logo/symbol on the
-    # frontend today (the home screen's "Special Sets" tile always shows
-    # the plain text pill, see EraHome in checklists/page.tsx) -- included
-    # here anyway so the DB has correct data ready for whenever that tile
-    # gets its own image treatment.
-    "Special - Prize Pack": ("Prize Pack logo.png", None),
+    # in this catalog's bucketing.
+    "WotC Other":       "E-Card Symbol.png",
+    "EX Era":           "EX Symbol.png",
+    "Diamond & Pearl":  "Diamond and Pearl Symbol.png",
+    "HG&SS":            "HeartGold SoulSilver Symbol.png",
+    "Black & White":    "Black and White Symbol.png",
+    "XY Era":           "XY Symbol.png",
+    "Sun & Moon":       "Sun and Moon Symbol.png",
+    "Sword & Shield":   "Sword and Shield Symbol.png",
+    "Scarlet & Violet": "Scarlet and Violet Logo.png",
+    "Mega Evolution":   "Mega Evolution Logo.png",
+    # Special Sets aren't wired up to a specific era's image on the frontend
+    # today (the home screen's "Special Sets" tile always shows the plain
+    # text pill, see EraHome in checklists/page.tsx) -- no image for it yet.
+    "Special - Prize Pack": None,
 }
 
 # Same normalization the frontend's checklistShared.ts::normalizeEraName()
@@ -129,48 +142,45 @@ def main():
     missing_file = []
     unmatched_labels = []
 
-    for label, (logo_fn, symbol_fn) in ERA_MAP.items():
+    for label, filename in ERA_MAP.items():
         rows = by_norm_name.get(normalize_era_name(label), [])
         if not rows:
             unmatched_labels.append(label)
             continue
 
-        logo_url = None
-        if logo_fn:
-            local = find_file(logo_fn)
+        # url ends up one of:
+        #   - a freshly uploaded CDN url (file specified and found)
+        #   - '' (ERA_MAP has None for this era -> CLEAR any stale value on both fields)
+        #   - None (file specified but not found this run -> leave both fields untouched)
+        url = '' if filename is None else None
+        if filename:
+            local = find_file(filename)
             if local:
-                logo_url = upload_file(s3, local, f"eras/logos/{normalize_era_name(label).replace(' ', '_')}_logo{local.suffix.lower()}")
-                print(f"  \u2713 {label} logo \u2192 {logo_url}")
+                slug = normalize_era_name(label).replace(' ', '_')
+                url = upload_file(s3, local, f"eras/logos/{slug}_logo{local.suffix.lower()}")
+                print(f"  \u2713 {label} \u2192 {url}")
             else:
-                missing_file.append(f"{label} logo: {logo_fn}")
-                print(f"  \u2717 {label} logo file not found: {logo_fn}")
-
-        symbol_url = None
-        if symbol_fn:
-            local = find_file(symbol_fn)
-            if local:
-                symbol_url = upload_file(s3, local, f"eras/symbols/{normalize_era_name(label).replace(' ', '_')}_symbol{local.suffix.lower()}")
-                print(f"  \u2713 {label} symbol \u2192 {symbol_url}")
-            else:
-                missing_file.append(f"{label} symbol: {symbol_fn}")
-                print(f"  \u2717 {label} symbol file not found: {symbol_fn}")
-
-        if not logo_url and not symbol_url:
-            continue
+                missing_file.append(f"{label}: {filename}")
+                print(f"  \u2717 {label} file not found: {filename} (leaving existing values untouched)")
 
         # Apply to EVERY duplicate row sharing this era's normalized name --
         # see the module docstring for why one hand-picked code isn't enough.
+        # Both fields point at the SAME url -- there's only one image per
+        # era, used both as the home-screen card icon and the detail-page
+        # banner.
         for era in rows:
             fields = []
-            if logo_url:
-                era.logo_url = logo_url
+            if url is not None and era.logo_url != url:
+                era.logo_url = url
                 fields.append("logo_url")
-            if symbol_url:
-                era.symbol_url = symbol_url
+            if url is not None and era.symbol_url != url:
+                era.symbol_url = url
                 fields.append("symbol_url")
+            if not fields:
+                continue
             era.save(update_fields=fields)
             updated_rows += 1
-            print(f"    saved on Era(code={era.code!r}, name={era.name!r})")
+            print(f"    saved on Era(code={era.code!r}, name={era.name!r}): {', '.join(fields)}")
 
     print(f"\nDone \u2014 {updated_rows} Era row(s) updated across {len(ERA_MAP)} era labels.")
     if unmatched_labels:

@@ -111,6 +111,18 @@ MASTER_SET_VARIANTS = BASE_SET_VARIANTS | FIRST_EDITION_VARIANTS
 # owning that print will show as no longer 100% once this ships.
 SPECIAL_SET_BASE_VARIANTS = BASE_SET_VARIANTS | BALL_VARIANTS | PATTERN_VARIANTS
 
+# ── Grand Master Set (Michael, 2026-11-15) ──────────────────────────────────
+# A tier ABOVE Full Master: Full Master (every card, rarity and variant in the
+# set) PLUS the extra prints that live outside the set's own run -- Deck
+# Exclusive prints (DE non-holo, DEH holo, CI Cracked Ice Holo, TI Tinsel Holo),
+# 30th Celebration stamped prints (ST) -- AND every promo linked into the set
+# (promo_links.py, shown as "PR-<number>" cards). Full Master itself is
+# unchanged: it never counts these, so nobody's Full Master % moves.
+# The Grand Master tier is only offered for a set that actually has at least
+# one such extra print or linked promo.
+EXTRA_PRINT_VARIANTS = frozenset({"DE", "DEH", "ST", "CI", "TI"})
+GRAND_VARIANTS = FULL_VARIANTS | EXTRA_PRINT_VARIANTS
+
 # ── Numbered scope + Illustration Rare split (Michael, 2026-09-11) ─────────
 # Broke Base/Base Set/Special Set Base stay exactly what they always were:
 # numbered cards only (card_number <= card_set.total_cards), whatever
@@ -171,6 +183,7 @@ TIER_LABELS = {
     "special_set_base": "Special Set Base",
     "master_set": "Master Set",
     "full_master": "Full Master",
+    "grand_master": "Grand Master",
     "complete_set": "Complete Set",
 }
 
@@ -218,7 +231,7 @@ def _grouped_card_rows(card_set: CardSet):
     rows_by_display_num = defaultdict(list)
     for p in products:
         variant = p["variant_override"] or "N"
-        if variant not in FULL_VARIANTS:
+        if variant not in GRAND_VARIANTS:
             continue
         raw_number = (p["number"] or "").strip()
         if not raw_number and p["card_number"] is None:
@@ -324,9 +337,29 @@ def get_set_card_map(card_set: CardSet) -> dict:
         # "common") -- take it from the first row seen and keep it (via
         # setdefault), so a single entry always has exactly one rarity for
         # the core/chase tier split below.
-        entry = card_map.setdefault(key, {"card_number": p["card_number"], "variants": set(), "rarity": p["rarity"]})
+        entry = card_map.setdefault(key, {"card_number": p["card_number"], "variants": set(), "rarity": p["rarity"],
+                                          "promo": key.startswith("PR-")})
         entry["variants"].add(variant)
     return card_map
+
+
+def get_core_card_map(card_map: dict) -> dict:
+    """The card map exactly as it was before Grand Master existed: no linked
+    promos and none of the extra prints. Every tier up to Full Master (and
+    the 'simple set' test) is scored on this, so adding Deck Exclusive / 30th
+    stamped prints or promos can never change an existing tier."""
+    core = {}
+    for k, v in card_map.items():
+        if v.get("promo"):
+            continue
+        vs = v["variants"] & FULL_VARIANTS
+        if vs:
+            core[k] = {**v, "variants": vs}
+    return core
+
+
+def has_grand_extras(card_map: dict) -> bool:
+    return any(v.get("promo") or (v["variants"] & EXTRA_PRINT_VARIANTS) for v in card_map.values())
 
 
 def get_set_stock_keys(card_set: CardSet) -> set:
@@ -366,14 +399,17 @@ def get_tier_pull_list(card_set: CardSet, tier: str) -> list:
     Returns a list of dicts sorted by card_number then variant:
       {display_num, card_number, name, variant, rarity, stock, price, product_id}
     """
-    card_map = get_set_card_map(card_set)
+    full_map = get_set_card_map(card_set)
+    card_map = get_core_card_map(full_map)
     total_cards = card_set.total_cards or 0
     if total_cards:
         numbered = {k: v for k, v in card_map.items() if v["card_number"] is not None and v["card_number"] <= total_cards}
     else:
         numbered = card_map
 
-    if is_simple_set(card_map):
+    if tier == "grand_master":
+        scope, variant_filter = full_map, GRAND_VARIANTS
+    elif is_simple_set(card_map):
         scope, variant_filter = card_map, FULL_VARIANTS
     elif tier == "broke_base":
         scope, variant_filter = numbered, BROKE_BASE_VARIANTS
@@ -462,7 +498,8 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     Returns {"mode": "simple", "tiers": {...}} or {"mode": "full", "tiers": {...}}.
     Each tier is {"owned", "required", "pct", "complete"}.
     """
-    card_map = get_set_card_map(card_set)
+    full_map = get_set_card_map(card_set)
+    card_map = get_core_card_map(full_map)   # tiers up to Full Master never see promos / extra prints
     total_cards = card_set.total_cards or 0
     if total_cards:
         # card_number can be None for legitimately-numbered-but-non-integer
@@ -474,9 +511,14 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
     else:
         numbered = card_map  # total_cards not populated yet -- treat everything as numbered
 
+    grand = _tier_progress(full_map, GRAND_VARIANTS, checked_keys) if has_grand_extras(full_map) else None
+
     if is_simple_set(card_map):
         tier = _tier_progress(card_map, FULL_VARIANTS, checked_keys)
-        return {"mode": "simple", "tiers": {"complete_set": tier}}
+        tiers = {"complete_set": tier}
+        if grand:
+            tiers["grand_master"] = grand
+        return {"mode": "simple", "tiers": tiers}
 
     # Master Set = numbered cards + specifically that era's own top chase
     # rarity living past the numbered range (see MASTER_SET_CHASE_RARITIES)
@@ -494,6 +536,8 @@ def compute_set_completion(card_set: CardSet, checked_keys: set) -> dict:
         "master_set": _tier_progress(master_set_scope, MASTER_SET_VARIANTS, checked_keys),
         "full_master": _tier_progress(card_map, FULL_VARIANTS, checked_keys),
     }
+    if grand:
+        tiers["grand_master"] = grand
     return {"mode": "full", "tiers": tiers}
 
 

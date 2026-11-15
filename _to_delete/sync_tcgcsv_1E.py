@@ -1,0 +1,758 @@
+"""
+sync_tcgcsv - PokeBulk SA
+Syncs cards from TCGCSV into Railway DB.
+- productId is the unique key
+- card_number must be integer (skip alphanumeric like SH1, SWSH001)
+- Era codes: B1-B9 matching existing Railway eras
+- price field (not price_zar)
+- Variants from prices endpoint subTypeName
+"""
+
+import time
+import requests
+from decimal import Decimal, ROUND_UP
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction, close_old_connections
+from django.db.utils import OperationalError, InterfaceError
+from products.models import PokemonProduct, CardSet, Era, Category
+
+TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
+HEADERS = {"User-Agent": "PokeBulkSA/1.0 (pokebulk.co.za)"}
+MARKUP = Decimal("1.10")
+
+RATE_APIS = [
+    "https://api.exchangerate-api.com/v4/latest/USD",
+    "https://open.er-api.com/v6/latest/USD",
+]
+
+ERA_CODES = {
+    "B1": "WotC Base Era",
+    "B2": "EX Era",
+    "B3": "Diamond & Pearl Era",
+    "B4": "Black & White Era",
+    "B5": "XY Era",
+    "B6": "Sun & Moon Era",
+    "B7": "Sword & Shield Era",
+    "B8": "Scarlet & Violet Era",
+    "B9": "Mega Evolution Era",
+}
+
+GROUP_CONFIG = {
+    # Base Era (B1)
+    "BS":       (604,   "Base Set",                             "B1"),
+    "BS2":      (605,   "Base Set 2",                          "B1"),
+    "FO":       (630,   "Fossil",                              "B1"),
+    "JU":       (635,   "Jungle",                              "B1"),
+    "SI1":      (648,   "Southern Islands",                    "B1"),
+    "TR":       (1373,  "Team Rocket",                         "B1"),
+    "G1":       (1441,  "Gym Heroes",                          "B1"),
+    "G2":       (1440,  "Gym Challenge",                       "B1"),
+    "N1":       (1396,  "Neo Genesis",                         "B1"),
+    "N2":       (1434,  "Neo Discovery",                       "B1"),
+    "N3":       (1389,  "Neo Revelation",                      "B1"),
+    "N4":       (1444,  "Neo Destiny",                         "B1"),
+    "LC":       (1374,  "Legendary Collection",                "B1"),
+    "BSS":      (1663,  "Base Set (Shadowless)",               "B1"),
+    "PR-WB":    (1418,  "WoTC Black Star Promos",              "B1"),
+    "PR-BEST":  (1455,  "Best of Game Promos",                 "B1"),
+    # EX Era (B2)
+    "EX":       (1375,  "Expedition Base Set",                 "B2"),
+    "AQ":       (1397,  "Aquapolis",                           "B2"),
+    "SK":       (1372,  "Skyridge",                            "B2"),
+    "RS":       (1393,  "Ruby and Sapphire",                   "B2"),
+    "SS":       (1392,  "Sandstorm",                           "B2"),
+    "DR":       (1376,  "Dragon",                              "B2"),
+    "MA":       (1377,  "Team Magma vs Team Aqua",             "B2"),
+    "HL":       (1416,  "Hidden Legends",                      "B2"),
+    "RG":       (1419,  "FireRed & LeafGreen",                 "B2"),
+    "EXBS":     (1853,  "EX Battle Stadium",                   "B2"),
+    "TRR":      (1428,  "Team Rocket Returns",                 "B2"),
+    "DX":       (1404,  "Deoxys",                              "B2"),
+    "DS":       (1429,  "Delta Species",                       "B2"),
+    "EM":       (1410,  "Emerald",                             "B2"),
+    "UF":       (1398,  "Unseen Forces",                       "B2"),
+    "DF":       (1411,  "Dragon Frontiers",                    "B2"),
+    "CG":       (1395,  "Crystal Guardians",                   "B2"),
+    "HP":       (1379,  "Holon Phantoms",                      "B2"),
+    "LM":       (1378,  "Legend Maker",                        "B2"),
+    "PK":       (1383,  "Power Keepers",                       "B2"),
+    "PR-NB":    (1423,  "Nintendo Black Star Promos",          "B2"),
+    "POP1":     (1422,  "POP Series 1",                        "B2"),
+    "POP2":     (1447,  "POP Series 2",                        "B2"),
+    "POP3":     (1442,  "POP Series 3",                        "B2"),
+    "POP4":     (1452,  "POP Series 4",                        "B2"),
+    # DP / HGSS Era (B3)
+    "DP":       (1430,  "Diamond and Pearl",                   "B3"),
+    "MT":       (1368,  "Mysterious Treasures",                "B3"),
+    "SW":       (1380,  "Secret Wonders",                      "B3"),
+    "GE":       (1405,  "Great Encounters",                    "B3"),
+    "MD":       (1390,  "Majestic Dawn",                       "B3"),
+    "LA":       (1417,  "Legends Awakened",                    "B3"),
+    "CCP":      (2155,  "Countdown Calendar Promos",           "B3"),
+    "SF":       (1369,  "Stormfront",                          "B3"),
+    "PL":       (1406,  "Platinum",                            "B3"),
+    "RR":       (1367,  "Rising Rivals",                       "B3"),
+    "SV":       (1384,  "Supreme Victors",                     "B3"),
+    "AR":       (1391,  "Arceus",                              "B3"),
+    "HS":       (1402,  "HeartGold SoulSilver",                "B3"),
+    "UL":       (1399,  "Unleashed",                           "B3"),
+    "UD":       (1403,  "Undaunted",                           "B3"),
+    "TM":       (1381,  "Triumphant",                          "B3"),
+    "CoL":      (1415,  "Call of Legends",                     "B3"),
+    "RUM":      (1433,  "Rumble",                              "B3"),
+    "PR-DP":    (1421,  "DP Black Star Promos",                "B3"),
+    "PR-HS":    (1453,  "HGSS Black Star Promos",              "B3"),
+    "POP5":     (1439,  "POP Series 5",                        "B3"),
+    "POP6":     (1432,  "POP Series 6",                        "B3"),
+    "POP7":     (1414,  "POP Series 7",                        "B3"),
+    "POP8":     (1450,  "POP Series 8",                        "B3"),
+    "POP9":     (1446,  "POP Series 9",                        "B3"),
+    # Black & White Era (B4)
+    "BLW":      (1400,  "Black and White",                     "B4"),
+    "EPO":      (1424,  "Emerging Powers",                     "B4"),
+    "NVI":      (1385,  "Noble Victories",                     "B4"),
+    "NXD":      (1412,  "Next Destinies",                      "B4"),
+    "DEX":      (1386,  "Dark Explorers",                      "B4"),
+    "DRX":      (1394,  "Dragons Exalted",                     "B4"),
+    "DRV":      (1426,  "Dragon Vault",                        "B4"),
+    "BCR":      (1408,  "Boundaries Crossed",                  "B4"),
+    "PLS":      (1413,  "Plasma Storm",                        "B4"),
+    "PLF":      (1382,  "Plasma Freeze",                       "B4"),
+    "PLB":      (1370,  "Plasma Blast",                        "B4"),
+    "LTR":      (1409,  "Legendary Treasures",                 "B4"),
+    "LTRRC":    (1465,  "Legendary Treasures: Radiant Collection","B4"),
+    "PR-BLW":   (1407,  "BW Black Star Promos",                "B4"),
+    "MCD11":    (1401,  "McDonald's Collection 2011",          "B4"),
+    "MCD12":    (1427,  "McDonald's Collection 2012",          "B4"),
+    # XY Era (B5)
+    "KSS":      (1522,  "Kalos Starter Set",                   "B5"),
+    "XY":       (1387,  "XY Base Set",                         "B5"),
+    "FLF":      (1464,  "Flashfire",                           "B5"),
+    "FFI":      (1481,  "Furious Fists",                       "B5"),
+    "PHF":      (1494,  "Phantom Forces",                      "B5"),
+    "PRC":      (1509,  "Primal Clash",                        "B5"),
+    "DCR":      (1525,  "Double Crisis",                       "B5"),
+    "ROS":      (1534,  "Roaring Skies",                       "B5"),
+    "AOR":      (1576,  "Ancient Origins",                     "B5"),
+    "BKT":      (1661,  "BREAKthrough",                        "B5"),
+    "BKP":      (1701,  "BREAKpoint",                          "B5"),
+    "GEN":      (1728,  "Generations",                         "B5"),
+    "GENRC":    (1729,  "Generations: Radiant Collection",     "B5"),
+    "FCO":      (1780,  "Fates Collide",                       "B5"),
+    "STS":      (1815,  "Steam Siege",                         "B5"),
+    "EVO":      (1842,  "Evolutions",                          "B5"),
+    "PR-XY":    (1451,  "XY Black Star Promos",                "B5"),
+    "MCD14":    (1692,  "McDonald's Collection 2014",          "B5"),
+    "MCD15":    (1694,  "McDonald's Collection 2015",          "B5"),
+    "MCD16":    (3087,  "McDonald's Collection 2016",          "B5"),
+    # Sun & Moon Era (B6)
+    "SM01":     (1863,  "Sun & Moon",                          "B6"),
+    "SM02":     (1919,  "Guardians Rising",                    "B6"),
+    "SM03":     (1957,  "Burning Shadows",                     "B6"),
+    "SHL":      (2054,  "Shining Legends",                     "B6"),
+    "SM04":     (2071,  "Crimson Invasion",                    "B6"),
+    "SM05":     (2178,  "Ultra Prism",                         "B6"),
+    "SM06":     (2209,  "Forbidden Light",                     "B6"),
+    "CES":      (2278,  "Celestial Storm",                     "B6"),
+    "DRM":      (2295,  "Dragon Majesty",                      "B6"),
+    "SM8":      (2328,  "Lost Thunder",                        "B6"),
+    "SM9":      (2377,  "Team Up",                             "B6"),
+    "DET":      (2409,  "Detective Pikachu",                   "B6"),
+    "SM10":     (2420,  "Unbroken Bonds",                      "B6"),
+    "SM11":     (2464,  "Unified Minds",                       "B6"),
+    "HIF":      (2480,  "Hidden Fates",                        "B6"),
+    "HIFSV":    (2594,  "Hidden Fates: Shiny Vault",           "B6"),
+    "SM12":     (2534,  "Cosmic Eclipse",                      "B6"),
+    "SMK1":     (2069,  "SM Trainer Kit: Lycanroc & Alolan Raichu", "B6"),
+    "SMK2":     (2208,  "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales", "B6"),
+    "WCD":      (2282,  "World Championship Decks",            "B6"),
+    "PR-SM":    (1861,  "SM Black Star Promos",                "B6"),
+    "MCD17":    (2148,  "McDonald's Collection 2017",          "B6"),
+    "MCD18":    (2364,  "McDonald's Collection 2018",          "B6"),
+    "MCD19":    (2555,  "McDonald's Collection 2019",          "B6"),
+    # Sword & Shield Era (B7)
+    "SSH":      (2585,  "Sword & Shield",                      "B7"),
+    "RCL":      (2626,  "Rebel Clash",                         "B7"),
+    "DAA":      (2675,  "Darkness Ablaze",                     "B7"),
+    "CHP":      (2685,  "Champion's Path",                     "B7"),
+    "VIV":      (2701,  "Vivid Voltage",                       "B7"),
+    "SHF":      (2754,  "Shining Fates",                       "B7"),
+    "SHFSV":    (2781,  "Shining Fates: Shiny Vault",          "B7"),
+    "BST":      (2765,  "Battle Styles",                       "B7"),
+    "MCD21":    (2782,  "McDonald's 25th Anniversary",         "B7"),
+    "CRE":      (2807,  "Chilling Reign",                      "B7"),
+    "EVS":      (2848,  "Evolving Skies",                      "B7"),
+    "CLB":      (2867,  "Celebrations",                        "B7"),
+    "CCC":      (2931,  "Celebrations: Classic Collection",    "B7"),
+    "FST":      (2906,  "Fusion Strike",                       "B7"),
+    "BRS":      (2948,  "Brilliant Stars",                     "B7"),
+    "BRSTG":    (3020,  "Brilliant Stars Trainer Gallery",     "B7"),
+    "ASR":      (3040,  "Astral Radiance",                     "B7"),
+    "PGO":      (3064,  "Pokemon GO",                          "B7"),
+    "ASRTG":    (3068,  "Astral Radiance Trainer Gallery",     "B7"),
+    "LOR":      (3118,  "Lost Origin",                         "B7"),
+    "LORTG":    (3172,  "Lost Origin Trainer Gallery",         "B7"),
+    "SIT":      (3170,  "Silver Tempest",                      "B7"),
+    "SITTG":    (17674, "Silver Tempest Trainer Gallery",      "B7"),
+    "CRZ":      (17688, "Crown Zenith",                        "B7"),
+    "CRZGG":    (17689, "Crown Zenith: Galarian Gallery",      "B7"),
+    "TK22":    (3179,  "Trick or Trade 2022",                 "B7"),
+    "MCD22":    (3150,  "McDonald's Collection 2022",          "B7"),
+    "PR-SWSH":  (2545,  "SWSH Black Star Promos",              "B7"),
+    # Scarlet & Violet Era (B8)
+    "SVP":      (22872, "Scarlet & Violet Promos",             "B8"),
+    "SVI":      (22873, "Scarlet & Violet",                    "B8"),
+    "PRIZEPACK":(22880, "Prize Pack Series",                   "B8"),
+    "PAL":      (23120, "Paldea Evolved",                      "B8"),
+    "OBF":      (23228, "Obsidian Flames",                     "B8"),
+    "MEW":      (23237, "Scarlet & Violet 151",                "B8"),
+    "TK23":    (23266, "Trick or Trade 2023",                 "B8"),
+    "PAR":      (23286, "Paradox Rift",                        "B8"),
+    "MCD23":    (23306, "McDonald's Collection 2023",          "B8"),
+    "TCGCL":    (23323, "Trading Card Game Classic",           "B8"),
+    "PAF":      (23353, "Paldean Fates",                       "B8"),
+    "TEF":      (23381, "Temporal Forces",                     "B8"),
+    "TWM":      (23473, "Twilight Masquerade",                 "B8"),
+    "SFA":      (23529, "Shrouded Fable",                      "B8"),
+    "SCR":      (23537, "Stellar Crown",                       "B8"),
+    "TK24":    (23561, "Trick or Trade 2024",                 "B8"),
+    "SSP":      (23651, "Surging Sparks",                      "B8"),
+    "PRE":      (23821, "Prismatic Evolutions",                "B8"),
+    "JTG":      (24073, "Journey Together",                    "B8"),
+    "MCD24":    (24163, "McDonald's Collection 2024",          "B8"),
+    "DRI":      (24269, "Destined Rivals",                     "B8"),
+    "BLK":      (24325, "Black Bolt",                          "B8"),
+    "WHT":      (24326, "White Flare",                         "B8"),
+    "SVE":      (24382, "Scarlet & Violet Energies",           "B8"),
+    # Mega Evolution Era (B9)
+    "MEG":      (24380, "Mega Evolution",                      "B9"),
+    "PFL":      (24448, "Phantasmal Flames",                   "B9"),
+    "MEP":      (24451, "Mega Evolution Promos",               "B9"),
+    "MEE":      (24461, "Mega Evolution Energies",             "B9"),
+    "ASC":      (24541, "Ascended Heroes",                     "B9"),
+    "POR":      (24587, "Perfect Order",                       "B9"),
+    "CRI":      (24655, "Chaos Rising",                        "B9"),
+    # 2026-09-11: Pitch Black was missing entirely -- this script couldn't
+    # sync it at all, which is why it had to be built/rescued by hand (see
+    # sync_rarities_from_tcgcsv.py). Added here, plus the next two MEG-era
+    # groups confirmed live on TCGCSV (tcgcsv.com/tcgplayer/3/groups) that
+    # were also missing. NOT added, flagged for Michael instead: groupId
+    # 24529 "Player Placement Trainer Promos" and 24584 "First Partner
+    # Collection 2026" -- both exist on TCGCSV but their era wasn't
+    # confirmed one way or the other, so guessing B9 risked mis-filing them.
+    "PBL":      (24688, "Pitch Black",                         "B9"),
+    # 2026-09-29 fix: these two keys were "ME30"/"ME30CC" -- never matching
+    # the real CardSet.code ("30C"/"30CC", set when the site's actual 30C
+    # data went in through the bible-CSV -> sync_bible_to_db.py pipeline
+    # instead of this command). Because CardSet.objects.get_or_create(code=
+    # set_code, ...) keys off this dict's key, running this command with
+    # the old keys would have created a brand-new, duplicate "ME30" CardSet
+    # alongside the real "30C" one rather than adding to it. Confirmed live
+    # via the API that no "ME30" CardSet has ever actually been created
+    # (this command was never successfully run for this set before), so
+    # this is a same-day typo fix, not a migration of existing data.
+    "30C":      (24722, "30th Celebration",                    "B9"),
+    "30CC":     (24837, "30th Celebration Classic Collection",  "B9"),
+    "ME06":     (24831, "Delta Reign",                         "B9"),
+}
+
+# 2026-11-06, Michael: "the base set cards have different variants ... 1st
+# edition, Shadowless and Shadowed ... need to be defined 100% correctly".
+# This map used to send BOTH "1st Edition" and "Unlimited" to "N" (and both
+# holo subtypes to "H"). TCGCSV gives the two printings the SAME productId,
+# so they collided on (productId, "N"): only one row per card was ever made,
+# the 1st Edition printing could not be stocked/ticked/caught, and the row's
+# price was whichever subtype happened to be processed last.
+# Now 1st Edition gets its own codes. Full spec: project doc
+# claude/wotc_print_runs_spec.md.
+#   Base Set (Unlimited)  = group 604  -> "Normal"/"Holofoil"   -> N / H (shadowed)
+#   Base Set (1st Ed & Shadowless) = group 1663:
+#       "1st Edition"/"1st Edition Holofoil" -> 1E / 1EH
+#       "Unlimited"/"Unlimited Holofoil"     -> N / H  (= SHADOWLESS in this set)
+#   Jungle, Fossil, TR, Gym, Neo: 1st Edition -> 1E/1EH, Unlimited -> N/H
+SUBTYPE_MAP = {
+    "Normal":               "N",
+    "Holofoil":             "H",
+    "Reverse Holofoil":     "RH",
+    "1st Edition Normal":   "1E",
+    "1st Edition Holofoil": "1EH",
+    "1st Edition":          "1E",
+    "Unlimited Normal":     "N",
+    "Unlimited Holofoil":   "H",
+    "Unlimited":            "N",
+    "":                     "H",
+}
+FIRST_EDITION_VARIANTS = {"1E", "1EH"}
+
+# TCGCSV market prices for raw 1st Edition holos are unreliable (live
+# 2026-11-06: BSS Charizard 1st Ed Holo market $1,000 with a lowest listing
+# of $100,000, cheaper than its own Shadowless holo at $2,172). A market
+# price is treated as untrustworthy when it is missing, or when the lowest
+# listing is more than this many times the market price. Untrustworthy
+# prices never overwrite an existing row, and new rows created from one are
+# price_locked for Michael to price by hand.
+UNRELIABLE_LOW_TO_MARKET = 3
+
+# Every 1st Edition row touched in a run is written here (dry run or live)
+# so Michael can review/price them -- see _write_first_edition_report().
+FIRST_EDITION_REPORT = []
+PRICE_DRIFT_REPORT = []
+
+
+def _price_unreliable(mkt, low):
+    if mkt is None:
+        return True
+    try:
+        return low is not None and float(low) > float(mkt) * UNRELIABLE_LOW_TO_MARKET
+    except (TypeError, ValueError):
+        return True
+
+
+# 2026-09-29: moved to PokemonProduct.VARIANT_SORT_ORDER (products/models.py)
+# so this script, the manage_set admin tool, and the sync_variant_sort
+# backfill command all read from the same table instead of three copies
+# that can drift out of sync -- see that constant's own comment for why
+# this mattered (a stale variant_sort was letting Rev Holo sort ahead of
+# Holo on some cards). Kept as a local alias so every call site below
+# didn't need touching.
+VARIANT_SORT_ORDER = PokemonProduct.VARIANT_SORT_ORDER
+
+
+# Sets where TCGPlayer has wrong/Japanese images - use pokemontcg.io instead
+PTCGIO_IMAGE_SETS = {
+    "HIFSV": "sma",       # Hidden Fates Shiny Vault
+    "SHFSV": "swsh45sv",  # Shining Fates Shiny Vault
+    "CCC":   "cel25c",    # Celebrations Classic Collection
+    "CLB":   "cel25",     # Celebrations
+    "CRZGG": "swsh12pt5gg", # Crown Zenith Galarian Gallery
+    "BRSTG": "swsh9tg",   # Brilliant Stars Trainer Gallery
+    "ASRTG": "swsh10tg",  # Astral Radiance Trainer Gallery
+    "LORTG": "swsh11tg",  # Lost Origin Trainer Gallery
+    "SITTG": "swsh12tg",  # Silver Tempest Trainer Gallery
+}
+
+# 2026-09-11, Michael: "please fix sync_tcgcsv.py that is critical script
+# for all our info in api and site" -- this map had drifted from the one in
+# rebuild_from_tcgcsv.py (the two have never been a single source of truth)
+# and picked up real bugs along the way. Confirmed against live TCGCSV data
+# while cleaning up Pitch Black:
+#   - "Double Rare" was mapped to "ultra_rare" -- the same bucket as the
+#     literal "Ultra Rare" string, which is what caused a card's normal ex
+#     print and its separate full-art reprint (e.g. Lurantis ex 004/084 vs
+#     096/084) to collide under one rarity. double_rare is now its own
+#     PokemonProduct.RARITY_CHOICES entry -- see products/models.py.
+#   - "Shiny Rare"/"Shiny Ultra Rare"/"Rare Shiny"/"Rare Shiny GX" mapped to
+#     "shiny_rare"/"shiny_ultra_rare" -- NEITHER is a valid RARITY_CHOICES
+#     value. Since PokemonProduct.save() never calls full_clean(), this
+#     silently wrote an invalid rarity string into the DB instead of
+#     raising -- any card synced through these keys got a rarity no admin
+#     filter, tier check, or get_rarity_display() call would recognise.
+#     Remapped to "secret_rare", matching rebuild_from_tcgcsv.py.
+#   - "Mega Hyper Rare" mapped to "hyper_rare" and "Mega Attack Rare" mapped
+#     to "ultra_rare" -- both have their own RARITY_CHOICES entries
+#     (mega_hyper_rare / mega_attack_rare) that MASTER_SET_CHASE_RARITIES
+#     (products/completion.py) specifically checks for. Any MEG-era card
+#     synced through the old mapping would have silently never counted
+#     toward Master Set completion. This is the exact same bug caught on
+#     Pitch Black's Mega Darkrai EX 120/084.
+#   - "ACE SPEC Rare" mapped to "ultra_rare" instead of the dedicated
+#     "ace_spec" choice.
+#   - "Amazing Rare" / "Trainer Gallery Rare Holo" disagreed with
+#     rebuild_from_tcgcsv.py's mapping for the same TCGCSV strings --
+#     aligned to that file's values so the two scripts agree.
+#   - "Shiny Rare" / "Shiny Ultra Rare" were each listed twice with
+#     different (both wrong) values -- deduplicated.
+#
+# IMPORTANT, flagged separately to Michael: this fixes rarity going FORWARD
+# only. _sync_group()'s update path (further down) only refreshes price and
+# image_url on rows that already exist -- it has never touched rarity on an
+# existing row. Any set already synced under the old, buggy map keeps its
+# wrong rarities until it's re-synced with something like
+# sync_rarities_from_tcgcsv.py (which fetches live and corrects rarity on
+# existing rows) -- this fix alone does not retroactively repair anything.
+RARITY_MAP = {
+    "Common": "common", "Uncommon": "uncommon", "Rare": "rare",
+    "Holo Rare": "holo_rare", "Rare Holo": "holo_rare",
+    "Rare Holo V": "holo_rare", "Rare Holo VMAX": "ultra_rare",
+    "Rare Holo VSTAR": "ultra_rare", "Rare Holo EX": "ultra_rare",
+    "Rare Holo GX": "ultra_rare", "Ultra Rare": "ultra_rare",
+    "Double Rare": "double_rare", "Illustration Rare": "illustration_rare",
+    "Special Illustration Rare": "special_illustration_rare",
+    "Hyper Rare": "hyper_rare",
+    "Shiny Rare": "secret_rare", "Shiny Ultra Rare": "secret_rare",
+    "Rare Secret": "secret_rare",
+    "Rare Rainbow": "hyper_rare", "Rare Shining": "holo_rare",
+    "Rare Shiny": "secret_rare", "Rare Shiny GX": "secret_rare",
+    "Rare Prism Star": "ultra_rare", "Amazing Rare": "holo_rare",
+    "Trainer Gallery Rare Holo": "ultra_rare",
+    "Trainer Gallery Ultra Rare": "ultra_rare",
+    "Trainer Gallery Secret Rare": "secret_rare",
+    "Classic Collection": "holo_rare", "ACE SPEC Rare": "ace_spec",
+    "Mega Hyper Rare": "mega_hyper_rare", "Mega Attack Rare": "mega_attack_rare",
+    # 2026-09-16/29, 30th Celebration tiers -- "Pikachu Rare"/"Futuristic
+    # Rare" were already added to models.py's RARITY_CHOICES and to
+    # sync_bible_to_db.py's own RARITY_MAP when that set launched, but
+    # never added here (this command had never actually been run for 30C
+    # until now -- see the GROUP_CONFIG key fix above). Without these,
+    # RARITY_MAP.get(rarity_raw, "common") would silently mis-file any of
+    # these as "common" the moment this command creates one. "RGB Rare" is
+    # brand new as of the Mew - R/G/B/RGB trio fix (also new in
+    # models.py's RARITY_CHOICES).
+    "Pikachu Rare": "pikachu_rare", "Futuristic Rare": "futuristic_rare",
+    "RGB Rare": "rgb_rare",
+}
+
+
+def _get_rate(override=None):
+    if override:
+        return Decimal(str(override))
+    for url in RATE_APIS:
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            rates = data.get("rates") or data.get("conversion_rates", {})
+            if "ZAR" in rates:
+                return Decimal(str(rates["ZAR"]))
+        except Exception:
+            continue
+    raise CommandError("Could not fetch USD/ZAR rate.")
+
+
+def _zar_price(usd, rate):
+    """Convert USD to ZAR with markup, round UP to nearest R0.50, min R1.50"""
+    import math
+    raw = Decimal(str(usd)) * rate * MARKUP
+    val = max(Decimal("1.50"), raw)
+    return Decimal(math.ceil(float(val) * 2)) / 2
+
+
+def _ext(extended_data, field_name):
+    for item in extended_data:
+        if item.get("name") == field_name:
+            return item.get("value", "")
+    return ""
+
+
+def _parse_number(raw):
+    if not raw:
+        return None
+    import re
+    raw = str(raw).split("/")[0].strip()
+    try:
+        return int(raw)
+    except ValueError:
+        # Handle prefixed numbers: TG01, SV1, GG19, RC1 etc.
+        match = re.match(r'^[A-Za-z]+(\d+)$', raw)
+        if match:
+            return int(match.group(1))
+        return None
+
+
+def _sync_group(set_code, group_id, set_name, era_code, rate, dry_run):
+    created = skipped = no_price = non_card = 0
+
+    try:
+        r = requests.get(f"{TCGCSV_BASE}/{group_id}/products", headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        products = r.json().get("results", [])
+    except Exception as e:
+        print(f"  [products] fetch failed: {e}")
+        return dict(created=0, skipped=0, no_price=0, non_card=0)
+
+    prices = {}
+    raw_prices = {}  # (pid, sub) -> (market, low), for the reliability guard
+    try:
+        r = requests.get(f"{TCGCSV_BASE}/{group_id}/prices", headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        for row in r.json().get("results", []):
+            pid = row.get("productId")
+            sub = row.get("subTypeName", "")
+            mkt = row.get("marketPrice")
+            low = row.get("lowPrice")
+            prices[(pid, sub)] = mkt or low
+            raw_prices[(pid, sub)] = (mkt, low)
+    except Exception as e:
+        print(f"  [prices] fetch failed: {e}")
+
+    print(f"  {len(products)} products, {len(prices)} price rows")
+
+    era = Era.objects.get(code=era_code)
+    card_set, _ = CardSet.objects.get_or_create(
+        code=set_code,
+        defaults={"name": set_name, "era": era}
+    )
+    category, _ = Category.objects.get_or_create(name="Pokemon")
+
+    existing = set(
+        PokemonProduct.objects.filter(tcgcsv_product_id__isnull=False)
+        .values_list("tcgcsv_product_id", "variant_override")
+    )
+    # Build lookup for updating prices on existing records
+    existing_map = {
+        (obj.tcgcsv_product_id, obj.variant_override): obj
+        for obj in PokemonProduct.objects.filter(
+            card_set=card_set, tcgcsv_product_id__isnull=False, condition='NM'
+        )
+    }
+
+    to_create = []
+
+    for p in products:
+        pid = p.get("productId")
+        name = (p.get("name") or "").strip()
+        image_url = p.get("imageUrl", "")
+        # Override image URL for sets with wrong/Japanese TCGPlayer images
+        ptcgio_set = PTCGIO_IMAGE_SETS.get(set_code)
+        ext = p.get("extendedData", [])
+
+        number_raw = _ext(ext, "Number")
+        rarity_raw = _ext(ext, "Rarity")
+
+        card_number = _parse_number(number_raw)
+        if card_number is None:
+            # 2026-09-29, 30th Celebration: TCGCSV's "Number" field isn't
+            # always a parseable int -- e.g. the Mew trio Michael flagged
+            # missing ("Mew - R/RGB", "Mew - G/RGB", "Mew - B/RGB", rarity
+            # "RGB Rare") use "R/RGB" etc instead of a real set position.
+            # Real sealed product (boosters, tins, figure collections) has
+            # NEITHER a Number NOR a Rarity field in TCGCSV at all -- only
+            # actual cards have both. So: Number present but unparseable,
+            # with a Rarity also present, means a real card with no normal
+            # numbering, not sealed product -- keep it, with card_number
+            # left null (the model field allows this) and the raw string
+            # preserved in `number` below. generate_checklist_data.py
+            # already expects exactly this shape (its own comment: "have no
+            # integer card_number and must NOT be dropped"), so no frontend
+            # change is needed for these to show up and sort to the end of
+            # their set. Only genuinely non-card rows (no Number, no
+            # Rarity) still get skipped here.
+            if not (number_raw and rarity_raw):
+                non_card += 1
+                continue
+
+        product_prices = {sub: usd for (p_id, sub), usd in prices.items() if p_id == pid}
+        if not product_prices:
+            product_prices = {"": None}
+
+        for sub, usd in product_prices.items():
+            variant = SUBTYPE_MAP.get(sub, "N")
+            rarity = RARITY_MAP.get(rarity_raw, "common")
+            zar = _zar_price(usd, rate) if usd else None
+            # Use pokemontcg.io image for special sets
+            card_image_url = image_url
+            if ptcgio_set and number_raw:
+                num_part = str(number_raw).split("/")[0].strip()
+                card_image_url = f"https://images.pokemontcg.io/{ptcgio_set}/{num_part}.png"
+
+            if usd is None:
+                no_price += 1
+
+            # 2026-09-11, Michael: found while cleaning up Pitch Black -- this
+            # used to be f"{set_code}-{card_number}-{variant}" (e.g.
+            # "PBL-4-H"), which doesn't match the "TCGCSV-<productId>..."
+            # pattern every other row created through the normal catalog
+            # pipeline uses. generate_checklist_data.py's TCGCSV_PID_RE and
+            # the checklist page's own live Buy-button matching (see
+            # pokemart-frontend/src/app/checklists/page.tsx) both parse the
+            # TCGCSV product id straight out of pb_id -- a row created with
+            # the old format has a real tcgcsv_product_id on the model, but
+            # the checklist page can never find it, so Buy silently doesn't
+            # work. Confirmed this wasn't Pitch-Black-specific: sampled a
+            # few already-live sets (SSP, JTG, DRI) and found the same
+            # "{set}-{num}-H"-style pb_id scattered in each of them, so this
+            # was already happening whenever this script created a card
+            # TCGCSV didn't have full price coverage for yet -- not a new
+            # bug. This fix only changes cards created from now on; the
+            # rows already affected need a one-off pb_id backfill (not part
+            # of this file).
+            pb_id = f"TCGCSV-{pid}-{variant}"
+
+            mkt_raw, low_raw = raw_prices.get((pid, sub), (None, None))
+            is_first_ed = variant in FIRST_EDITION_VARIANTS
+            unreliable = is_first_ed and _price_unreliable(mkt_raw, low_raw)
+            if unreliable:
+                # Don't let a bad market figure drive the price.
+                usd = None
+                zar = None
+
+            if is_first_ed:
+                FIRST_EDITION_REPORT.append({
+                    "set": set_code, "number": number_raw, "name": name,
+                    "variant": variant, "tcgcsv_product_id": pid,
+                    "market_usd": mkt_raw, "low_usd": low_raw,
+                    "proposed_zar": str(_zar_price(usd, rate)) if usd else "",
+                    "action": "exists" if (pid, variant) in existing else "create",
+                    "flag": "PRICE BY HAND" if (unreliable or variant == "1EH") else "",
+                })
+
+            if (pid, variant) in existing:
+                # Update price and image on existing record
+                obj = existing_map.get((pid, variant))
+                if obj and usd and not obj.price_locked:
+                    new_price = _zar_price(usd, rate)
+                    if obj.sell_pct:
+                        # Follows the market at X% of TCG (set on a buying invoice).
+                        new_price = (Decimal(str(new_price)) * obj.sell_pct / 100).quantize(Decimal("0.01"))
+                    new_price = obj.apply_price_lock(Decimal(str(new_price)))  # R600+ cards: never below 90% of our cost
+                    new_img = card_image_url if ptcgio_set and number_raw else None
+                    if obj.price != new_price or (new_img and obj.image_url != new_img):
+                        if obj.price != new_price:
+                            PRICE_DRIFT_REPORT.append({
+                                "set": set_code, "number": number_raw, "name": name,
+                                "variant": variant, "subtype": sub, "pb_id": obj.pb_id,
+                                "current_zar": str(obj.price), "new_zar": str(new_price),
+                                "stock": obj.stock,
+                            })
+                        # 2026-11-06: dry runs used to SAVE these price updates
+                        # (the dry_run check only guarded creates). Never write
+                        # in a dry run.
+                        if not dry_run:
+                            obj.price = new_price
+                            if new_img:
+                                obj.image_url = new_img
+                            obj.save(update_fields=['price', 'image_url', 'updated_at'])
+                skipped += 1
+                continue
+
+            if dry_run:
+                print(f"    [DRY] {pb_id} | {name} | {variant} | R{zar}")
+                created += 1
+                continue
+
+            # 1st Edition holos, and any 1st Edition row whose TCGCSV price
+            # failed the reliability guard, are created price_locked so the
+            # nightly sync never overwrites the hand-set price. stock=0 so
+            # nothing is buyable until Michael prices and stocks it.
+            lock_new = is_first_ed and (unreliable or variant == "1EH")
+            if usd is None:
+                zar = None
+
+            to_create.append(PokemonProduct(
+                pb_id=pb_id,
+                tcgcsv_product_id=pid,
+                name=name,
+                card_number=card_number,
+                # card_number is null for the non-numeric-Number case above
+                # (e.g. "R/RGB") -- store the raw TCGCSV number string here
+                # so the card still has a real identifier/display value.
+                number=(number_raw or "") if card_number is None else "",
+                card_set=card_set,
+                category=category,
+                variant_override=variant,
+                variant_sort=VARIANT_SORT_ORDER.get(variant, 9),
+                rarity=rarity,
+                image_url=card_image_url,
+                price=zar if zar is not None else Decimal("1.50"),
+                price_locked=lock_new,
+                stock=0,
+            ))
+
+    if to_create and not dry_run:
+        for obj in to_create:
+            try:
+                obj.save()
+                created += 1
+            except Exception:
+                skipped += 1
+
+    return dict(created=created, skipped=skipped, no_price=no_price, non_card=non_card)
+
+
+def _write_first_edition_report(dry_run, stdout):
+    import csv
+    tag = "dryrun" if dry_run else "live"
+    stamp = time.strftime("%Y%m%d_%H%M")
+    if FIRST_EDITION_REPORT:
+        fn = f"first_edition_rows_{tag}_{stamp}.csv"
+        with open(fn, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(FIRST_EDITION_REPORT[0].keys()))
+            w.writeheader(); w.writerows(FIRST_EDITION_REPORT)
+        by = {}
+        for r in FIRST_EDITION_REPORT:
+            k = (r["variant"], r["action"])
+            by[k] = by.get(k, 0) + 1
+        stdout.write(f"1st Edition rows: {by}  -> {fn}")
+        stdout.write(f"  needing a hand-set price: {sum(1 for r in FIRST_EDITION_REPORT if r['flag'])}")
+    if PRICE_DRIFT_REPORT:
+        fn = f"price_changes_{tag}_{stamp}.csv"
+        with open(fn, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(PRICE_DRIFT_REPORT[0].keys()))
+            w.writeheader(); w.writerows(PRICE_DRIFT_REPORT)
+        verb = "would change" if dry_run else "changed"
+        stdout.write(f"Existing rows whose price {verb}: {len(PRICE_DRIFT_REPORT)}  -> {fn}")
+
+
+class Command(BaseCommand):
+    help = "Sync cards from TCGCSV into Railway DB"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--set-code", type=str)
+        parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--rate", type=float)
+        parser.add_argument("--delay", type=float, default=0.1)
+
+    def handle(self, *args, **options):
+        set_filter = options.get("set_code")
+        dry_run = options.get("dry_run", False)
+        delay = options.get("delay", 0.1)
+
+        self.stdout.write("Fetching USD/ZAR rate...")
+        rate = _get_rate(options.get("rate"))
+        self.stdout.write(f"1 USD = R{rate:.2f}\n")
+
+        config = GROUP_CONFIG
+        if set_filter:
+            if set_filter not in config:
+                raise CommandError(f"Unknown set code: {set_filter}")
+            config = {set_filter: config[set_filter]}
+
+        total = len(config)
+        self.stdout.write(f"Processing {total} group(s)...")
+
+        grand = dict(created=0, skipped=0, no_price=0, non_card=0)
+
+        for i, (code, (gid, sname, era_code)) in enumerate(config.items(), 1):
+            self.stdout.write(f"[{i}/{total}] {code} - {sname} (group {gid})")
+
+            max_attempts = 3
+            stats = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    stats = _sync_group(code, gid, sname, era_code, rate, dry_run)
+                    break
+                except (OperationalError, InterfaceError) as e:
+                    self.stdout.write(
+                        f"  !! DB connection error on attempt {attempt}/{max_attempts}: {e}"
+                    )
+                    close_old_connections()
+                    if attempt < max_attempts:
+                        time.sleep(2 * attempt)
+                        self.stdout.write(f"  retrying {code}...")
+                    else:
+                        self.stdout.write(
+                            f"  !! GIVING UP on {code} after {max_attempts} attempts, moving on"
+                        )
+                        stats = dict(created=0, skipped=0, no_price=0, non_card=0)
+                except Exception as e:
+                    self.stdout.write(f"  !! UNEXPECTED ERROR on {code}: {e}")
+                    close_old_connections()
+                    stats = dict(created=0, skipped=0, no_price=0, non_card=0)
+                    break
+
+            self.stdout.write(
+                f"  created={stats['created']}  skipped={stats['skipped']}"
+                f"  no_price={stats['no_price']}  non_card={stats['non_card']}"
+            )
+            for k in grand:
+                grand[k] += stats[k]
+            if delay:
+                time.sleep(delay)
+
+        self.stdout.write("\n" + "=" * 60)
+        self.stdout.write(
+            f"DONE  created={grand['created']}  skipped={grand['skipped']}"
+            f"  no_price={grand['no_price']}  non_card={grand['non_card']}"
+        )
+        self.stdout.write(f"Net new cards in DB: {grand['created']}")
+        _write_first_edition_report(dry_run, self.stdout)

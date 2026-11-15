@@ -1,5 +1,24 @@
 # Project rules
 
+## PowerShell git commands — always clear the stale index.lock first
+
+Michael's Windows checkout keeps leaving behind a stale `.git\index.lock`
+that blocks `git add`/`commit`/`push` — deleting it by hand hasn't stuck
+(it comes back). Michael, 2026-08-17: "when powershell commands to run,
+that you add the gitlock, that you delete... so if the delete can be added
+automatically to all commands."
+
+Whenever giving Michael a PowerShell git command sequence to run (in this
+repo or `pokemart-frontend`), always prepend a line clearing the lock first
+— every time, not just after a lock error has already shown up:
+
+```powershell
+Remove-Item -Force .git\index.lock -ErrorAction SilentlyContinue
+git add <files>
+git commit -m "..."
+git push
+```
+
 ## Image hosting — always R2, never external hotlinks
 
 Every image URL stored anywhere on this site (set logos/symbols, era logos,

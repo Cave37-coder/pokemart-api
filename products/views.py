@@ -293,7 +293,7 @@ def stock_entry(request):
             .order_by('card_number', 'variant_sort')
             .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price', 'condition', 'tcgcsv_product_id')
         )
-        VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
+        VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH','DE','DEH','CI','TI','ST'}
         for c in cards:
             vs = c.get('variant_override') or ''
             c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -738,7 +738,7 @@ def stock_print(request):
         .order_by('card_number', 'variant_sort')
         .values('id', 'name', 'card_number', 'variant_sort', 'variant_override', 'rarity', 'stock', 'price')
     )
-    VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH'}
+    VALID_VARIANTS = {'N','H','RH','FE','PB','MB','LB','FB','QB','UB','DB','TR','SE','PBP','MBP','CC','TT','HR-EX','EX','GX','V','VMAX','VSTAR','RR','RAD','CH','DE','DEH','CI','TI','ST'}
     for c in cards:
         vs = c.get('variant_override') or ''
         c['var_label'] = vs if vs in VALID_VARIANTS else 'N'
@@ -752,6 +752,7 @@ def stock_print(request):
         'CC': 'Code Card', 'TT': 'Trick or Trade', 'HR-EX': 'Illustration Rare',
         'EX': 'Double Rare', 'GX': 'GX', 'V': 'V', 'VMAX': 'VMAX', 'VSTAR': 'VSTAR',
         'RR': 'Rainbow Rare', 'RAD': 'Radiant', 'CH': 'Cosmos Holo',
+        'DE': 'Deck Exclusive', 'DEH': 'Deck Exclusive Holo', 'CI': 'Cracked Ice Holo', 'TI': 'Tinsel Holo', 'ST': '30th Stamp',
     }
 
     from itertools import groupby as igroup
@@ -1881,6 +1882,7 @@ def checklist_progress(request):
 # full) at a time so the two never actually compete against each other.
 _TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
 _TIER_RANK['complete_set'] = len(TIER_ORDER)
+_TIER_RANK['grand_master'] = len(TIER_ORDER) + 1
 
 
 @api_view(['GET'])
@@ -2374,6 +2376,8 @@ def bundle_opportunities_scan(request):
             continue  # nothing in stock at all for this set -- skip without even scoring
         result = compute_set_completion(card_set, stock_keys)
         for tier_key, data in result['tiers'].items():
+            if tier_key == 'grand_master':
+                continue  # not a stock-bundle tier
             if (card_set.code, tier_key) in already_accepted:
                 continue
             if data['required'] and data['pct'] >= BUNDLE_OPPORTUNITY_THRESHOLD_PCT:

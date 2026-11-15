@@ -160,6 +160,9 @@ class PokemonProduct(models.Model):
         # CH = Cosmos Holo print of a normal set card from a blister / box
         # (sync_blister_cosmos, 2026-10-27).
         "CH": 17,
+        # Deck Exclusive prints (DE non-holo, DEH holo, CI Cracked Ice Holo, TI Tinsel Holo) and
+        # 30th Celebration stamped prints (ST) -- sync_blister_cosmos, 2026-11-15, Grand Master Set.
+        "DE": 18, "DEH": 19, "CI": 20, "TI": 21, "ST": 22,
     }
 
     CONDITION_CHOICES = [

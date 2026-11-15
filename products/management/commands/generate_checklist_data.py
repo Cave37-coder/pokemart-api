@@ -310,6 +310,8 @@ FULL_VARIANTS = frozenset({
     "N", "H", "RH", "PB", "MB", "LB", "FB", "QB", "UB", "DB", "TT", "ESH",
     "CH",  # Cosmos Holo blister/box prints (sync_blister_cosmos)
     "FE",  # 1st Edition print of a WotC-era card (2026-11-06)
+    # Grand Master extras (2026-11-15): Deck Exclusive prints, Cracked Ice / Tinsel Holo, 30th Celebration stamped
+    "DE", "DEH", "CI", "TI", "ST",
 })
 
 

@@ -31,6 +31,7 @@ VARIANT_LABEL = {
     "QB": "Quick Ball", "UB": "Ultra Ball", "DB": "Dusk Ball", "TR": "Team Rocket",
     "SE": "Secret", "PBP": "Poke Ball Pattern", "MBP": "Master Ball Pattern",
     "CC": "Code Card", "TT": "Trick or Trade", "CH": "Cosmos Holo", "ESH": "Energy Symbol Holo",
+    "DE": "Deck Exclusive", "DEH": "Deck Exclusive Holo", "CI": "Cracked Ice Holo", "TI": "Tinsel Holo", "ST": "30th Stamp",
     "HR-EX": "Illustration Rare", "EX": "Double Rare",
 }
 # WotC print runs (same rule as the site's lib/printing.ts).

@@ -28,6 +28,13 @@ the checklists and Grand Master Set completion:
 Anything that can't be matched with certainty is listed for a manual look,
 never guessed.
 
+2026-11-15 (Grand Master Set): the same importer now also adds the DECK EXCLUSIVE prints (group 1840) and
+the 30th Celebration stamped prints, as extra variants on the parent card:
+    CH  Cosmos Holo            DE  Deck Exclusive (non-holo)     DEH Deck Exclusive Holo
+    CI  Cracked Ice Holo       TI  Tinsel Holo                   ST  30th Celebration stamped (Reverse Holo)
+They count in the Grand Master tier only (products/completion.py). Run audit_grand_master first to see
+what will be added / what can't be matched.
+
 Usage:
     python manage.py sync_blister_cosmos --dry-run
     python manage.py sync_blister_cosmos
@@ -52,7 +59,29 @@ from products import card_info as info
 TCGCSV_BASE = "https://tcgcsv.com/tcgplayer/3"
 HEADERS = {"User-Agent": "PokeBulkSA-BlisterSync/1.0 (enquiries@pokebulk.co.za)"}
 DEFAULT_GROUPS = [2289, 1840]  # Blister Exclusives + Deck Exclusives (added 2026-11-03)
-VARIANT = "CH"
+VARIANT = "CH"   # kept for imports elsewhere
+EXTRA_VARIANTS = ("CH", "DE", "DEH", "CI", "TI", "ST")
+VARIANT_LABEL = {"CH": "Cosmos Holo", "DE": "Deck Exclusive", "DEH": "Deck Exclusive Holo",
+                 "CI": "Cracked Ice Holo", "TI": "Tinsel Holo", "ST": "30th Celebration stamp"}
+
+
+def variant_for(name, rarity=""):
+    """Which extra-print variant a TCGplayer Blister/Deck Exclusive listing is. Order matters:
+    a '(30th Celebration) (Cosmos Holo)' is Cosmos Holo (that is how CH has always been imported)."""
+    low = (name or "").lower()
+    if "cosmo" in low:
+        return "CH"
+    if "30th" in low:
+        return "ST"
+    if "cracked ice" in low:
+        return "CI"
+    if "tinsel" in low:
+        return "TI"
+    if "non-holo" in low or "non holo" in low:
+        return "DE"
+    if "holo" in low or "holo" in (rarity or "").lower():
+        return "DEH"
+    return "DE"
 WEEKDAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 # Never treat these as a "parent" set for a blister card.
 NON_PARENT = {"PRIZEPACK", "SVP", "MEP", "SMP", "WCD"} | {c for c in GROUP_CONFIG if c.startswith(("PR-", "MCD", "TK", "TT"))}
@@ -94,14 +123,14 @@ def split_number(raw):
 
 
 class Command(BaseCommand):
-    help = "Add Blister Exclusive Cosmos Holo cards to their parent sets (variant CH)."
+    help = "Add Blister/Deck Exclusive extra prints (CH, DE, DEH, CI, TI, ST) to their parent sets."
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--groups", default=",".join(map(str, DEFAULT_GROUPS)),
                             help="TCGCSV group ids to read (default 2289 = Blister Exclusives)")
         parser.add_argument("--include-non-cosmos", action="store_true",
-                            help="Also report non-Cosmos cards in those groups (never auto-added)")
+                            help="(no longer needed: every extra print is imported now)")
         parser.add_argument("--no-images", action="store_true")
         parser.add_argument("--weekly-day", choices=list(WEEKDAYS))
         parser.add_argument("--rate", type=float)
@@ -133,14 +162,10 @@ class Command(BaseCommand):
                 number_raw = info.ext(extd, "Number")
                 if not number_raw:
                     continue
-                if "cosmo" not in name.lower():
-                    counts["non_cosmos"] += 1
-                    if o["include_non_cosmos"]:
-                        unmatched.append(f"(not cosmos, skipped) {name} [{number_raw}]")
-                    continue
-                counts["cosmos"] += 1
+                VARIANT_X = variant_for(name, info.ext(extd, "Rarity"))
+                counts["cosmos"] += 1   # (every extra print read; name kept for the summary line)
 
-                existing = PokemonProduct.objects.filter(tcgcsv_product_id=pid, variant_override=VARIANT).first()
+                existing = PokemonProduct.objects.filter(tcgcsv_product_id=pid, variant_override=VARIANT_X).first()
                 if existing:
                     counts["already"] += 1
                     continue
@@ -161,7 +186,7 @@ class Command(BaseCommand):
                     continue
                 dup = PokemonProduct.objects.filter(
                     card_set=parent.card_set, card_number=parent.card_number, name=parent.name,
-                    variant_override=VARIANT, condition="NM").first()
+                    variant_override=VARIANT_X, condition="NM").first()
                 if dup:
                     # Same card already added from a different blister listing.
                     counts["already"] += 1
@@ -171,15 +196,15 @@ class Command(BaseCommand):
                 zar = _zar_price(usd, rate) if usd else Decimal("1.50")
                 counts["created"] += 1
                 self.stdout.write(f"  {'WOULD ADD' if dry else 'ADD'}  {parent.card_set.code} #{parent.card_number:03d} "
-                                  f"{parent.name} -> Cosmos Holo  R{zar}  (TCGCSV {pid})")
+                                  f"{parent.name} -> {VARIANT_LABEL[VARIANT_X]}  R{zar}  (TCGCSV {pid})")
                 if dry:
                     continue
                 with transaction.atomic():
                     prod = PokemonProduct(
-                        pb_id=f"TCGCSV-{pid}-{VARIANT}", tcgcsv_product_id=pid,
+                        pb_id=f"TCGCSV-{pid}-{VARIANT_X}", tcgcsv_product_id=pid,
                         card_set=parent.card_set, category=parent.category,
-                        variant_override=VARIANT,
-                        variant_sort=PokemonProduct.VARIANT_SORT_ORDER.get(VARIANT, 9),
+                        variant_override=VARIANT_X,
+                        variant_sort=PokemonProduct.VARIANT_SORT_ORDER.get(VARIANT_X, 9),
                         condition="NM", price=zar, stock=0, is_active=True,
                     )
                     for f in COPY_FIELDS:
@@ -194,9 +219,8 @@ class Command(BaseCommand):
 
         self.stdout.write("\n" + "=" * 60)
         self.stdout.write(
-            f"Cosmos cards read: {counts['cosmos']} | {'would add' if dry else 'added'}: {counts['created']} | "
-            f"already on site: {counts['already']} | could not match: {counts['unmatched']} | "
-            f"non-cosmos skipped: {counts['non_cosmos']}")
+            f"Extra prints read: {counts['cosmos']} | {'would add' if dry else 'added'}: {counts['created']} | "
+            f"already on site: {counts['already']} | could not match: {counts['unmatched']}")
         if unmatched:
             self.stdout.write("\nNeeds a manual look:")
             for line in unmatched:
@@ -232,12 +256,12 @@ class Command(BaseCommand):
             return None, "no usable name/number"
         qs = (PokemonProduct.objects.select_related("card_set", "category")
               .filter(condition="NM", card_number=num, name__iexact=base)
-              .exclude(card_set__code__in=NON_PARENT).exclude(variant_override=VARIANT))
+              .exclude(card_set__code__in=NON_PARENT).exclude(variant_override__in=EXTRA_VARIANTS))
         rows = list(qs)
         if not rows:
             rows = [r for r in PokemonProduct.objects.select_related("card_set", "category")
                     .filter(condition="NM", card_number=num, name__istartswith=base)
-                    .exclude(card_set__code__in=NON_PARENT).exclude(variant_override=VARIANT)
+                    .exclude(card_set__code__in=NON_PARENT).exclude(variant_override__in=EXTRA_VARIANTS)
                     if norm_name(r.name) == base.lower()]
         if not rows:
             return None, f"no '{base}' #{num} on the site (parent set not loaded?)"
