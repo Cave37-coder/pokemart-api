@@ -801,6 +801,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                     'variant': it.variant,
                     'quantity': it.quantity,
                     'unit_price': str(it.unit_price) if it.unit_price is not None else '0',
+                    'image_url': (it.product.image_url if it.product_id and it.product else '') or '',
                 }
                 for it in invoice.items.select_related('product').all()
             ],
@@ -867,6 +868,8 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'variant': p.variant_override or '',
             'price': float(p.price or 0),
             'stock': p.stock,
+            # 2026-11-15, Michael: show the card image so a card seen in a customer's video can be matched by sight.
+            'image_url': p.image_url or '',
         } for p in products]
 
         return JsonResponse({'results': results})

@@ -193,10 +193,12 @@ class Command(BaseCommand):
                     continue
 
                 usd = prices.get(pid)
-                zar = _zar_price(usd, rate) if usd else Decimal("1.50")
+                # Michael, 2026-11-06 (site-wide): no price available -> price 0, which the site shows as "TBC".
+                # Never a placeholder like R1.50.
+                zar = _zar_price(usd, rate) if usd else Decimal("0")
                 counts["created"] += 1
                 self.stdout.write(f"  {'WOULD ADD' if dry else 'ADD'}  {parent.card_set.code} #{parent.card_number:03d} "
-                                  f"{parent.name} -> {VARIANT_LABEL[VARIANT_X]}  R{zar}  (TCGCSV {pid})")
+                                  f"{parent.name} -> {VARIANT_LABEL[VARIANT_X]}  {('R' + str(zar)) if zar else 'TBC'}  (TCGCSV {pid})")
                 if dry:
                     continue
                 with transaction.atomic():

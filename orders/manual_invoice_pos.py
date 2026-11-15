@@ -58,6 +58,14 @@ POS_HTML = """<!DOCTYPE html>
   .stock-pill { display: inline-block; font-size: 10px; font-weight: bold; padding: 2px 7px; border-radius: 5px; margin-bottom: 6px; }
   .stock-pill.in-stock { background: #17332444; color: #4ade80; border: 1px solid #2fbf71; }
   .stock-pill.out-of-stock { background: #2a2a35; color: #888; border: 1px solid #444; }
+  .result-card { display: flex; gap: 10px; }
+  .result-body { flex: 1; min-width: 0; }
+  .result-img { width: 72px; height: 100px; object-fit: contain; border-radius: 4px; background: #12121A; cursor: zoom-in; flex-shrink: 0; }
+  .result-img-ph { width: 72px; height: 100px; border-radius: 4px; background: #12121A; color: #555; font-size: 10px; display: flex; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; }
+  .cart-thumb { width: 32px; height: 44px; object-fit: contain; border-radius: 3px; background: #12121A; cursor: zoom-in; margin-right: 8px; flex-shrink: 0; }
+  .cart-line-info { display: flex; align-items: center; min-width: 0; }
+  #img-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; }
+  #img-lightbox img { max-height: 92vh; max-width: 92vw; border-radius: 10px; box-shadow: 0 0 40px #000; }
   .result-name { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
   .result-meta { font-size: 11px; color: #999; margin-bottom: 8px; }
   .result-price-row { display: flex; align-items: center; gap: 6px; }
@@ -194,7 +202,23 @@ POS_HTML = """<!DOCTYPE html>
     <div id="save-error"></div>
   </div>
 </div>
+<div id="img-lightbox"><img alt=""></div>
 <script>
+// Click any card thumbnail to see it large (2026-11-15) -- click anywhere / Esc to close.
+(function () {
+  const box = document.getElementById('img-lightbox');
+  const big = box.querySelector('img');
+  document.addEventListener('click', e => {
+    const t = e.target;
+    if (t.matches && t.matches('.result-img, .cart-thumb')) {
+      big.src = t.getAttribute('data-full') || t.src;
+      box.style.display = 'flex';
+    } else if (box.style.display === 'flex') {
+      box.style.display = 'none';
+    }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') box.style.display = 'none'; });
+})();
 const SEARCH_URL = "__SEARCH_URL__";
 const SETS_URL = "__SETS_URL__";
 const SAVE_URL = "__SAVE_URL__";
@@ -372,7 +396,12 @@ function renderResults(results) {
     const stockBadge = '<div class="stock-pill ' + (inStock ? 'in-stock' : 'out-of-stock') + '">' +
       (inStock ? '\u2713 In stock: ' + stock : 'Not in stock') +
       '</div>';
+    const img = r.image_url
+      ? '<img class="result-img" loading="lazy" src="' + escapeHtml(r.image_url) + '" data-full="' + escapeHtml(r.image_url) + '" alt="">'
+      : '<div class="result-img-ph">No image</div>';
     return '<div class="result-card' + (inStock ? ' in-stock' : '') + '">' +
+      img +
+      '<div class="result-body">' +
       '<div class="result-name">' + escapeHtml(r.name) + '</div>' +
       '<div class="result-meta">' + escapeHtml(meta) + '</div>' +
       stockBadge +
@@ -380,6 +409,7 @@ function renderResults(results) {
         '<span class="result-price-label">R</span>' +
         '<input type="number" class="result-price-input" step="0.01" value="' + Number(r.price).toFixed(2) + '" data-id="' + r.id + '">' +
         '<button class="result-add-btn" data-id="' + r.id + '">Add</button>' +
+      '</div>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -424,6 +454,7 @@ function addToCart(r) {
       set_name: r.set_name,
       card_number: r.card_number,
       variant: r.variant,
+      image_url: r.image_url || '',
       quantity: 1,
       unit_price: r.price
     });
@@ -452,8 +483,9 @@ function renderCart() {
   } else {
     cartEl.innerHTML = cart.map((item, i) => {
       const meta = [item.set_name || '', item.card_number ? '#' + item.card_number : '', item.variant ? '(' + item.variant + ')' : ''].filter(Boolean).join(' ');
+      const thumb = item.image_url ? '<img class="cart-thumb" src="' + escapeHtml(item.image_url) + '" data-full="' + escapeHtml(item.image_url) + '" alt="">' : '';
       return '<div class="cart-line">' +
-        '<div><div class="cart-line-name">' + escapeHtml(item.description) + '</div><div class="cart-line-meta">' + escapeHtml(meta) + '</div></div>' +
+        '<div class="cart-line-info">' + thumb + '<div><div class="cart-line-name">' + escapeHtml(item.description) + '</div><div class="cart-line-meta">' + escapeHtml(meta) + '</div></div></div>' +
         '<input type="number" min="1" value="' + item.quantity + '" class="cart-qty" data-index="' + i + '" data-field="quantity">' +
         '<input type="number" step="0.01" value="' + Number(item.unit_price).toFixed(2) + '" class="cart-price" data-index="' + i + '" data-field="unit_price" title="Adjust price for this invoice">' +
         '<div class="cart-line-total">R ' + (item.quantity * item.unit_price).toFixed(2) + '</div>' +
@@ -629,6 +661,7 @@ function applyInitialData() {
     set_name: it.set_name || '',
     card_number: it.card_number || '',
     variant: it.variant || '',
+    image_url: it.image_url || '',
     quantity: it.quantity || 1,
     unit_price: parseFloat(it.unit_price) || 0,
   }));
