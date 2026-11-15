@@ -466,7 +466,11 @@ class Command(BaseCommand):
                 put("artist",        card.get("artist", ""))
                 put("flavour_text",  card.get("flavorText", ""))
                 pdx = card.get("nationalPokedexNumbers", [])
-                put("pokedex_number", pdx[0] if pdx else None)
+                # Fill-only (2026-11-15): Pokedex numbers have been hand-corrected from the
+                # bible / audits (multi-Pokemon cards, Trainer-owned Pokemon...), so a re-run
+                # must not put the API's first number back over a corrected one.
+                if not p.pokedex_number:
+                    put("pokedex_number", pdx[0] if pdx else None)
                 wk = card.get("weaknesses", [])
                 put("weakness_type",  wk[0].get("type", "") if wk else "")
                 put("weakness_value", wk[0].get("value", "") if wk else "")
