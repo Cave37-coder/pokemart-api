@@ -1080,6 +1080,7 @@ class AdminBuyCardBrowseView(APIView):
             'card_number': p.card_number or '',
             'variant': p.variant_override or '',
             'price': float(p.price or 0), 'stock': p.stock,
+            'image_url': p.image_url or '',  # 2026-11-15: so a card in a customer's video can be matched by sight
         } for p in products]})
 
 

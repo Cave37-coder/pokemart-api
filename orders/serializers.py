@@ -245,6 +245,8 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj):
         if obj.accessory_id and obj.accessory:
             return obj.accessory.image_url or None
+        if obj.product_id and obj.product:
+            return obj.product.image_url or None
         return None
 
     def get_tcg_price(self, obj):
