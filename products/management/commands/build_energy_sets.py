@@ -448,12 +448,17 @@ class Command(BaseCommand):
             if not sc:
                 continue
             core, marker = split_marker(p.name)
+            core = re.sub(r"\s*-\s*\d+(/\d+)?\s*$", "", core).strip()     # drop a left-over "- 012"
             rel = released_with_for(sc.code, sc.name, p.card_number, p.name)
-            if not rel or rel.lower() in p.name.lower():
+            has_num = bool(re.search(r"-\s*\d+(/\d+)?", p.name))
+            if not rel or (rel.lower() in p.name.lower() and not has_num):
                 continue
             if sc.code == "PRIZEPACK" and "prize pack" in p.name.lower():
                 continue
-            new = f"{core} ({rel})" + (f" {marker}" if marker else "")
+            if rel.lower() in marker.lower():                              # release set already in the name
+                new = f"{core} {marker}"
+            else:
+                new = f"{core} ({rel})" + (f" {marker}" if marker else "")
             if new != p.name:
                 changes.append((p, new))
         self.stdout.write(f"{len(changes)} of {len(energy)} Energy names will get their release set.")

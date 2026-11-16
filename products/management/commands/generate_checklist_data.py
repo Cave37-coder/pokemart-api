@@ -323,6 +323,9 @@ def fallback_display_num(card_number: int, total_cards: int) -> str:
     return f"{str(card_number).zfill(3)}/{total_cards}"
 
 
+ERA_ENERGY_SET_CODES = {"MEE", "SVE", "SWSHE", "SME", "XYE", "BWE", "HGSSE", "DPE", "EXE", "WOTCOE", "WOTCLE", "WOTCNE", "WOTCE"}
+
+
 def build_set_cards(card_set: CardSet) -> list:
     """Returns a list of card dicts for this set's checklistData.ts entry,
     using the same display_num + collision-disambiguation rules as
@@ -354,7 +357,7 @@ def build_set_cards(card_set: CardSet) -> list:
         .filter(Q(card_set=card_set) | Q(id__in=card_set.shared_products.values("id")), is_active=True)
         .order_by("variant_sort")
         .values("id", "pb_id", "card_number", "variant_override", "number", "name", "rarity", "price",
-                "card_set_id", "card_set__code")
+                "card_set_id", "card_set__code", "card_set__release_date")
     )
     total_cards = card_set.total_cards or 0
 
@@ -393,6 +396,8 @@ def build_set_cards(card_set: CardSet) -> list:
                 "rarity": group_rows[0][0]["rarity"],
                 "num": key,
                 "variants": OrderedDict(),
+                "rel": str(group_rows[0][0]["card_set__release_date"] or ""),   # release date of the card's home set
+                "home": group_rows[0][0]["card_set__code"] or "",
             })
             for p, variant in group_rows:
                 match = TCGCSV_PID_RE.search(p["pb_id"] or "")
@@ -412,6 +417,7 @@ def build_set_cards(card_set: CardSet) -> list:
             "name": entry["name"],
             "rarity": rarity_display.get(entry["rarity"], entry["rarity"]),
             "variants": list(entry["variants"].values()),
+            "_rel": entry["rel"], "_home": entry["home"],
         })
 
     # 2026-09-30, Michael: WHT/BLK/PRE's "(Poke Ball Pattern)"/"(Master Ball
@@ -442,7 +448,14 @@ def build_set_cards(card_set: CardSet) -> list:
         group = 1 if num.startswith("EN-") else 0
         return (card_number if card_number is not None else 10**9, group, pattern_rank, num)
 
-    cards.sort(key=sort_key)
+    if card_set.code in ERA_ENERGY_SET_CODES:
+        # Per-era Energy set: oldest release first (undated last), then the home set, then card number.
+        cards.sort(key=lambda c: (c["_rel"] or "9999-12-31", c["_home"], sort_key(c)))
+    else:
+        cards.sort(key=sort_key)
+    for c in cards:
+        c.pop("_rel", None)
+        c.pop("_home", None)
     return cards
 
 

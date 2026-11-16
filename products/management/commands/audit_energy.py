@@ -39,11 +39,18 @@ ERA_NEW_TO_OLD = ["MEG", "SV", "SWSH", "SM", "XY", "BW", "HGSS", "DP", "EX", "Wo
 
 
 def clean(name):
-    n = re.sub(r"\s*-\s*\d+(/\d+)?\s*$", "", name or "")       # "- 104/109"
-    n = re.sub(r"\s*\[[^\]]*\]", "", n)                         # "[Reverse Holofoil]"
-    group = r"\s*\((?:[^()]|\([^()]*\))*\)\s*$"                  # "(No E-Reader)", "(Brilliant Stars) (Secret)" ...
-    while re.search(group, n):
-        n = re.sub(group, "", n)
+    """Strip every trailing decoration, in any order: '- 104/109', '[Reverse Holofoil]', '(Brilliant Stars)', '(Secret)'.
+    ('Basic Lightning Energy - 012 (30th Celebration)' has BOTH a number and a bracket -- the old version missed it.)"""
+    n = re.sub(r"\s*\[[^\]]*\]", "", name or "")
+    patterns = (r"\s*-\s*\d+(/\d+)?\s*$",                        # "- 104/109"
+                r"\s*\((?:[^()]|\([^()]*\))*\)\s*$")             # "(No E-Reader)", "(Brilliant Stars) (Secret)" ...
+    changed = True
+    while changed:
+        changed = False
+        for pat in patterns:
+            m = re.sub(pat, "", n)
+            if m != n:
+                n, changed = m, True
     return n.strip()
 
 
