@@ -19,6 +19,34 @@ git commit -m "..."
 git push
 ```
 
+## Big scripts — always build in a progress tracker
+
+Michael, 2026-11-16: "all big scripts must have progress trackers built in!"
+(after an overnight enrichment died when the laptop was closed and he couldn't
+tell how far it had got).
+
+Any management command / script that touches many rows, sets or network calls
+(enrichment, syncs, bulk imports, backfills, image uploads) must have, built in:
+
+1. A live progress line per step: `[done/total] %  <what>  elapsed  ETA`.
+2. A progress file (e.g. `*_progress.txt`) he can open from another window,
+   plus a `--status` flag that shows progress without running anything.
+3. Resumability: save state after each finished unit (e.g. `*_progress.json`)
+   so re-running the same command skips what's done and retries what failed.
+   One failed item must never stop the whole run.
+4. Retries for flaky network calls, and a final summary (done / failed / before→after).
+
+Reference implementation: `products/management/commands/enrich_all_tracked.py`.
+
+## Energy cards — release set in the name, one Energy set per era
+
+Michael, 2026-11-16: every Energy card's name must include the set/product it
+was released with, even when that's an Ultra-Premium Collection (e.g. the
+Terapagos ex UPC "Cracked Ice Holo" Basic Energy, SVE 009-016). Energy lives in
+one Energy set per era, with every variant and an R2-hosted image. Promo and
+filler sets belong to their real era (BW, XY, SM ...), never the legacy B1-B9
+era codes (`fix_promo_eras`). Audit with `audit_energy` before importing.
+
 ## Image hosting — always R2, never external hotlinks
 
 Every image URL stored anywhere on this site (set logos/symbols, era logos,
