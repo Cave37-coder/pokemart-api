@@ -278,7 +278,7 @@ def stock_entry(request):
         list(
             CardSet.objects
             .select_related('era')
-            .annotate(card_count=Count('products'))
+            .annotate(card_count=Count('products', distinct=True) + Count('shared_products', distinct=True))
         ),
         key=lambda s: s.release_date if isinstance(s.release_date, date_type) else date_type(1900, 1, 1),
         reverse=True
@@ -1130,8 +1130,9 @@ def stock_add_played(request):
 
 
 def sets_list(request):
+    # pc counts the set's own cards PLUS cards linked into it (also_in_sets) -- the per-era Energy sets own none.
     sets = CardSet.objects.select_related('era').annotate(
-        pc=Count('products')
+        pc=Count('products', distinct=True) + Count('shared_products', distinct=True)
     ).filter(pc__gt=0).order_by('-release_date', 'name')
     data = []
     for s in sets:
@@ -2020,7 +2021,7 @@ def _build_manage_set_dropdown_html(selected_set_code):
         list(
             CardSet.objects
             .select_related('era')
-            .annotate(card_count=Count('products'))
+            .annotate(card_count=Count('products', distinct=True) + Count('shared_products', distinct=True))
         ),
         key=lambda s: s.release_date if isinstance(s.release_date, date_type) else date_type(1900, 1, 1),
         reverse=True
