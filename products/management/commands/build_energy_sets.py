@@ -417,6 +417,22 @@ class Command(BaseCommand):
             if es.era_id != era.id:
                 es.era = era
                 es.save(update_fields=["era"])
+            # Lists sort by release date (undated sets sink to the bottom) and show a logo: give the Energy set the
+            # era's newest set date so it sits with its era, and the era's own (R2) logo/symbol.
+            dates = [d for d in CardSet.objects.filter(era=era).exclude(code__in=[c for c, _n in ERA_ENERGY_SETS.values()])
+                     .exclude(release_date__isnull=True).values_list("release_date", flat=True)]
+            upd = []
+            if not es.release_date and dates:
+                es.release_date = max(dates)
+                upd.append("release_date")
+            if not es.logo_url and getattr(era, "logo_url", ""):
+                es.logo_url = era.logo_url
+                upd.append("logo_url")
+            if not es.symbol_url and getattr(era, "symbol_url", ""):
+                es.symbol_url = era.symbol_url
+                upd.append("symbol_url")
+            if upd:
+                es.save(update_fields=upd)
             for p in members:
                 p.also_in_sets.add(es)
             es.total_cards = len({(p.tcgcsv_product_id or p.pk) for p in members} | {(p.tcgcsv_product_id or p.pk) for p in energy if p.card_set and p.card_set.code == set_code})
