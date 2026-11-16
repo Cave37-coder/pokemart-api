@@ -323,7 +323,7 @@ def fallback_display_num(card_number: int, total_cards: int) -> str:
     return f"{str(card_number).zfill(3)}/{total_cards}"
 
 
-ERA_ENERGY_SET_CODES = {"MEE", "SVE", "SWSHE", "SME", "XYE", "BWE", "HGSSE", "DPE", "EXE", "WOTCOE", "WOTCLE", "WOTCNE", "WOTCE"}
+from products.energy_order import ERA_ENERGY_SET_CODES, energy_rank   # Energy type order (Grass, Fire, Water ...)
 
 
 def build_set_cards(card_set: CardSet) -> list:
@@ -449,8 +449,9 @@ def build_set_cards(card_set: CardSet) -> list:
         return (card_number if card_number is not None else 10**9, group, pattern_rank, num)
 
     if card_set.code in ERA_ENERGY_SET_CODES:
-        # Per-era Energy set: oldest release first (undated last), then the home set, then card number.
-        cards.sort(key=lambda c: (c["_rel"] or "9999-12-31", c["_home"], sort_key(c)))
+        # Per-era Energy set: oldest release first (undated last), then the home set, then Energy type order
+        # (Grass, Fire, Water, Lightning, Psychic, Fighting, Darkness, Fairy, Metal, Dragon, Colorless), then number.
+        cards.sort(key=lambda c: (c["_rel"] or "9999-12-31", c["_home"], energy_rank(c["name"]), sort_key(c)))
     else:
         cards.sort(key=sort_key)
     for c in cards:

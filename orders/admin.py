@@ -850,6 +850,9 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             # 2026-10-24: cap raised 500 -> 2500. At 500 a set cut off around card
             # #200 (each card has several variants: Normal, Reverse Holo, ...).
             products = products.order_by('card_number', 'variant_sort', 'name')[:2500]
+            from products.energy_order import ERA_ENERGY_SET_CODES, browse_sort_key
+            if set_code in ERA_ENERGY_SET_CODES:   # per-era Energy set: release date, then Grass/Fire/Water... order
+                products = sorted(products, key=browse_sort_key)
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |

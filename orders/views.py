@@ -1065,6 +1065,9 @@ class AdminBuyCardBrowseView(APIView):
                 products = products.filter(variant_override=variant)
             # 2026-10-24: cap raised 500 -> 2500 (see orders/admin.py pos_search_view).
             products = products.order_by('card_number', 'variant_sort', 'name')[:2500]
+            from products.energy_order import ERA_ENERGY_SET_CODES, browse_sort_key
+            if set_code in ERA_ENERGY_SET_CODES:   # per-era Energy set: release date, then Grass/Fire/Water... order
+                products = sorted(products, key=browse_sort_key)
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |

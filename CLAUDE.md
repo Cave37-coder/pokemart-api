@@ -47,6 +47,14 @@ one Energy set per era, with every variant and an R2-hosted image. Promo and
 filler sets belong to their real era (BW, XY, SM ...), never the legacy B1-B9
 era codes (`fix_promo_eras`). Audit with `audit_energy` before importing.
 
+### Energy order (Michael, 2026-11-16 — implemented in `products/energy_order.py`)
+
+Wherever basic Energies are listed (checklists, set views, buy-in/POS card lists, shop sorting) they must follow
+this type order, then variants: 1 Grass, 2 Fire, 3 Water, 4 Lightning (Electric), 5 Psychic, 6 Fighting,
+7 Darkness, 8 Fairy, 9 Metal (Steel), 10 Dragon, 11 Colorless. Dragon and Colorless are not official basic
+Energies but have Special Energies, so they sort last. Release date still decides which set a card comes from;
+this order applies within a set's basic Energies (and to the typed Special Energies, e.g. "Growing Grass").
+
 ## Image hosting — always R2, never external hotlinks
 
 Every image URL stored anywhere on this site (set logos/symbols, era logos,
