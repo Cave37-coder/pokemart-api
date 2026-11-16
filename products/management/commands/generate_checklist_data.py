@@ -480,7 +480,8 @@ def regenerate_checklist_content(content):
     card_sets = (
         CardSet.objects
         .select_related("era")
-        .filter(products__is_active=True)
+        # also sets that only hold LINKED cards (the per-era Energy sets from build_energy_sets own no cards)
+        .filter(Q(products__is_active=True) | Q(shared_products__is_active=True))
         .distinct()
         .order_by("code")
     )
