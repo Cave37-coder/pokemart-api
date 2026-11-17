@@ -193,10 +193,14 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
         'DB': '#efebe9;color:#4e342e', 'FE': '#f3e5f5;color:#6a1b9a',
     }
 
-    items = list(invoice.items.select_related('product').all())
+    items = list(invoice.items.select_related('product', 'product__card_set', 'product__card_set__era').all())
 
     def get_set_key(item):
         return item.set_name or 'Other / Unlisted'
+
+    def get_era_name(item):
+        cs = item.product.card_set if item.product and item.product.card_set else None
+        return cs.era.name if cs and cs.era else ''
 
     def get_card_number_sort_key(item):
         # card_number is stored as a plain string ("3", "10", "17") -- sorting
@@ -232,6 +236,9 @@ def build_manual_invoice_pull_sheet_html(invoice, show_controls=True):
         total_qty = sum(item.quantity for item in cards)
         set_code = next((c for c in (get_set_code(item) for item in cards) if c), '')
         set_label = f'{set_name} [{set_code}]' if set_code else set_name
+        era_name = next((e for e in (get_era_name(item) for item in cards) if e), '')
+        if era_name:                                    # Michael 2026-11-17: show the ERA with the set name
+            set_label += f' &middot; {era_name}'
         rows = ''
         for i, item in enumerate(cards, 1):
             num = str(item.card_number).zfill(3) if item.card_number else '--'

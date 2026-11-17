@@ -1973,12 +1973,15 @@ def print_order(request, order_id):
     box_map = box_locations(list(_pids), ('order', order.id))
 
     def get_set_key(item):
+        # (set name, set code, era name) -- the era is shown in the set heading (Michael 2026-11-17: "add the ERA
+        # to the set name") so look-alike sets are told apart on the printed sheet.
         if item.product and item.product.card_set:
-            return (item.product.card_set.name, item.product.card_set.code)
+            cs = item.product.card_set
+            return (cs.name, cs.code, cs.era.name if cs.era else '')
         p = sku_lookup.get(item.product_sku)
         if p and p.card_set:
-            return (p.card_set.name, p.card_set.code)
-        return ('Unknown Set', '???')
+            return (p.card_set.name, p.card_set.code, p.card_set.era.name if p.card_set.era else '')
+        return ('Unknown Set', '???', '')
 
     def get_item_display(item):
         if item.product:
@@ -1997,10 +2000,11 @@ def print_order(request, order_id):
         return num, name, var_code, pattern
 
     sets_html = ''
-    for (set_name, set_code), group in groupby(sorted(items, key=get_set_key), key=get_set_key):
+    for (set_name, set_code, era_name), group in groupby(sorted(items, key=get_set_key), key=get_set_key):
         cards = list(group)
         line_count = len(cards)
         total_qty = sum(item.quantity for item in cards)
+        era_label = f' &middot; {era_name}' if era_name else ''
         rows = ''
         for i, item in enumerate(cards, 1):
             num, name, var_code, pattern = get_item_display(item)
@@ -2038,7 +2042,7 @@ def print_order(request, order_id):
             set_count_label = f'{total_qty} card{"s" if total_qty != 1 else ""}'
 
         sets_html += f'''<div style="margin-bottom:6px">
-          <h3 style="font-size:13px;background:#f0f0f0;padding:3px 8px;border-left:3px solid #ff6b35;margin-bottom:2px">{set_name} [{set_code}] ({set_count_label})</h3>
+          <h3 style="font-size:13px;background:#f0f0f0;padding:3px 8px;border-left:3px solid #ff6b35;margin-bottom:2px">{set_name} [{set_code}]{era_label} ({set_count_label})</h3>
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="background:#eee">
               <th style="text-align:left;padding:2px 8px;font-size:10px;border-bottom:1px solid #ccc" width="40">#</th>
