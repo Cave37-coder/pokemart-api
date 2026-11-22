@@ -334,6 +334,13 @@ class PokemonProduct(models.Model):
         "CardSet", blank=True, related_name="shared_products",
         help_text="Other sets whose checklist also includes this card (shared Energy)."
     )
+    # Michael, 2026-11-22: very high-value cards we can't afford to "lose" to store credit. A customer's store
+    # credit can't pay for these (checkout applies credit to the other cards only); they pay cash/EFT/card.
+    # Set from a Buy-in line (when the invoice completes) or by hand here / in stock admin.
+    no_store_credit = models.BooleanField(
+        default=False,
+        help_text="Cannot be paid for with store credit (high-value cards). Customers see a 'No store credit' badge."
+    )
     # "Follows the market" selling price (2026-10-16): when set, the nightly price
     # sync prices this card at (TCG market x rate x 1.1) x sell_pct/100 -- and,
     # for played copies, x the condition multiplier -- instead of the plain

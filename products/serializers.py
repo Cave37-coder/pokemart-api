@@ -91,7 +91,7 @@ class PokemonProductSerializer(serializers.ModelSerializer):
             "price_reverse_holo", "price_first_edition",
             "stock", "in_stock", "is_active",
             "legal_standard", "legal_expanded",
-            "prize_pack_series",
+            "prize_pack_series", "no_store_credit",
             "created_at", "updated_at",
         ]
         read_only_fields = ["pb_id", "sku", "id", "legal_standard", "legal_expanded", "created_at", "updated_at"]

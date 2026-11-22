@@ -27,10 +27,27 @@ class CartSerializer(serializers.ModelSerializer):
     # community discount baked in. subtotal/discount_percent/discount_amount
     # above are the new fields the frontend uses to show the breakdown.
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    # Michael 2026-11-22: the Pile shows which cards store credit can't pay for. `no_credit_total` = the discounted
+    # value of those cards (R); `credit_max` = the most store credit this order can use (total minus that).
+    no_credit_total = serializers.SerializerMethodField()
+    credit_max = serializers.SerializerMethodField()
+
+    def _blocked(self, obj):
+        from decimal import Decimal
+        blocked = sum((i.subtotal for i in obj.items.all() if i.product and i.product.no_store_credit), Decimal('0.00'))
+        pct = obj.discount_percent or Decimal('0')
+        return (blocked * (Decimal('100') - pct) / Decimal('100')).quantize(Decimal('0.01'))
+
+    def get_no_credit_total(self, obj):
+        return str(self._blocked(obj))
+
+    def get_credit_max(self, obj):
+        from decimal import Decimal
+        return str(max(obj.total - self._blocked(obj), Decimal('0.00')).quantize(Decimal('0.01')))
 
     class Meta:
         model = Cart
-        fields = ['id', 'items', 'subtotal', 'discount_percent', 'discount_amount', 'total', 'updated_at']
+        fields = ['id', 'items', 'subtotal', 'discount_percent', 'discount_amount', 'total', 'no_credit_total', 'credit_max', 'updated_at']
 
 
 class OrderTrackingSerializer(serializers.ModelSerializer):
@@ -223,7 +240,7 @@ class BuyInvoiceItemSerializer(serializers.ModelSerializer):
         model = BuyOrderItem
         fields = ['id', 'product_id', 'accessory_id', 'image_url', 'description', 'set_name', 'card_number', 'variant',
                   'quantity', 'unit_price', 'line_total', 'live_stock', 'tcg_price',
-                  'condition', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate',
+                  'condition', 'no_store_credit', 'sell_price', 'sell_pct', 'live_price', 'effective_unit_cost', 'effective_rate',
                   'bundle_type', 'sorted_qty', 'remaining_qty', 'sorts']
 
     def get_sorts(self, obj):

@@ -955,6 +955,8 @@ class BuyOrder(models.Model):
                         fields['price_locked'] = False
                     else:
                         fields['price_locked'] = True  # fixed R price (no % available)
+                if item.no_store_credit:
+                    fields['no_store_credit'] = True   # never switched OFF by a buy-in; clear it by hand in admin
                 PokemonProduct.objects.filter(pk=prod.pk).update(**fields)
                 log_stock_movement(prod.pk, old, new, source='buyin', user=completed_by)
                 added += item.quantity
@@ -1106,6 +1108,12 @@ class BuyOrderItem(models.Model):
     condition = models.CharField(
         max_length=3, choices=CONDITION_CHOICES, default='NM',
         help_text="Condition of the cards bought. Non-NM stock goes to the played copy of the card."
+    )
+    # Michael, 2026-11-22: tick on a Buy-in line = this card can never be paid for with store credit. Applied to the
+    # card (PokemonProduct.no_store_credit) when the invoice is completed.
+    no_store_credit = models.BooleanField(
+        default=False,
+        help_text="Mark the card 'no store credit' on the site when this invoice completes (high-value card)."
     )
     # 2026-10-28 (Michael): "Bulk Bundle buy-in -- only Common / Holo / Reverse Holo ... I am
     # getting big bundles, not going to break all of them up straight away, but need to

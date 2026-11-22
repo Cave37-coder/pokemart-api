@@ -325,7 +325,12 @@ class CheckoutView(APIView):
         from store_credit import services as credit
         credit_to_use = Decimal('0.00')
         if request.data.get('use_store_credit') in (True, 'true', '1', 1):
-            credit_to_use = min(credit.balance(request.user), total).quantize(Decimal('0.01'))
+            # Michael 2026-11-22: cards flagged "no store credit" (very high value) can't be paid with credit. Credit
+            # applies to everything else (their share after the community discount excluded from what credit can cover).
+            blocked = sum((i.subtotal for i in items if i.product.no_store_credit), Decimal('0.00'))
+            blocked_after_discount = (blocked * (Decimal('100') - (discount_percent or Decimal('0'))) / Decimal('100')).quantize(Decimal('0.01'))
+            credit_cap = max(total - blocked_after_discount, Decimal('0.00'))
+            credit_to_use = min(credit.balance(request.user), credit_cap).quantize(Decimal('0.01'))
         fully_credit = credit_to_use > 0 and credit_to_use >= total
         if fully_credit:
             order_status, order_payment = 'pending', 'credit'
@@ -991,6 +996,7 @@ def _parse_buy_lines(raw_items, bulk=False):
             set_name=(it.get('set_name') or '').strip(), card_number=str(it.get('card_number') or '').strip(),
             variant=(it.get('variant') or '').strip(), quantity=qty, unit_price=price,
             condition=condition, sell_price=sell_price,
+            no_store_credit=bool(product) and it.get('no_store_credit') in (True, 'true', '1', 1),
             # Snapshot of the condition-adjusted reference price (NM site price x
             # condition multiplier) -- what the client receipt shows as "TCG price".
             tcg_price=(
@@ -1084,6 +1090,7 @@ class AdminBuyCardBrowseView(APIView):
             'variant': p.variant_override or '',
             'price': float(p.price or 0), 'stock': p.stock,
             'image_url': p.image_url or '',  # 2026-11-15: so a card in a customer's video can be matched by sight
+            'no_store_credit': bool(p.no_store_credit),  # 2026-11-22: already flagged on the site -> tick-box starts ticked
         } for p in products]})
 
 
