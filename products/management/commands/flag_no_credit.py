@@ -28,6 +28,7 @@ class Command(BaseCommand):
         parser.add_argument("--off", action="store_true", help="remove the flag instead of setting it")
         parser.add_argument("--min-price", type=Decimal, default=None, help="only cards whose site price is at least this (R)")
         parser.add_argument("--list", action="store_true", help="list every card currently flagged")
+        parser.add_argument("--lines", default="", help="only these line numbers as printed, e.g. 190-201 or 5-9,190-201")
 
     def handle(self, *args, **o):
         if o["list"]:
@@ -54,7 +55,15 @@ class Command(BaseCommand):
                 seen.add(p.pk)
                 rows.append(p)
             self.stdout.write(f"\n{buy.buy_number}: {len(rows)} card(s) -> {'FLAG' if want else 'UNFLAG'} ({'APPLY' if o['apply'] else 'DRY RUN'})")
+            wanted_lines = None
+            if o["lines"]:
+                wanted_lines = set()
+                for part in o["lines"].split(","):
+                    a, _, b = part.strip().partition("-")
+                    wanted_lines.update(range(int(a), int(b or a) + 1))
             for i, p in enumerate(rows, 1):
+                if wanted_lines is not None and i not in wanted_lines:
+                    continue
                 skip = o["min_price"] is not None and (p.price or 0) < o["min_price"]
                 note = "  (skipped: under --min-price)" if skip else ("  (already)" if p.no_store_credit == want else "")
                 self.stdout.write(f"  [{i}/{len(rows)}] {p.name[:42]:42} {p.condition} {p.variant_override or 'N':3} R{p.price}{note}")
