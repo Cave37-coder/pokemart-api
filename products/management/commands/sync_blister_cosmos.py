@@ -50,7 +50,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.utils import OperationalError
 
 from products.models import PokemonProduct
 from products.management.commands.sync_tcgcsv import GROUP_CONFIG, _get_rate, _zar_price
@@ -177,6 +178,11 @@ class Command(BaseCommand):
             self.stdout.write(f"Group {gid}: {len(products)} products{'  [DRY RUN]' if dry else ''}")
 
             for p in products:
+                # Railway drops idle DB connections (the image re-hosting between cards is slow) -> reconnect
+                # fresh whenever the last DB use was a while ago, so a dropped connection never kills the run.
+                if time.time() - getattr(self, "_last_db", 0) > 10:
+                    connection.close()
+                self._last_db = time.time()
                 pid, name = p["productId"], (p.get("name") or "").strip()
                 extd = p.get("extendedData") or []
                 number_raw = info.ext(extd, "Number")
@@ -221,22 +227,40 @@ class Command(BaseCommand):
                                   f"{parent.name} -> {VARIANT_LABEL[VARIANT_X]}  {('R' + str(zar)) if zar else 'TBC'}  (TCGCSV {pid})")
                 if dry:
                     continue
-                with transaction.atomic():
-                    prod = PokemonProduct(
-                        pb_id=f"TCGCSV-{pid}-{VARIANT_X}", tcgcsv_product_id=pid,
-                        card_set=parent.card_set, category=parent.category,
-                        variant_override=VARIANT_X,
-                        variant_sort=PokemonProduct.VARIANT_SORT_ORDER.get(VARIANT_X, 9),
-                        condition="NM", price=zar, stock=0, is_active=True,
-                    )
-                    for f in COPY_FIELDS:
-                        setattr(prod, f, getattr(parent, f))
-                    info.apply_fields(prod, info.card_fields(extd), only_blank=True)
-                    prod.save()
-                    if parent.pokemon_types.exists():
-                        prod.pokemon_types.set(parent.pokemon_types.all())
+                prod = None
+                for attempt in range(3):   # one flaky/dropped DB connection must never stop the whole run
+                    try:
+                        with transaction.atomic():
+                            prod = PokemonProduct.objects.filter(pb_id=f"TCGCSV-{pid}-{VARIANT_X}").first()
+                            if prod is None:
+                                prod = PokemonProduct(
+                                    pb_id=f"TCGCSV-{pid}-{VARIANT_X}", tcgcsv_product_id=pid,
+                                    card_set=parent.card_set, category=parent.category,
+                                    variant_override=VARIANT_X,
+                                    variant_sort=PokemonProduct.VARIANT_SORT_ORDER.get(VARIANT_X, 9),
+                                    condition="NM", price=zar, stock=0, is_active=True,
+                                )
+                                for f in COPY_FIELDS:
+                                    setattr(prod, f, getattr(parent, f))
+                                info.apply_fields(prod, info.card_fields(extd), only_blank=True)
+                                prod.save()
+                                if parent.pokemon_types.exists():
+                                    prod.pokemon_types.set(parent.pokemon_types.all())
+                        break
+                    except OperationalError as e:
+                        connection.close()
+                        prod = None
+                        time.sleep(2 * (attempt + 1))
+                        if attempt == 2:
+                            counts["failed"] += 1
+                            self.stdout.write(self.style.WARNING(f"    FAILED {name} ({pid}): {e}"))
+                if prod is None:
+                    continue
                 if not o["no_images"]:
-                    self.set_image(prod, pid, parent)
+                    try:
+                        self.set_image(prod, pid, parent)
+                    except OperationalError:
+                        connection.close()
                 time.sleep(0.05)
 
         self.stdout.write("\n" + "=" * 60)
