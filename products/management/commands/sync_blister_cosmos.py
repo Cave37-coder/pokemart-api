@@ -131,6 +131,9 @@ class Command(BaseCommand):
                             help="TCGCSV group ids to read (default 2289 = Blister Exclusives)")
         parser.add_argument("--include-non-cosmos", action="store_true",
                             help="(no longer needed: every extra print is imported now)")
+        parser.add_argument("--all-groups", action="store_true",
+                            help="scan EVERY TCGCSV group for Cosmos Holo listings (not just 2289/1840); "
+                                 "safe to re-run: finished cards are skipped. Progress in sync_blister_cosmos_progress.txt")
         parser.add_argument("--no-images", action="store_true")
         parser.add_argument("--weekly-day", choices=list(WEEKDAYS))
         parser.add_argument("--rate", type=float)
@@ -147,8 +150,25 @@ class Command(BaseCommand):
         counts = defaultdict(int)
         unmatched = []
 
-        for gid in [int(g) for g in o["groups"].split(",") if g.strip()]:
+        gids = [int(g) for g in o["groups"].split(",") if g.strip()]
+        if o["all_groups"]:
+            # 2026-11-25 (Michael: OBF/SSP/ASC Cosmos Holos missing): TCGplayer files newer Cosmos Holo prints in
+            # other groups than 2289/1840. Scan EVERY group, keeping only listings with "cosmo" in the name.
+            all_gids = [g["groupId"] for g in self.fetch(f"{TCGCSV_BASE}/groups")]
+            gids = [g for g in all_gids if g not in gids] + gids
+        total_groups = len(gids)
+        progress_path = "sync_blister_cosmos_progress.txt"
+        t0 = time.time()
+
+        for gi, gid in enumerate(gids, 1):
             products = self.group_products(gid)
+            if o["all_groups"] and gid not in DEFAULT_GROUPS:
+                products = [p for p in products if "cosmo" in (p.get("name") or "").lower()]
+                if not products:
+                    if gi % 25 == 0 or gi == total_groups:
+                        self._progress(progress_path, gi, total_groups, t0, counts)
+                    continue
+            self._progress(progress_path, gi, total_groups, t0, counts)
             prices = {}
             for row in self.fetch(f"{TCGCSV_BASE}/{gid}/prices"):
                 usd = row.get("marketPrice") or row.get("midPrice") or row.get("lowPrice")
@@ -229,10 +249,29 @@ class Command(BaseCommand):
                 self.stdout.write("  " + line)
 
     # ------------------------------------------------------------------
+    def _progress(self, path, done, total, t0, counts):
+        el = time.time() - t0
+        eta = (el / done) * (total - done) if done else 0
+        line = (f"[{done}/{total}] {done * 100 // max(total, 1)}%  groups  elapsed {int(el)}s  ETA {int(eta)}s  "
+                f"read {counts['cosmos']} add {counts['created']} already {counts['already']} unmatched {counts['unmatched']}")
+        self.stdout.write(line)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except OSError:
+            pass
+
     def fetch(self, url):
-        r = requests.get(url, headers=HEADERS, timeout=30)
-        r.raise_for_status()
-        return r.json().get("results", [])
+        last = None
+        for attempt in range(4):   # flaky network: retry with back-off, never kill the run
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=30)
+                r.raise_for_status()
+                return r.json().get("results", [])
+            except Exception as e:
+                last = e
+                time.sleep(2 * (attempt + 1))
+        raise last
 
     def group_products(self, gid):
         if gid not in self._group_cache:
