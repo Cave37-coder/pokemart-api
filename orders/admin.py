@@ -844,7 +844,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         from django.db.models import Case, IntegerField, Value, When
         products = (PokemonProduct.objects.select_related('card_set')
                     .filter(Q(condition='NM') | Q(stock__gt=0))
-                    .annotate(cond_rank=Case(When(condition='NM', then=Value(0)), default=Value(1),
+                    .annotate(cond_rank=Case(When(Q(condition='NM'), then=Value(0)), default=Value(1),
                                              output_field=IntegerField())))
 
         if set_code:
