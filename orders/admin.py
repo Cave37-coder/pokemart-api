@@ -838,7 +838,14 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
         if not set_code and len(term) < 2:
             return JsonResponse({'results': []})
 
-        products = PokemonProduct.objects.select_related('card_set').filter(condition='NM')
+        # 2026-11-27, Michael: Near Mint stays the standard row for every card, but a played copy
+        # (LP/MP/HP/DMG) that actually has stock now shows up as its own separate row so it can be invoiced.
+        # Played rows with no stock stay hidden (otherwise every card would list 5 rows).
+        from django.db.models import Case, IntegerField, Value, When
+        products = (PokemonProduct.objects.select_related('card_set')
+                    .filter(Q(condition='NM') | Q(stock__gt=0))
+                    .annotate(cond_rank=Case(When(condition='NM', then=Value(0)), default=Value(1),
+                                             output_field=IntegerField())))
 
         if set_code:
             shared = PokemonProduct.objects.filter(also_in_sets__code=set_code).values('id')
@@ -847,12 +854,11 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
                 products = products.filter(name__icontains=term)
             if variant:
                 products = products.filter(variant_override=variant)
-            # 2026-10-24: cap raised 500 -> 2500. At 500 a set cut off around card
-            # #200 (each card has several variants: Normal, Reverse Holo, ...).
-            products = products.order_by('card_number', 'variant_sort', 'name')[:2500]
+            # 2026-10-24: whole set is listed (a set can run past 500 rows: each card has several variants).
+            products = products.order_by('card_number', 'variant_sort', 'name', 'cond_rank', 'condition')
             from products.energy_order import ERA_ENERGY_SET_CODES, browse_sort_key
             if set_code in ERA_ENERGY_SET_CODES:   # per-era Energy set: release date, then Grass/Fire/Water... order
-                products = sorted(products, key=browse_sort_key)
+                products = sorted(products[:2500], key=lambda p: (browse_sort_key(p), p.cond_rank))
         else:
             products = products.filter(
                 Q(name__icontains=term) | Q(sku__icontains=term) |
@@ -860,11 +866,22 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             )
             if variant:
                 products = products.filter(variant_override=variant)
-            products = products.order_by('-card_set__release_date', 'name')[:30]
+            products = products.order_by('-card_set__release_date', 'name', 'card_number', 'cond_rank', 'condition')
+
+        # 2026-11-27, Michael: 60 results per page with a paginator (was a hard cap of 30 for name searches).
+        PAGE_SIZE = 60
+        total = len(products) if isinstance(products, list) else products.count()
+        pages = max(1, -(-total // PAGE_SIZE))
+        try:
+            page = min(max(1, int(request.GET.get('page', 1))), pages)
+        except (TypeError, ValueError):
+            page = 1
+        products = products[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
 
         results = [{
             'id': p.id,
             'name': p.name,
+            'condition': p.condition,
             'set_name': p.card_set.name if p.card_set else '',
             'set_code': p.card_set.code if p.card_set else '',
             'card_number': p.card_number or '',
@@ -875,7 +892,7 @@ class ManualInvoiceAdmin(admin.ModelAdmin):
             'image_url': p.image_url or '',
         } for p in products]
 
-        return JsonResponse({'results': results})
+        return JsonResponse({'results': results, 'total': total, 'page': page, 'pages': pages, 'page_size': PAGE_SIZE})
 
     def pos_save_view(self, request):
         if request.method != 'POST':

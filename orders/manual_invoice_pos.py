@@ -49,6 +49,10 @@ POS_HTML = """<!DOCTYPE html>
   #set-select { flex: 1.6; }
   .results-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 20px; }
   .results-count { font-size: 11px; color: #888; }
+  .results-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; font-size: 12px; color: #aaa; }
+  .results-pager button { background: #2a2a35; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  .results-pager button:disabled { opacity: .4; cursor: default; }
+  .cond-badge { display: inline-block; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 4px; margin-left: 4px; background: #4a3512; color: #fbbf24; border: 1px solid #b7791f; }
   #add-all-btn { display: none; background: #2fbf71; color: #0d0d12; border: none; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
   #add-all-btn:hover { background: #27a862; }
   .pricing-note { font-size: 10px; color: #888; margin-bottom: 8px; }
@@ -152,6 +156,7 @@ POS_HTML = """<!DOCTYPE html>
       <button id="add-all-btn" type="button">+ Add all shown to cart</button>
     </div>
     <div id="search-results"><div class="no-results">Start typing to search, or choose a set to browse it.</div></div>
+    <div id="results-pager" class="results-pager"></div>
     <div class="custom-item-box">
       <div class="custom-item-box-label">Off-site stock (not in catalog)</div>
       <div class="custom-item-row">
@@ -346,7 +351,10 @@ searchInput.addEventListener('input', () => {
 setSelect.addEventListener('change', () => doSearch());
 variantSelect.addEventListener('change', () => doSearch());
 
-async function doSearch() {
+const pagerEl = document.getElementById('results-pager');
+
+async function doSearch(page) {
+  page = page || 1;
   const term = searchInput.value.trim();
   const setCode = setSelect.value;
   const variant = variantSelect.value;
@@ -364,25 +372,41 @@ async function doSearch() {
     if (term) params.set('term', term);
     if (setCode) params.set('set_code', setCode);
     if (variant) params.set('variant', variant);
+    if (page > 1) params.set('page', page);
     const res = await fetch(SEARCH_URL + '?' + params.toString());
     const data = await res.json();
     lastResults = data.results || [];
-    renderResults(lastResults);
+    renderResults(lastResults, data);
   } catch (e) {
+    pagerEl.innerHTML = '';
     resultsEl.innerHTML = '<div class="search-error">Search failed — check your connection.</div>';
     resultsCountEl.textContent = '';
     addAllBtn.style.display = 'none';
   }
 }
 
-function renderResults(results) {
+function renderPager(meta) {
+  const pages = (meta && meta.pages) || 1, page = (meta && meta.page) || 1;
+  if (pages <= 1) { pagerEl.innerHTML = ''; return; }
+  pagerEl.innerHTML = '<button type="button" id="pg-prev"' + (page <= 1 ? ' disabled' : '') + '>&laquo; Prev</button>' +
+    '<span>Page ' + page + ' of ' + pages + '</span>' +
+    '<button type="button" id="pg-next"' + (page >= pages ? ' disabled' : '') + '>Next &raquo;</button>';
+  document.getElementById('pg-prev').addEventListener('click', () => { doSearch(page - 1); resultsEl.scrollIntoView({block: 'start'}); });
+  document.getElementById('pg-next').addEventListener('click', () => { doSearch(page + 1); resultsEl.scrollIntoView({block: 'start'}); });
+}
+
+function renderResults(results, meta) {
+  renderPager(meta);
   if (!results.length) {
     resultsEl.innerHTML = '<div class="no-results">No matches.</div>';
     resultsCountEl.textContent = '0 results';
     addAllBtn.style.display = 'none';
     return;
   }
-  resultsCountEl.textContent = results.length + (results.length === 2500 ? '+ results (showing first 2500)' : ' result' + (results.length === 1 ? '' : 's'));
+  const total = (meta && meta.total) || results.length;
+  resultsCountEl.textContent = total + ' result' + (total === 1 ? '' : 's') +
+    (meta && meta.pages > 1 ? ' (showing ' + results.length + ' on this page)' : '');
+  addAllBtn.textContent = '+ Add all shown to cart';
   addAllBtn.style.display = 'inline-block';
   resultsEl.innerHTML = results.map(r => {
     const meta = [
@@ -402,7 +426,8 @@ function renderResults(results) {
     return '<div class="result-card' + (inStock ? ' in-stock' : '') + '">' +
       img +
       '<div class="result-body">' +
-      '<div class="result-name">' + escapeHtml(r.name) + '</div>' +
+      '<div class="result-name">' + escapeHtml(r.name) +
+        (r.condition && r.condition !== 'NM' ? '<span class="cond-badge">' + escapeHtml(r.condition) + ' (played)</span>' : '') + '</div>' +
       '<div class="result-meta">' + escapeHtml(meta) + '</div>' +
       stockBadge +
       '<div class="result-price-row">' +
