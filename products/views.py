@@ -986,6 +986,13 @@ def stock_dividers(request):
     ordered_types = [t for t in TYPE_ORDER if t in found]
     ordered_types += sorted(t for t in found if t not in TYPE_ORDER)
 
+    # 2026-11-28, Michael: a brand-new set (Delta Reign, 30th Celebration) can have no Pokemon type data yet, which
+    # printed a divider with NO energy tabs. Fall back to the standard 9 types until the cards are enriched.
+    fallback_note = ''
+    if not ordered_types:
+        ordered_types = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Colorless']
+        fallback_note = ' (standard types: this set has no type data yet)'
+
     symbol_url = card_set.symbol_url or ''
     symbol_html = f'<img class="symbol" src="{symbol_url}" alt="">' if symbol_url else ''
 
@@ -1051,7 +1058,7 @@ def stock_dividers(request):
 </div>
 
 <h1>{set_name}</h1>
-<h2>PokeBulk SA Divider Tabs - {set_code} - {len(number_tabs)} number tab(s), Trainers,{len(ordered_types)} energy type(s)</h2>
+<h2>PokeBulk SA Divider Tabs - {set_code} - {len(number_tabs)} number tab(s), Trainers, {len(ordered_types)} energy type(s){fallback_note}</h2>
 
 <div class="grid">
   {tabs_html}
