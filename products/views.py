@@ -927,6 +927,10 @@ def stock_dividers(request):
     active_cards = PokemonProduct.objects.filter(card_set__code=set_code, is_active=True)
 
     max_num = active_cards.exclude(card_number__isnull=True).aggregate(Max('card_number'))['card_number__max']
+    # 2026-11-28, Michael: only print up to the BASE set number (001/192 -> tabs stop at 192); secret rares /
+    # numbers past the printed total don't get tabs. Falls back to the highest card number if the set has no total.
+    if card_set.total_cards and max_num and max_num > card_set.total_cards:
+        max_num = card_set.total_cards
 
     # Number range tabs: one tab covering the whole set if it's small
     # (under 20 cards), otherwise 10-wide bins (1-9, 10-19, ...) ending
@@ -990,7 +994,7 @@ def stock_dividers(request):
         return f'<div class="tab"><div class="range">{label}</div>{symbol_html}</div>'
 
     tabs_html = ''.join(render_number_tab(s, e) for s, e in number_tabs)
-    tabs_html += '<div class="tab trainer"><div class="label">Trainer</div></div>'
+    tabs_html += '<div class="tab trainer"><div class="label">Trainers</div></div>'
     for t in ordered_types:
         img_file = TYPE_IMG_FILE.get(t)
         icon_html = f'<img class="energy-icon" src="{ENERGY_IMG_BASE}{img_file}" alt="">' if img_file else ''
@@ -1047,7 +1051,7 @@ def stock_dividers(request):
 </div>
 
 <h1>{set_name}</h1>
-<h2>PokeBulk SA Divider Tabs - {set_code} - {len(number_tabs)} number tab(s), Trainer, {len(ordered_types)} energy type(s)</h2>
+<h2>PokeBulk SA Divider Tabs - {set_code} - {len(number_tabs)} number tab(s), Trainers,{len(ordered_types)} energy type(s)</h2>
 
 <div class="grid">
   {tabs_html}
