@@ -1017,21 +1017,24 @@ def stock_dividers(request):
   .no-print a {{ color:#fff; font-size:12px; }}
   h1 {{ font-size:16px; color:#ff6b35; font-weight:800; margin-bottom:2px; }}
   h2 {{ font-size:11px; color:#666; margin-bottom:10px; font-weight:400; }}
-  .grid {{ display:flex; flex-wrap:wrap; gap:4mm; }}
-  .tab {{ width:35mm; height:80mm; border:1px dashed #999; border-radius:5mm 5mm 0 0;
+  /* 2026-11-28, Michael: print LANDSCAPE with the tabs touching (shared cut lines) so no paper is wasted:
+     A4 landscape = 8 across x 2 down = 16 tabs per sheet (was 12 on portrait with gaps). */
+  .grid {{ display:flex; flex-wrap:wrap; gap:0; width:280mm; border-top:1px dashed #999; border-left:1px dashed #999; }}
+  .tab {{ width:35mm; height:80mm; border-right:1px dashed #999; border-bottom:1px dashed #999;
           display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
           padding-top:4mm; text-align:center; line-height:1.05;
           break-inside: avoid; page-break-inside: avoid; }}
   .tab .range {{ font-weight:800; font-size:6mm; color:#000; white-space:nowrap; }}
   .tab .symbol {{ width:10mm; height:10mm; object-fit:contain; margin-top:4mm; }}
   .tab .energy-icon {{ width:14mm; height:14mm; object-fit:contain; }}
-  .tab .label {{ font-weight:800; font-size:5mm; color:#000; text-transform:uppercase;
-                 letter-spacing:0.03em; margin-top:2mm; }}
-  .tab.trainer .label {{ font-size:7mm; color:#c0392b; margin-top:4mm; }}
+  .tab .label {{ font-weight:800; font-size:4.5mm; color:#000; text-transform:uppercase;
+                 letter-spacing:0; margin-top:2mm; white-space:nowrap; }}
+  .tab.trainer .label {{ font-size:6mm; color:#c0392b; margin-top:4mm; }}
+  @page {{ size: A4 landscape; margin: 5mm; }}
   @media print {{
     .no-print {{ display:none !important; }}
     body {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    @page {{ size: A4 portrait; margin: 10mm; }}
+    h1, h2 {{ margin-bottom:1mm; }}
   }}
 </style>
 </head>
