@@ -1019,7 +1019,7 @@ def stock_dividers(request):
   h2 {{ font-size:11px; color:#666; margin-bottom:10px; font-weight:400; }}
   /* 2026-11-28, Michael: print LANDSCAPE with the tabs touching (shared cut lines) so no paper is wasted:
      A4 landscape = 8 across x 2 down = 16 tabs per sheet (was 12 on portrait with gaps). */
-  .grid {{ display:flex; flex-wrap:wrap; gap:0; width:280mm; border-top:1px dashed #999; border-left:1px dashed #999; }}
+  .grid {{ display:flex; flex-wrap:wrap; gap:0; width:282mm; border-top:1px dashed #999; border-left:1px dashed #999; }}
   .tab {{ width:35mm; height:80mm; border-right:1px dashed #999; border-bottom:1px dashed #999;
           display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
           padding-top:4mm; text-align:center; line-height:1.05;
